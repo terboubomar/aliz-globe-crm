@@ -10,33 +10,60 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiPublicWebhooksTelegramRouteImport } from './routes/api/public/webhooks/telegram'
+import { Route as ApiPublicWebhooksWhatsappRouteImport } from './routes/api/public/webhooks/whatsapp'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicWebhooksTelegramRoute =
+  ApiPublicWebhooksTelegramRouteImport.update({
+    id: '/api/public/webhooks/telegram',
+    path: '/api/public/webhooks/telegram',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicWebhooksWhatsappRoute =
+  ApiPublicWebhooksWhatsappRouteImport.update({
+    id: '/api/public/webhooks/whatsapp',
+    path: '/api/public/webhooks/whatsapp',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/api/public/webhooks/telegram': typeof ApiPublicWebhooksTelegramRoute
+  '/api/public/webhooks/whatsapp': typeof ApiPublicWebhooksWhatsappRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/api/public/webhooks/telegram': typeof ApiPublicWebhooksTelegramRoute
+  '/api/public/webhooks/whatsapp': typeof ApiPublicWebhooksWhatsappRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/api/public/webhooks/telegram': typeof ApiPublicWebhooksTelegramRoute
+  '/api/public/webhooks/whatsapp': typeof ApiPublicWebhooksWhatsappRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    '/' | '/api/public/webhooks/telegram' | '/api/public/webhooks/whatsapp'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/api/public/webhooks/telegram' | '/api/public/webhooks/whatsapp'
+  id:
+    | '__root__'
+    | '/'
+    | '/api/public/webhooks/telegram'
+    | '/api/public/webhooks/whatsapp'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ApiPublicWebhooksTelegramRoute: typeof ApiPublicWebhooksTelegramRoute
+  ApiPublicWebhooksWhatsappRoute: typeof ApiPublicWebhooksWhatsappRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +75,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/webhooks/telegram': {
+      id: '/api/public/webhooks/telegram'
+      path: '/api/public/webhooks/telegram'
+      fullPath: '/api/public/webhooks/telegram'
+      preLoaderRoute: typeof ApiPublicWebhooksTelegramRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/webhooks/whatsapp': {
+      id: '/api/public/webhooks/whatsapp'
+      path: '/api/public/webhooks/whatsapp'
+      fullPath: '/api/public/webhooks/whatsapp'
+      preLoaderRoute: typeof ApiPublicWebhooksWhatsappRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ApiPublicWebhooksTelegramRoute: ApiPublicWebhooksTelegramRoute,
+  ApiPublicWebhooksWhatsappRoute: ApiPublicWebhooksWhatsappRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
