@@ -78,7 +78,7 @@ function Detail() {
           <dl className="grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
             <Info k="العلامة" v={app.brandName(t.brandId)} />
             <Info k="الفرع (سياق فقط)" v={t.branchId ? app.branchName(t.branchId) : `غير معروف: ${t.unknownReason ?? ""}`} />
-            <Info k="التصنيف" v={categoryLabels[t.category]} />
+            <Info k="التصنيف" v={categoryLabels[t.category] ?? t.category} />
             <Info k="المصدر" v={t.source === "PUBLIC_QR" ? "QR" : "الهاتف"} />
             <Info k="وقت الاستقبال" v={fmt(t.receivedAt)} />
             <Info k="مسؤول المعالجة" v={app.staffName(t.resolutionOwner)} />

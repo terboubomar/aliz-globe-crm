@@ -34,7 +34,7 @@ export async function encrypt(plain: string) {
 }
 export async function decrypt(value: string) {
   const [v, iv, ct] = value.split(":");
-  if (v !== "v1") throw new Error("UNKNOWN_CIPHER");
+  if (v !== "v1" || !iv || !ct) throw new Error("UNKNOWN_CIPHER");
   return dec.decode(await crypto.subtle.decrypt({ name: "AES-GCM", iv: unb64(iv) }, await getAes(), unb64(ct)));
 }
 /** Keyed hash for lookups (tokens, phone numbers) so raw values are never stored. */

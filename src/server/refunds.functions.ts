@@ -118,13 +118,13 @@ export const refundAction = createServerFn({ method: "POST" })
     }
     const status = refundNext(r.status, b.action);
     const patch: Record<string, unknown> = { status };
-    if (["approve", "reject"].includes(b.action)) patch.approver = a.id;
+    if (["approve", "reject"].includes(b.action)) patch["approver"] = a.id;
     if (b.action === "execute") Object.assign(patch, { processor: a.id, external_reference: b.reference, proof_id: b.proofId });
-    if (b.action === "verify") patch.verifier = a.id;
+    if (b.action === "verify") patch["verifier"] = a.id;
     if (b.action === "resubmit") {
       Object.assign(patch, { approver: null, processor: null, verifier: null, external_reference: null, proof_id: null });
-      if (b.reason) patch.reason_enc = await encrypt(b.reason);
-      if (b.amountMinor !== undefined) patch.amount_minor = b.amountMinor;
+      if (b.reason) patch["reason_enc"] = await encrypt(b.reason);
+      if (b.amountMinor !== undefined) patch["amount_minor"] = b.amountMinor;
     }
     const { error } = await db.rpc("apply_refund_action", {
       _id: r.id, _version: b.version, p: patch as never, _type: b.action.toUpperCase(), _note_enc: await encrypt(b.note), _actor: a.id,
