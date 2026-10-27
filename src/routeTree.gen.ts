@@ -13,6 +13,8 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedComplaintsIndexRouteImport } from './routes/_authenticated/complaints.index'
+import { Route as AuthenticatedComplaintsIdRouteImport } from './routes/_authenticated/complaints.$id'
+import { Route as AuthenticatedComplaintsNewRouteImport } from './routes/_authenticated/complaints.new'
 import { Route as ApiPublicWebhooksTelegramRouteImport } from './routes/api/public/webhooks/telegram'
 import { Route as ApiPublicWebhooksWhatsappRouteImport } from './routes/api/public/webhooks/whatsapp'
 
@@ -36,6 +38,18 @@ const AuthenticatedComplaintsIndexRoute =
     path: '/complaints/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedComplaintsIdRoute =
+  AuthenticatedComplaintsIdRouteImport.update({
+    id: '/complaints/$id',
+    path: '/complaints/$id',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedComplaintsNewRoute =
+  AuthenticatedComplaintsNewRouteImport.update({
+    id: '/complaints/new',
+    path: '/complaints/new',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const ApiPublicWebhooksTelegramRoute =
   ApiPublicWebhooksTelegramRouteImport.update({
     id: '/api/public/webhooks/telegram',
@@ -52,6 +66,8 @@ const ApiPublicWebhooksWhatsappRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/complaints/$id': typeof AuthenticatedComplaintsIdRoute
+  '/complaints/new': typeof AuthenticatedComplaintsNewRoute
   '/complaints/': typeof AuthenticatedComplaintsIndexRoute
   '/api/public/webhooks/telegram': typeof ApiPublicWebhooksTelegramRoute
   '/api/public/webhooks/whatsapp': typeof ApiPublicWebhooksWhatsappRoute
@@ -59,6 +75,8 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/complaints/$id': typeof AuthenticatedComplaintsIdRoute
+  '/complaints/new': typeof AuthenticatedComplaintsNewRoute
   '/complaints': typeof AuthenticatedComplaintsIndexRoute
   '/api/public/webhooks/telegram': typeof ApiPublicWebhooksTelegramRoute
   '/api/public/webhooks/whatsapp': typeof ApiPublicWebhooksWhatsappRoute
@@ -68,6 +86,8 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/complaints/$id': typeof AuthenticatedComplaintsIdRoute
+  '/_authenticated/complaints/new': typeof AuthenticatedComplaintsNewRoute
   '/_authenticated/complaints/': typeof AuthenticatedComplaintsIndexRoute
   '/api/public/webhooks/telegram': typeof ApiPublicWebhooksTelegramRoute
   '/api/public/webhooks/whatsapp': typeof ApiPublicWebhooksWhatsappRoute
@@ -77,6 +97,8 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/dashboard'
+    | '/complaints/$id'
+    | '/complaints/new'
     | '/complaints/'
     | '/api/public/webhooks/telegram'
     | '/api/public/webhooks/whatsapp'
@@ -84,6 +106,8 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/dashboard'
+    | '/complaints/$id'
+    | '/complaints/new'
     | '/complaints'
     | '/api/public/webhooks/telegram'
     | '/api/public/webhooks/whatsapp'
@@ -92,6 +116,8 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/_authenticated/dashboard'
+    | '/_authenticated/complaints/$id'
+    | '/_authenticated/complaints/new'
     | '/_authenticated/complaints/'
     | '/api/public/webhooks/telegram'
     | '/api/public/webhooks/whatsapp'
@@ -134,6 +160,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedComplaintsIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/complaints/$id': {
+      id: '/_authenticated/complaints/$id'
+      path: '/complaints/$id'
+      fullPath: '/complaints/$id'
+      preLoaderRoute: typeof AuthenticatedComplaintsIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/complaints/new': {
+      id: '/_authenticated/complaints/new'
+      path: '/complaints/new'
+      fullPath: '/complaints/new'
+      preLoaderRoute: typeof AuthenticatedComplaintsNewRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/api/public/webhooks/telegram': {
       id: '/api/public/webhooks/telegram'
       path: '/api/public/webhooks/telegram'
@@ -153,11 +193,15 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedComplaintsIdRoute: typeof AuthenticatedComplaintsIdRoute
+  AuthenticatedComplaintsNewRoute: typeof AuthenticatedComplaintsNewRoute
   AuthenticatedComplaintsIndexRoute: typeof AuthenticatedComplaintsIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedComplaintsIdRoute: AuthenticatedComplaintsIdRoute,
+  AuthenticatedComplaintsNewRoute: AuthenticatedComplaintsNewRoute,
   AuthenticatedComplaintsIndexRoute: AuthenticatedComplaintsIndexRoute,
 }
 

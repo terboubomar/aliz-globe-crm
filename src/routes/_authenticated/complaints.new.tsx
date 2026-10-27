@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useApp, errMessage, idemKey } from "@/lib/app-data";
 import { createPhoneComplaint } from "@/server/complaints.functions";
-import { categories, categoryLabels, inScope } from "@/lib/domain";
+import { categories, categoryLabels } from "@/lib/domain";
 import { PageHead } from "@/components/crm";
 
 export const Route = createFileRoute("/_authenticated/complaints/new")({
@@ -23,7 +23,7 @@ function NewComplaint() {
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<{ number: string; id?: string } | null>(null);
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setF({ ...f, [k]: e.target.value });
-  const brands = app.brands.filter((b) => b.status === "ACTIVE" && inScope(app.me!, { brandId: b.id, branchId: app.me!.branchIds[0] ?? null }));
+  const brands = app.brands.filter((b) => b.status === "ACTIVE" && (app.me!.role === "SUPER_ADMIN" || app.me!.brandIds.includes(b.id)));
   const branches = app.branches.filter((b) => b.brand_id === f.brandId && b.active);
 
   async function submit(e: React.FormEvent) {
