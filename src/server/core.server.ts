@@ -82,7 +82,7 @@ export function rpcError(err: { message?: string } | null) {
   if (!err) return;
   const m = err.message ?? "";
   const key = Object.keys(rpcMessages).find((k) => m.includes(k));
-  if (key) throw new DomainError(key, 409, rpcMessages[key]);
+  if (key) throw new DomainError(key, 409, rpcMessages[key] ?? key);
   console.error("rpc error", m);
   throw new DomainError("SERVER", 500, "تعذر حفظ العملية");
 }
