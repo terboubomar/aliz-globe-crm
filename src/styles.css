@@ -84,7 +84,7 @@
   .table { @apply w-full text-sm; }
   .table th { @apply border-b px-3 py-2 text-right text-xs font-bold text-muted-foreground whitespace-nowrap; }
   .table td { @apply border-b px-3 py-2 align-top; }
-  .nav-link { @apply flex min-h-11 items-center gap-3 rounded-md px-3 text-sm font-semibold text-nav-foreground/80 hover:bg-white/5; }
+  .nav-link { @apply flex min-h-11 items-center gap-3 rounded-md px-3 text-sm font-semibold text-nav-foreground/80 hover:bg-nav-foreground/10; }
   .nav-link-active { @apply bg-primary text-primary-foreground; }
   .ltr { direction: ltr; unicode-bidi: isolate; }
   .error-text { @apply text-sm font-semibold text-destructive; }
