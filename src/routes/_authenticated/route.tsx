@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { bootstrapQuery, useApp, errMessage } from "@/lib/app-data";
 import { alizLogo } from "@/lib/logos";
 import { roleLabels } from "@/lib/domain";
-import { claimFirstAdmin } from "@/server/admin.functions";
+import { claimFirstAdmin } from "@/functions/admin.functions";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,

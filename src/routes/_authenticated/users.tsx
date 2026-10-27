@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useApp, errMessage } from "@/lib/app-data";
-import { createStaff, listStaff, updateStaff } from "@/server/admin.functions";
+import { createStaff, listStaff, updateStaff } from "@/functions/admin.functions";
 import { assignableRoles, financeDuties, financeDutyLabels, roleLabels } from "@/lib/domain";
 import { PageHead } from "@/components/crm";
 

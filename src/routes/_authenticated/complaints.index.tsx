@@ -4,7 +4,7 @@ import { useState } from "react";
 import { z } from "zod";
 import { Search } from "lucide-react";
 import { useApp } from "@/lib/app-data";
-import { searchComplaints } from "@/server/complaints.functions";
+import { searchComplaints } from "@/functions/complaints.functions";
 import { categoryLabels, complaintStage, complaintStages } from "@/lib/domain";
 import { BrandLogo, PageHead, PriorityChip, fmt } from "@/components/crm";
 

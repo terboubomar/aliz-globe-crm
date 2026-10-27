@@ -2,9 +2,9 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useApp, errMessage } from "@/lib/app-data";
-import { complaintAction, getComplaint } from "@/server/complaints.functions";
-import { uploadEvidence } from "@/server/admin.functions";
-import { requestRefund } from "@/server/refunds.functions";
+import { complaintAction, getComplaint } from "@/functions/complaints.functions";
+import { uploadEvidence } from "@/functions/admin.functions";
+import { requestRefund } from "@/functions/refunds.functions";
 import {
   can, canWorkComplaint, categoryLabels, complaintActions, escalationRoles, inScope, isComplaintParticipant,
   refundStatusLabels, supportRoles,

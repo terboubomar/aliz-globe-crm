@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { trackStatus } from "@/server/public.functions";
+import { trackStatus } from "@/functions/public.functions";
 import { StageTrack, fmt } from "@/components/crm";
 import { alizLogo } from "@/lib/logos";
 

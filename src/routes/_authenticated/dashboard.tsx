@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useApp } from "@/lib/app-data";
-import { searchComplaints } from "@/server/complaints.functions";
+import { searchComplaints } from "@/functions/complaints.functions";
 import { PageHead, PriorityChip, StateChip, fmt, BrandLogo } from "@/components/crm";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({

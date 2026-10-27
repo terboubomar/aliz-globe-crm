@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { publicCreate, publicQrInfo } from "@/server/public.functions";
+import { publicCreate, publicQrInfo } from "@/functions/public.functions";
 import { categories, categoryLabels } from "@/lib/domain";
 import { brandLogos, alizLogo } from "@/lib/logos";
 

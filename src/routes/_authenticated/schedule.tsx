@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { useApp, errMessage } from "@/lib/app-data";
-import { cancelShift, listShifts, saveShifts } from "@/server/admin.functions";
+import { cancelShift, listShifts, saveShifts } from "@/functions/admin.functions";
 import { PageHead } from "@/components/crm";
 import { roleLabels } from "@/lib/domain";
 

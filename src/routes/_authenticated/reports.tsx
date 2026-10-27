@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { useApp, errMessage } from "@/lib/app-data";
-import { runReport } from "@/server/admin.functions";
+import { runReport } from "@/functions/admin.functions";
 import { categoryLabels, stateLabels } from "@/lib/domain";
 import { PageHead } from "@/components/crm";
 

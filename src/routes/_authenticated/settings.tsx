@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useApp, errMessage } from "@/lib/app-data";
-import { updateSetting } from "@/server/admin.functions";
+import { updateSetting } from "@/functions/admin.functions";
 import { PageHead } from "@/components/crm";
 
 export const Route = createFileRoute("/_authenticated/settings")({

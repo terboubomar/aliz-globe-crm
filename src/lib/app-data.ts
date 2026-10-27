@@ -1,5 +1,5 @@
 import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
-import { getBootstrap } from "@/server/complaints.functions";
+import { getBootstrap } from "@/functions/complaints.functions";
 
 export const bootstrapQuery = queryOptions({ queryKey: ["bootstrap"], queryFn: () => getBootstrap(), staleTime: 30_000 });
 

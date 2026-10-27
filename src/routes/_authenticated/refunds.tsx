@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useApp, errMessage } from "@/lib/app-data";
-import { listRefunds, refundAction, requestRefund } from "@/server/refunds.functions";
+import { listRefunds, refundAction, requestRefund } from "@/functions/refunds.functions";
 import { can, refundActionLabels, refundPermission, refundStatusLabels } from "@/lib/domain";
 import { PageHead, fmt } from "@/components/crm";
 

@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import QRCode from "qrcode";
 import { useApp, errMessage, bootstrapQuery } from "@/lib/app-data";
-import { listQrs, qrForBranch, retireQr, saveBranch, setBranchActive, updateBrand } from "@/server/admin.functions";
+import { listQrs, qrForBranch, retireQr, saveBranch, setBranchActive, updateBrand } from "@/functions/admin.functions";
 import { BrandLogo, PageHead } from "@/components/crm";
 import { brandLogos } from "@/lib/logos";
 

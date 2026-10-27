@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useApp, errMessage, idemKey } from "@/lib/app-data";
-import { createPhoneComplaint } from "@/server/complaints.functions";
+import { createPhoneComplaint } from "@/functions/complaints.functions";
 import { categories, categoryLabels } from "@/lib/domain";
 import { PageHead } from "@/components/crm";
 
