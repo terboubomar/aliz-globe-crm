@@ -38,7 +38,7 @@ export async function createTicketCore(
   const body = ticketInput.parse(raw);
   if (!publicQr) {
     if (!actor) throw new DomainError("FORBIDDEN", 403, "غير مصرح");
-    authorize(actor, "create", { brandId: body.brandId, branchId: body.branchId });
+    authorize(actor, "create", { brandId: body.brandId, branchId: body.branchId ?? null });
   }
   if (!key || key.length > 100) throw new DomainError("IDEMPOTENCY_REQUIRED", 400, "مفتاح الطلب مطلوب");
   const db = await admin();
@@ -174,7 +174,7 @@ export async function ticketActionCore(ctx: Ctx, a: Actor, id: string, action: s
     const known = t.customer_enc ? (JSON.parse(await decrypt(t.customer_enc)).name as string) : "";
     if (briefHasPersonalData(b.branchBrief, known))
       throw new DomainError("PERSONAL_DATA_IN_BRIEF", 400, "أزل الأسماء وأرقام الاتصال والبريد من موجز التصعيد؛ استخدم الحقول المخصصة");
-    patch.branch_brief_enc = await encrypt(b.branchBrief);
+    patch["branch_brief_enc"] = await encrypt(b.branchBrief);
   }
   if (action === "assign") {
     const ownerId = b.resolutionOwner;
@@ -185,15 +185,15 @@ export async function ticketActionCore(ctx: Ctx, a: Actor, id: string, action: s
       throw new DomainError("INVALID_OWNER", 400, "اختر موظف دعم ضمن نطاق العلامة والفرع");
     Object.assign(patch, { resolution_owner: owner.id, communications_owner: owner.id, escalated: false, acknowledged_at: null });
   }
-  if (action === "start") patch.acknowledged_at = t.acknowledged_at ?? now;
-  if (action === "resolve") patch.action_completed_at = now;
-  if (action === "close") patch.closed_at = now;
+  if (action === "start") patch["acknowledged_at"] = t.acknowledged_at ?? now;
+  if (action === "resolve") patch["action_completed_at"] = now;
+  if (action === "close") patch["closed_at"] = now;
   if (action === "reopen") Object.assign(patch, { closed_at: null, action_completed_at: null, customer_confirmed_at: null });
   if (action === "followup") {
     if (t.state !== "RESOLVED" || !t.action_completed_at || !b.outcome)
       throw new DomainError("FOLLOWUP_BLOCKED", 409, "وثّق الحل ثم حدد نتيجة التواصل مع العميل");
     if (b.outcome === "SATISFIED") {
-      patch.customer_confirmed_at = now;
+      patch["customer_confirmed_at"] = now;
       if (!openRefund) Object.assign(patch, { state: "CLOSED", closed_at: now });
     }
   }
@@ -212,7 +212,7 @@ export async function ticketActionCore(ctx: Ctx, a: Actor, id: string, action: s
   if (action === "followup") {
     evts.push({ type: `FOLLOWUP_${b.outcome}`, note_enc: noteEnc });
     if (b.outcome === "SATISFIED") evts.push({ type: "CUSTOMER_CONFIRMED" });
-    if (patch.state === "CLOSED") evts.push({ type: "CLOSE" });
+    if (patch["state"] === "CLOSED") evts.push({ type: "CLOSE" });
   }
   if (escalating) evts.push({ type: "ESCALATION_ROUTED" });
   if (!["comment", "escalate"].includes(action)) timers.push({ op: "complete", milestone: "FIRST_ACTION" });

@@ -62,11 +62,11 @@ const rights: Record<string, string[]> = {
   ADMIN: ["configure", "audit", "brands.manage", "branches.manage"],
   PRIVACY_OFFICER: ["read", "pii", "privacy", "audit"],
 };
-rights.MARKETING_MANAGER = [...rights.CUSTOMER_SERVICE_MANAGER, "qa", "schedule", "configure"];
-rights.OPERATIONS_MANAGER = ["read", "comment", "report", "investigate", "resolve", "escalate"];
-rights.CEO = ["read", "report"];
-rights.OWNER = ["read", "report"];
-rights.SUPER_ADMIN = [...new Set([...Object.values(rights).flat(), "users.manage", "directory.activate", "evidence.view"])];
+rights["MARKETING_MANAGER"] = [...(rights["CUSTOMER_SERVICE_MANAGER"] ?? []), "qa", "schedule", "configure"];
+rights["OPERATIONS_MANAGER"] = ["read", "comment", "report", "investigate", "resolve", "escalate"];
+rights["CEO"] = ["read", "report"];
+rights["OWNER"] = ["read", "report"];
+rights["SUPER_ADMIN"] = [...new Set([...Object.values(rights).flat(), "users.manage", "directory.activate", "evidence.view"])];
 
 export function permissionsForRole(role: string, financeDuty?: string): string[] {
   if (!(assignableRoles as readonly string[]).includes(role)) return [];
@@ -153,10 +153,10 @@ const from: Record<string, string[]> = {
   close: ["RESOLVED"],
   reopen: ["RESOLVED", "CLOSED"],
 };
-export function transition(state: string, action: string) {
+export function transition(state: string, action: string): string {
   if (!from[action]?.includes(state))
     throw new DomainError("INVALID_TRANSITION", 409, "الإجراء غير متاح في الحالة الحالية");
-  return steps[action];
+  return steps[action] as string;
 }
 
 // The five customer-facing stages, exactly as in the source.
@@ -229,7 +229,7 @@ export const refundActionLabels: Record<string, string> = {
   review: "بدء المراجعة", approve: "اعتماد", reject: "رفض", execute: "تسجيل التنفيذ الخارجي",
   verify: "التحقق من التنفيذ", notify: "تسجيل إبلاغ العميل", complete: "إكمال", resubmit: "إعادة التقديم",
 };
-export function refundNext(status: string, action: string) {
+export function refundNext(status: string, action: string): string {
   const t = refundTransitions[action];
   if (!t || !t[0].includes(status))
     throw new DomainError("INVALID_REFUND_TRANSITION", 409, "لا يمكن تجاوز خطوات الموافقة والتنفيذ والتحقق وإبلاغ العميل");
