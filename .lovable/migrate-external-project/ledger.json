@@ -1,0 +1,12 @@
+{"source":"terboubomar/AlizGlobeCRM@6ab736d","capabilities":[
+{"capability":"code","outcome":"rebuilt on TanStack Start + Lovable Cloud","status":"preview","next_action":"owner acceptance"},
+{"capability":"schema","outcome":"Prisma models mapped to Postgres tables with RLS + atomic procedures","status":"done","next_action":"none"},
+{"capability":"records","outcome":"none supplied (damaged local DB)","status":"pending","next_action":"verified export if any"},
+{"capability":"auth_identities","outcome":"no users supplied; admin-provisioned accounts only, signup disabled, TOTP MFA enforced","status":"pending","next_action":"BOOTSTRAP_ADMIN_EMAIL secret + owner account"},
+{"capability":"evidence_scanning","outcome":"private bucket; files held PENDING_SCAN","status":"blocked","next_action":"choose malware scanner"},
+{"capability":"sla_jobs","outcome":"due times stored; no breach/warning worker","status":"pending","next_action":"scheduled job after SLA policy approval"},
+{"capability":"whatsapp","outcome":"webhook signature check only; no sending","status":"pending","next_action":"Meta credentials + approval"},
+{"capability":"telegram","outcome":"webhook secret check only; no linking/alerts","status":"pending","next_action":"bot credentials + approval"},
+{"capability":"privacy_requests_legal_hold","outcome":"legal_hold column only","status":"pending","next_action":"port privacy workflow"},
+{"capability":"follow_up_tasks_qa_reviews","outcome":"not ported","status":"pending","next_action":"port"},
+{"capability":"rate_limiting","outcome":"not ported","status":"pending","next_action":"add before public intake"}]}
