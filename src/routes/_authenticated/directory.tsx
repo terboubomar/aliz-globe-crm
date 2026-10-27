@@ -80,7 +80,7 @@ function Directory() {
   );
 }
 
-function QrCell({ branchId, brandId, qrId, scans, onChange, onError }: { branchId: string; brandId: string; qrId?: string; scans?: number; onChange: () => void; onError: (m: string) => void }) {
+function QrCell({ branchId, brandId, qrId, scans, onChange, onError }: { branchId: string; brandId: string; qrId?: string | undefined; scans?: number | undefined; onChange: () => void; onError: (m: string) => void }) {
   const [img, setImg] = useState<string | null>(null);
   async function show() {
     try {
@@ -104,7 +104,7 @@ function QrCell({ branchId, brandId, qrId, scans, onChange, onError }: { branchI
   );
 }
 
-function BranchForm({ brandId, id, onDone }: { brandId: string; id?: string; onDone: () => void }) {
+function BranchForm({ brandId, id, onDone }: { brandId: string; id?: string | undefined; onDone: () => void }) {
   const app = useApp();
   const cur = app.branches.find((b) => b.id === id);
   const [f, setF] = useState({ brandId: cur?.brand_id ?? brandId, name: cur?.name ?? "", code: cur?.code ?? "", city: cur?.city ?? "", district: cur?.district ?? "", address: cur?.address ?? "", mapsUrl: cur?.maps_url ?? "", lat: cur?.latitude?.toString() ?? "", lng: cur?.longitude?.toString() ?? "" });

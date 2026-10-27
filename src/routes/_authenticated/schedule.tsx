@@ -26,7 +26,7 @@ function Schedule() {
   const people = canEdit ? app.staff : app.staff.filter((s) => s.id === app.me!.id);
   const [rows, setRows] = useState<{ userId: string; date: string; start: string; end: string; bs: string; be: string; dayOff: boolean; lead: boolean }[]>([]);
   const [msg, setMsg] = useState("");
-  const blank = () => ({ userId: "", date: days[0].toISOString().slice(0, 10), start: "09:00", end: "17:00", bs: "", be: "", dayOff: false, lead: false });
+  const blank = () => ({ userId: "", date: days[0]!.toISOString().slice(0, 10), start: "09:00", end: "17:00", bs: "", be: "", dayOff: false, lead: false });
 
   return (
     <>

@@ -16,13 +16,13 @@ export async function settings() {
   if (error) throw error;
   const map = Object.fromEntries((data ?? []).map((r) => [r.key, r.value])) as Record<string, unknown>;
   return {
-    requireMfa: map.require_mfa !== false,
-    publicIntake: map.public_intake_enabled === true,
-    financeApproved: map.finance_policy_approved === true,
-    financeLimitMinor: typeof map.finance_approval_limit_minor === "number" ? (map.finance_approval_limit_minor as number) : null,
-    sla: map.sla_policy as SlaPolicy & { approved?: boolean },
-    whatsapp: map.whatsapp_enabled === true,
-    telegram: map.telegram_enabled === true,
+    requireMfa: map["require_mfa"] !== false,
+    publicIntake: map["public_intake_enabled"] === true,
+    financeApproved: map["finance_policy_approved"] === true,
+    financeLimitMinor: typeof map["finance_approval_limit_minor"] === "number" ? (map["finance_approval_limit_minor"] as number) : null,
+    sla: map["sla_policy"] as SlaPolicy & { approved?: boolean },
+    whatsapp: map["whatsapp_enabled"] === true,
+    telegram: map["telegram_enabled"] === true,
   };
 }
 

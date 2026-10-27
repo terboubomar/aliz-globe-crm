@@ -243,11 +243,11 @@ export const saveShifts = createServerFn({ method: "POST" })
     authorize(a, "schedule");
     const es = data.entries;
     for (let i = 0; i < es.length; i++) {
-      const e = es[i];
+      const e = es[i]!;
       if (+new Date(e.end) <= +new Date(e.start)) throw new DomainError("INVALID_SHIFT", 400, "نهاية الدوام بعد بدايته");
       if ((e.breakStart == null) !== (e.breakEnd == null)) throw new DomainError("INVALID_BREAK", 400, "حدد بداية ونهاية الاستراحة");
       for (let j = i + 1; j < es.length; j++)
-        if (es[j].userId === e.userId && overlaps(new Date(e.start), new Date(e.end), new Date(es[j].start), new Date(es[j].end)))
+        if (es[j]!.userId === e.userId && overlaps(new Date(e.start), new Date(e.end), new Date(es[j]!.start), new Date(es[j]!.end)))
           throw new DomainError("OVERLAP", 409, "يوجد تداخل بين دوامين للموظف نفسه في الإدخال");
     }
     const db = await c.admin();
@@ -323,7 +323,7 @@ export const runReport = createServerFn({ method: "POST" })
       closed: rows.filter((r) => r.state === "CLOSED").length,
       open: rows.filter((r) => r.state !== "CLOSED").length,
       escalated: rows.filter((r) => r.escalated).length,
-      medianHours: durations.length ? (durations.length % 2 ? durations[mid] : (durations[mid - 1] + durations[mid]) / 2) : null,
+      medianHours: durations.length ? (durations.length % 2 ? durations[mid]! : (durations[mid - 1]! + durations[mid]!) / 2) : null,
       byBrand: count("brand_id"), byBranch: count("branch_id"), byState: count("state"), bySource: count("source"), byCategory: count("category"), byPriority: count("priority"),
     };
   });

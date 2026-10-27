@@ -21,7 +21,7 @@ function NewComplaint() {
   const [f, setF] = useState({ brandId: "", branchId: "", unknownReason: "", category: "DELAY", priority: "P3", description: "", name: "", phone: "", externalOrder: "", platform: "", receivedAt: localNow() });
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState<{ number: string; id?: string } | null>(null);
+  const [done, setDone] = useState<{ number: string; id?: string | undefined } | null>(null);
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setF({ ...f, [k]: e.target.value });
   const brands = app.brands.filter((b) => b.status === "ACTIVE" && (app.me!.role === "SUPER_ADMIN" || app.me!.brandIds.includes(b.id)));
   const branches = app.branches.filter((b) => b.brand_id === f.brandId && b.active);
