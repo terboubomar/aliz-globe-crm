@@ -63,7 +63,7 @@ export function UsersWorkspace({
       </section>
     );
   const users =
-    directory?.users.filter(
+    directory?.users?.filter(
       (u) =>
         (brand === "all" || u.role === "SUPER_ADMIN" || u.brandIds.includes(brand)) &&
         (role === "all" || u.role === role) &&
