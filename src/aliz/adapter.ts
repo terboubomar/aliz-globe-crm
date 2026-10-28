@@ -246,6 +246,7 @@ async function bootstrap(): Promise<Data> {
       sla: b.flags.slaVersion,
       finance: b.flags.financeApproved,
       publicIntake: b.flags.publicIntake,
+      autoAssign: b.flags.autoAssign,
     },
   };
 }
@@ -642,6 +643,8 @@ async function route(
     const key = at(2) === "email" ? "email_receipts_enabled" : "whatsapp_enabled";
     return updateSetting({ data: { key, value: !!body["enabled"] } });
   }
+  if (is("settings", "auto-assign"))
+    return updateSetting({ data: { key: "auto_assign_enabled", value: !!body["enabled"] } });
   if (is("settings", "public-intake"))
     return updateSetting({ data: { key: "public_intake_enabled", value: !!body["enabled"] } });
 

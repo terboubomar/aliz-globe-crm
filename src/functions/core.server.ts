@@ -23,6 +23,8 @@ export async function settings() {
     sla: map["sla_policy"] as SlaPolicy & { approved?: boolean },
     whatsapp: map["whatsapp_enabled"] === true,
     emailReceipts: map["email_receipts_enabled"] === true,
+    // On unless a super admin turns it off.
+    autoAssign: map["auto_assign_enabled"] !== false,
     telegram: map["telegram_enabled"] === true,
   };
 }

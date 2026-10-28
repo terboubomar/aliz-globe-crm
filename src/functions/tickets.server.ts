@@ -101,6 +101,7 @@ export async function createTicketCore(
   rpcError(error);
   const out = data as { replay: boolean; id?: string; response_enc?: string };
   if (out.replay) return JSON.parse(await decrypt(out.response_enc!)) as typeof response & { emailStatus?: string };
+  await (await import("./assign.server")).autoAssign(out.id!);
   const { queueAndSend } = await import("./receipts.server");
   const sent = await queueAndSend(out.id!, {
     whatsapp: body.whatsappConsent ? phone : undefined,
