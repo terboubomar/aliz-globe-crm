@@ -30,3 +30,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Environment files hold project settings and keys: never commit them.
+# Lovable Cloud supplies these values at build time; copy .env.example for local work.
+.env
+.env.*
+!.env.example
