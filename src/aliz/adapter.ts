@@ -26,6 +26,7 @@ import {
   saveShifts,
   setBranchActive,
   updateBrand,
+  updateSetting,
   updateStaff,
   uploadEvidence,
 } from "@/functions/admin.functions";
@@ -613,6 +614,10 @@ async function route(
     await cancelShift({ data: { id: at(1), version: Number(body["version"]) } });
     return saveShifts({ data: { entries: [shiftEntry(body)] } });
   }
+
+  // Settings (super admin; the server authorizes and audits)
+  if (is("settings", "public-intake"))
+    return updateSetting({ data: { key: "public_intake_enabled", value: !!body["enabled"] } });
 
   // Reports
   if (is("reports")) return report(params);
