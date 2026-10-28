@@ -364,8 +364,8 @@ export const uploadEvidence = createServerFn({ method: "POST" })
     if (bytes.length > 8 * 1024 * 1024) throw new DomainError("TOO_LARGE", 400, "الحد الأقصى 8MB");
     const db = await c.admin();
     const key = `${data.ticketId ? "t/" + data.ticketId : "r/" + data.refundId}/${crypto.randomUUID()}`;
-    const { error } = await db.storage.from("evidence").upload(key, bytes, { contentType: data.mime, upsert: false });
-    c.rpcError(error);
+    const { putEvidence } = await import("./evidence.server");
+    c.rpcError(await putEvidence(key, bytes, data.mime));
     const { data: row, error: e2 } = await db.from("attachments").insert({
       ticket_id: data.ticketId ?? null, refund_id: data.refundId ?? null, storage_key: key, mime: data.mime, size: bytes.length,
       checksum: await sha256(data.base64), status: "PENDING_SCAN", uploaded_by: a.id,
