@@ -9,9 +9,9 @@ import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 // Public (browser-safe) backend address and publishable key. Used only when the
 // build has no .env, so the hosted preview never ships without a backend.
 const PUBLIC_SUPABASE_URL =
-  process.env.VITE_SUPABASE_URL || "https://zvrltmoxjyqpfnpukzfv.supabase.co";
+  process.env['VITE_SUPABASE_URL'] || "https://zvrltmoxjyqpfnpukzfv.supabase.co";
 const PUBLIC_SUPABASE_KEY =
-  process.env.VITE_SUPABASE_PUBLISHABLE_KEY || "sb_publishable_8K1r3bPDw9rAeZGNWIp_HQ_rM02L7j9";
+  process.env['VITE_SUPABASE_PUBLISHABLE_KEY'] || "sb_publishable_8K1r3bPDw9rAeZGNWIp_HQ_rM02L7j9";
 
 export default defineConfig({
   tanstackStart: {
