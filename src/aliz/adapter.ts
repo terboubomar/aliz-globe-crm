@@ -584,18 +584,28 @@ async function route(
 
   // Staff
   if (is("users") && method === "GET") {
-    const rows = await listStaff();
-    return rows.map((u) => ({
-      id: u.user_id,
-      name: u.name,
-      email: u.email,
-      role: u.role,
-      financeDuty: u.finance_duty,
-      brandIds: u.brand_ids,
-      branchIds: u.branch_ids,
-      active: u.enabled,
-      createdAt: u.created_at,
-    }));
+    const rows = (await listStaff()) ?? [];
+    const { assignableRoles, financeDuties, permissionsForRole } = await import("@/lib/domain");
+    return {
+      users: rows.map((u) => ({
+        id: u.user_id,
+        name: u.name,
+        email: u.email,
+        role: u.role,
+        financeDuty: u.finance_duty,
+        brandIds: u.brand_ids ?? [],
+        branchIds: u.branch_ids ?? [],
+        enabled: u.enabled,
+        active: u.enabled,
+        version: 1,
+        loginType: "password" as const,
+        subject: null,
+        createdAt: u.created_at,
+      })),
+      roles: assignableRoles.map((id) => ({ id, permissions: permissionsForRole(id) })),
+      financeDuties: financeDuties.map((id) => ({ id, permissions: permissionsForRole("AGENT", id) })),
+      passwordLogin: true,
+    };
   }
   if (is("users") && method === "POST")
     return createStaff({
