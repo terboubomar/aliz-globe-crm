@@ -613,6 +613,7 @@ async function route(
         ...staffFields(body),
         email: String(body["email"]),
         password: String(body["password"]),
+        enabled: body["enabled"] !== false,
       },
     });
   if (is("users", "*", "status")) {
@@ -632,7 +633,12 @@ async function route(
   }
   if (is("users", "*") && method === "POST")
     return updateStaff({
-      data: { ...staffFields(body), userId: at(1), enabled: body["active"] !== false },
+      data: {
+        ...staffFields(body),
+        userId: at(1),
+        enabled: (body["enabled"] ?? body["active"]) !== false,
+        ...(body["password"] ? { password: String(body["password"]) } : {}),
+      },
     });
 
   // Schedule
