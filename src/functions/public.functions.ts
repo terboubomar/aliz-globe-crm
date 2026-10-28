@@ -28,7 +28,8 @@ export const publicQrInfo = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     try {
       const q = await resolveQr(data.code, true);
-      return { ok: true as const, brandName: q.brandName, branchName: q.branchName, logo: q.logo };
+      const live = await (await import("./receipts.server")).liveChannels();
+      return { ok: true as const, brandName: q.brandName, branchName: q.branchName, logo: q.logo, whatsappAvailable: live.whatsapp, emailAvailable: live.email };
     } catch (e) {
       return { ok: false as const, message: e instanceof DomainError ? e.message : "الرابط غير متاح" };
     }
@@ -41,6 +42,7 @@ export const publicCreate = createServerFn({ method: "POST" })
       input: z.object({
         description: z.string(), category: z.string(), name: z.string().optional(), phone: z.string().optional(),
         externalOrder: z.string().optional(), platform: z.string().optional(), consent: z.literal(true),
+        email: z.string().optional(), whatsappConsent: z.boolean().optional(), emailConsent: z.boolean().optional(),
       }),
     }).parse(d),
   )
@@ -50,11 +52,11 @@ export const publicCreate = createServerFn({ method: "POST" })
     const { consent: _c, ...rest } = data.input;
     const res = await t.createTicketCore(
       `QR:${q.qrId}`,
-      { ...rest, whatsappConsent: false, brandId: q.brandId, branchId: q.branchId, priority: rest.category === "SAFETY" ? "P1" : "P3" },
+      { ...rest, whatsappConsent: !!rest.whatsappConsent, emailConsent: !!rest.emailConsent, brandId: q.brandId, branchId: q.branchId, priority: rest.category === "SAFETY" ? "P1" : "P3" },
       data.key,
       { brandId: q.brandId, branchId: q.branchId, qrId: q.qrId },
     );
-    return { number: res.number, trackingToken: res.trackingToken };
+    return { number: res.number, trackingToken: res.trackingToken, confirmationStatus: res.confirmationStatus, emailStatus: res.emailStatus ?? "NOT_REQUESTED" };
   });
 
 export const trackStatus = createServerFn({ method: "POST" })

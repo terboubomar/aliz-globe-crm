@@ -331,13 +331,20 @@ export const runReport = createServerFn({ method: "POST" })
 /* ---------------- Activation settings (SUPER_ADMIN) ---------------- */
 export const updateSetting = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({ key: z.enum(["public_intake_enabled", "require_mfa"]), value: z.boolean() }).parse(d))
+  .inputValidator((d: unknown) => z.object({ key: z.enum(["public_intake_enabled", "require_mfa", "whatsapp_enabled", "email_receipts_enabled"]), value: z.boolean() }).parse(d))
   .handler(async ({ data, context }) => {
     const c = await core();
     const a = await c.requireActor(context as never);
     authorize(a, "users.manage");
+    if (data.key === "whatsapp_enabled" || data.key === "email_receipts_enabled") {
+      // Customer messages may only be switched on once the channel is fully configured.
+      if (a.role !== "SUPER_ADMIN") throw new DomainError("FORBIDDEN", 403, "متاح لمدير النظام فقط");
+      const { missingConfig } = await import("./receipts.server");
+      if (data.value && missingConfig(data.key === "whatsapp_enabled" ? "whatsapp" : "email").length)
+        throw new DomainError("NOT_CONFIGURED", 409, "أكمل إعدادات القناة قبل تفعيل الإرسال");
+    }
     const db = await c.admin();
-    const { error } = await db.from("app_settings").update({ value: data.value, updated_at: new Date().toISOString() }).eq("key", data.key);
+    const { error } = await db.from("app_settings").upsert({ key: data.key, value: data.value, updated_at: new Date().toISOString() });
     c.rpcError(error);
     await db.rpc("write_audit", { _actor: a.id, _action: `SETTING_${data.key}_${data.value}`, _entity: data.key });
     return { ok: true };
@@ -392,4 +399,15 @@ export const evidenceLink = createServerFn({ method: "POST" })
     const { data: s } = await db.storage.from("evidence").createSignedUrl(f.storage_key, 60);
     await db.rpc("write_audit", { _actor: a.id, _action: "EVIDENCE_VIEWED", _entity: data.id });
     return { url: s?.signedUrl ?? null };
+  });
+
+/* ---------------- Customer receipt channels ---------------- */
+export const receiptChannelStatus = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ channel: z.enum(["whatsapp", "email"]) }).parse(d))
+  .handler(async ({ data, context }) => {
+    const c = await core();
+    const a = await c.requireActor(context as never);
+    if (a.role !== "SUPER_ADMIN") throw new DomainError("FORBIDDEN", 403, "متاح لمدير النظام فقط");
+    return (await import("./receipts.server")).channelStatus(data.channel);
   });

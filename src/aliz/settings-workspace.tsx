@@ -12,11 +12,12 @@ import {
   CalendarDays,
   RefreshCw,
   Search,
+  Mail,
 } from "lucide-react";
 import { api, date, eventNames, n, roleNames, type Data } from "./types";
 import { Field, Empty } from "./ui";
 import { canOpenView } from "./access";
-import { WhatsAppIntegration } from "./whatsapp-integration";
+import { EmailIntegration, WhatsAppIntegration } from "./whatsapp-integration";
 import { TelegramIntegration } from "./telegram-integration";
 
 type Section = "general" | "integrations" | "audit";
@@ -32,7 +33,7 @@ export function SettingsWorkspace({
   onMutate: (path: string, body?: unknown) => Promise<unknown>;
 }) {
   const [section, setSection] = useState<Section>("general"),
-    [channel, setChannel] = useState<"whatsapp" | "telegram">("whatsapp");
+    [channel, setChannel] = useState<"whatsapp" | "email" | "telegram">("whatsapp");
   const sections = [
     { id: "general" as const, label: "عام", icon: Building2 },
     ...(data.me.role === "SUPER_ADMIN"
@@ -207,6 +208,16 @@ export function SettingsWorkspace({
                 </span>
                 <ChevronLeft size={18} />
               </button>
+              <button aria-pressed={channel === "email"} onClick={() => setChannel("email")}>
+                <span className="settings-channel-icon">
+                  <Mail size={24} />
+                </span>
+                <span>
+                  <b>البريد الإلكتروني</b>
+                  <small>تأكيد الشكوى للعميل</small>
+                </span>
+                <ChevronLeft size={18} />
+              </button>
               <button aria-pressed={channel === "telegram"} onClick={() => setChannel("telegram")}>
                 <span className="settings-channel-icon">
                   <Send size={24} />
@@ -218,7 +229,13 @@ export function SettingsWorkspace({
                 <ChevronLeft size={18} />
               </button>
             </div>
-            {channel === "whatsapp" ? <WhatsAppIntegration /> : <TelegramIntegration />}
+            {channel === "whatsapp" ? (
+              <WhatsAppIntegration />
+            ) : channel === "email" ? (
+              <EmailIntegration />
+            ) : (
+              <TelegramIntegration />
+            )}
           </>
         )}
         {section === "audit" &&

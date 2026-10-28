@@ -1,5 +1,5 @@
 import type { ComplaintReceipt } from "./complaint-receipt";
-import { ReceiptDetails, confirmationLabels } from "./receipt-details";
+import { ReceiptDetails, confirmationLabels, emailConfirmationLabels } from "./receipt-details";
 import { useState, useEffect, FormEvent } from "react";
 import { ArrowLeft, CheckCircle2, ShieldCheck, Upload } from "lucide-react";
 import { api, categories } from "./types";
@@ -12,8 +12,10 @@ export default function PublicIntake({ code }: { code: string }) {
       logo: string;
       demo: boolean;
       whatsappAvailable: boolean;
+      emailAvailable?: boolean;
     } | null>(null),
     [whatsappConsent, setWhatsAppConsent] = useState(false),
+    [emailConsent, setEmailConsent] = useState(false),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [receipt, setReceipt] = useState<{
@@ -22,6 +24,7 @@ export default function PublicIntake({ code }: { code: string }) {
       trackingToken: string;
       receipt?: ComplaintReceipt;
       confirmationStatus?: string;
+      emailStatus?: string;
     } | null>(null),
     [files, setFiles] = useState<File[]>([]),
     [uploadError, setUploadError] = useState("");
@@ -42,12 +45,14 @@ export default function PublicIntake({ code }: { code: string }) {
         trackingToken: string;
         receipt?: ComplaintReceipt;
         confirmationStatus?: string;
+        emailStatus?: string;
       }>(
         "public/q/" + code,
         {
           ...b,
           consent: b["consent"] === "on",
-          whatsappConsent: context?.whatsappAvailable && whatsappConsent,
+          whatsappConsent: !!context?.whatsappAvailable && whatsappConsent,
+          emailConsent: !!context?.emailAvailable && emailConsent,
         },
         { headers: { "Idempotency-Key": requestKey } },
       );
@@ -105,6 +110,11 @@ export default function PublicIntake({ code }: { code: string }) {
             {receipt.confirmationStatus && confirmationLabels[receipt.confirmationStatus] && (
               <p role="status" className="notice">
                 {confirmationLabels[receipt.confirmationStatus]}
+              </p>
+            )}
+            {receipt.emailStatus && emailConfirmationLabels[receipt.emailStatus] && (
+              <p role="status" className="notice">
+                {emailConfirmationLabels[receipt.emailStatus]}
               </p>
             )}
             {receipt.receipt && <ReceiptDetails receipt={receipt.receipt} />}
@@ -185,6 +195,29 @@ export default function PublicIntake({ code }: { code: string }) {
                     />
                     أوافق على استلام تأكيد الشكوى وتفاصيلها عبر واتساب
                   </label>
+                )}
+                {context.emailAvailable && (
+                  <>
+                    <Field label={emailConsent ? "بريدك الإلكتروني" : "بريدك الإلكتروني (اختياري)"}>
+                      <input
+                        name="email"
+                        type="email"
+                        dir="ltr"
+                        maxLength={200}
+                        required={emailConsent}
+                        placeholder="name@example.com"
+                        autoComplete="email"
+                      />
+                    </Field>
+                    <label className="checkbox full">
+                      <input
+                        type="checkbox"
+                        checked={emailConsent}
+                        onChange={(e) => setEmailConsent(e.target.checked)}
+                      />
+                      أوافق على استلام تأكيد الشكوى وتفاصيلها بالبريد الإلكتروني
+                    </label>
+                  </>
                 )}
                 <label className="public-upload full">
                   <Upload size={24} />
