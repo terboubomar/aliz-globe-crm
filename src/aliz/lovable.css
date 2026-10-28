@@ -1,0 +1,33 @@
+/* Additions for this backend only; the original design lives in style.css. */
+.attachment-grid a[aria-disabled="true"] {
+  cursor: default;
+}
+.evidence-pending {
+  display: grid;
+  place-items: center;
+  height: 130px;
+  width: 180px;
+  border: 1px dashed #ceb7a0;
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.sign-in-note {
+  margin: 0 0 16px;
+  color: var(--muted);
+}
+.sign-in-mfa {
+  display: grid;
+  gap: 14px;
+}
+.sign-in-mfa-qr {
+  justify-self: center;
+  width: 176px;
+  height: 176px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+}
+.sign-in-form > .secondary {
+  margin-top: 16px;
+}
