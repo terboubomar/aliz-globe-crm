@@ -1394,7 +1394,8 @@ function TicketDetail({
                 <div>
                   <b>{eventNames[e.type] ?? e.type.replaceAll("_", " ")}</b>
                   <small>
-                    {data.users.find((u) => u.id === e.actor)?.name ?? e.actor} •{" "}
+                    {data.users.find((u) => u.id === e.actor)?.name ??
+                      (e.actor === "SYSTEM" ? "النظام" : e.actor)} •{" "}
                     {date(e.createdAt)}
                   </small>
                   {e.note && <p>{e.note}</p>}

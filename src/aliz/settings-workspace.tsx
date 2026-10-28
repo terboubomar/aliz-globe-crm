@@ -173,7 +173,10 @@ export function SettingsWorkspace({
               </section>
             </div>
             {data.me.role === "SUPER_ADMIN" && (
-              <PublicIntakeSetting data={data} onMutate={onMutate} />
+              <>
+                <PublicIntakeSetting data={data} onMutate={onMutate} />
+                <AutoAssignSetting data={data} onMutate={onMutate} />
+              </>
             )}
             {shortcuts.length > 0 && (
               <section className="panel settings-management">
@@ -423,6 +426,63 @@ function PublicIntakeSetting({
             )}
           </div>
         )}
+        {error && (
+          <p className="error" role="alert">
+            {error}
+          </p>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function AutoAssignSetting({
+  data,
+  onMutate,
+}: {
+  data: Data;
+  onMutate: (path: string, body?: unknown) => Promise<unknown>;
+}) {
+  const on = data.policy.autoAssign !== false;
+  const [busy, setBusy] = useState(false),
+    [error, setError] = useState("");
+  async function save(enabled: boolean) {
+    setBusy(true);
+    setError("");
+    try {
+      await onMutate("settings/auto-assign", { enabled });
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <section className="panel settings-intake">
+      <div className="panel-head">
+        <h2>
+          <Users size={18} />
+          الإسناد التلقائي للشكاوى
+        </h2>
+        <span className={"badge " + (on ? "green" : "neutral")}>{on ? "مفعّل" : "متوقف"}</span>
+      </div>
+      <div className="padded settings-intake-body">
+        <p>
+          {on
+            ? "تُسند كل شكوى جديدة تلقائياً إلى موظف خدمة العملاء الأقل حالات مفتوحة ضمن العلامة والفرع، مع تفضيل الموظفين المناوبين الآن."
+            : "الشكاوى الجديدة تبقى بانتظار الإسناد اليدوي من المشرف."}
+        </p>
+        <div className="settings-intake-actions">
+          {on ? (
+            <button className="secondary" disabled={busy} onClick={() => save(false)}>
+              إيقاف الإسناد التلقائي
+            </button>
+          ) : (
+            <button className="primary" disabled={busy} onClick={() => save(true)}>
+              تفعيل الإسناد التلقائي
+            </button>
+          )}
+        </div>
         {error && (
           <p className="error" role="alert">
             {error}

@@ -331,7 +331,7 @@ export const runReport = createServerFn({ method: "POST" })
 /* ---------------- Activation settings (SUPER_ADMIN) ---------------- */
 export const updateSetting = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({ key: z.enum(["public_intake_enabled", "require_mfa", "whatsapp_enabled", "email_receipts_enabled"]), value: z.boolean() }).parse(d))
+  .inputValidator((d: unknown) => z.object({ key: z.enum(["public_intake_enabled", "require_mfa", "whatsapp_enabled", "email_receipts_enabled", "auto_assign_enabled"]), value: z.boolean() }).parse(d))
   .handler(async ({ data, context }) => {
     const c = await core();
     const a = await c.requireActor(context as never);

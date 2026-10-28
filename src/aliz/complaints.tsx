@@ -317,7 +317,7 @@ export function ComplaintJourney({ ticket: t }: { ticket: Ticket }) {
     { label: "استقبال الشكوى", time: t.receivedAt },
     {
       label: "الإسناد",
-      time: t.events.filter((e) => ["ASSIGN", "ESCALATION_ROUTED"].includes(e.type)).at(-1)
+      time: t.events.filter((e) => ["ASSIGN", "AUTO_ASSIGNED", "ESCALATION_ROUTED"].includes(e.type)).at(-1)
         ?.createdAt,
     },
     { label: "جارٍ العمل", time: t.acknowledgedAt },

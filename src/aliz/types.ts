@@ -134,7 +134,7 @@ export type Data = {
   leave: Leave[];
   permissions: string[];
   integrations?: { whatsapp: boolean; email?: boolean };
-  policy: { sla: string; finance: boolean; publicIntake: boolean };
+  policy: { sla: string; finance: boolean; publicIntake: boolean; autoAssign?: boolean };
 };
 export const categories: Record<string, string> = {
   DELAY: "تأخر الطلب",
@@ -190,6 +190,7 @@ export const eventNames: Record<string, string> = {
   DEMO_CREATED: "إنشاء حالة تجريبية",
   TRIAGE: "فرز البلاغ",
   ASSIGN: "إسناد البلاغ",
+  AUTO_ASSIGNED: "إسناد تلقائي للموظف الأقل حالات",
   ACKNOWLEDGE: "استلام الفرع",
   INVESTIGATE: "بدء المعالجة",
   START: "بدء العمل",
