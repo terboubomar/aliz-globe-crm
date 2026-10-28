@@ -74,8 +74,8 @@ export const trackStatus = createServerFn({ method: "POST" })
 /**
  * Photos from the customer who just submitted on the QR form. Authorized only by
  * that complaint's private tracking link, and only in the first 10 minutes; at
- * most 3 photos, 5 MB each, JPEG or PNG, stored without identifying metadata.
- * Files stay PENDING_SCAN until a malware scanner clears them.
+ * most 3 photos, 5 MB each. Each photo is rebuilt from its pixels before it is
+ * stored (no metadata or hidden content survives), then marked CLEAN.
  */
 export const publicAttach = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
@@ -84,7 +84,6 @@ export const publicAttach = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const core = await import("./core.server");
     const { keyedHash } = await import("./crypto.server");
-    const { stripImageMetadata } = await import("@/lib/image-meta");
     const db = await core.admin();
     const { data: acc } = await db
       .from("tracking_access")
@@ -108,26 +107,19 @@ export const publicAttach = createServerFn({ method: "POST" })
     const raw = Uint8Array.from(atob(data.base64), (ch) => ch.charCodeAt(0));
     if (raw.length > 5 * 1024 * 1024)
       throw new DomainError("TOO_LARGE", 400, "يسمح بصور حتى 5 ميغابايت");
-    let image: ReturnType<typeof stripImageMetadata>;
-    try {
-      image = stripImageMetadata(raw);
-    } catch {
-      throw new DomainError("INVALID_IMAGE", 400, "يسمح بصور JPG وPNG فقط");
-    }
+    const { cleanPhoto, putEvidence, sha256Hex } = await import("./evidence.server");
+    const bytes = cleanPhoto(raw);
     const key = `t/${acc.ticket_id}/${crypto.randomUUID()}`;
-    const { putEvidence } = await import("./evidence.server");
-    core.rpcError(await putEvidence(key, image.bytes, image.kind));
+    core.rpcError(await putEvidence(key, bytes, "image/jpeg"));
     const { data: row, error } = await db
       .from("attachments")
       .insert({
         ticket_id: acc.ticket_id,
         storage_key: key,
-        mime: image.kind,
-        size: image.bytes.length,
-        checksum: [...new Uint8Array(await crypto.subtle.digest("SHA-256", new Uint8Array(image.bytes)))]
-          .map((b) => b.toString(16).padStart(2, "0"))
-          .join(""),
-        status: "PENDING_SCAN",
+        mime: "image/jpeg",
+        size: bytes.length,
+        checksum: await sha256Hex(bytes),
+        status: "CLEAN",
         uploaded_by: "PUBLIC_QR",
       })
       .select("id")
