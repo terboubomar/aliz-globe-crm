@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { MessageCircle, RefreshCw } from "lucide-react";
+import { Mail, MessageCircle, RefreshCw } from "lucide-react";
 import { api, n } from "./types";
 type Status = {
   enabled: boolean;
@@ -8,10 +8,17 @@ type Status = {
   statuses: Record<string, number>;
 };
 export function WhatsAppIntegration() {
+  return <ReceiptChannel channel="whatsapp" />;
+}
+export function EmailIntegration() {
+  return <ReceiptChannel channel="email" />;
+}
+function ReceiptChannel({ channel }: { channel: "whatsapp" | "email" }) {
   const [status, setStatus] = useState<Status | null>(null),
-    [error, setError] = useState("");
+    [error, setError] = useState(""),
+    [busy, setBusy] = useState(false);
   const load = () =>
-    api<Status>("integrations/whatsapp")
+    api<Status>("integrations/" + channel)
       .then((s) => {
         setStatus(s);
         setError("");
@@ -19,7 +26,17 @@ export function WhatsAppIntegration() {
       .catch((e) => setError(e.message));
   useEffect(() => {
     void load();
-  }, []);
+  }, [channel]);
+  async function toggle(enabled: boolean) {
+    setBusy(true);
+    try {
+      await api("settings/receipts/" + channel, { enabled });
+      await load();
+    } catch (e) {
+      setError((e as Error).message);
+    }
+    setBusy(false);
+  }
   const labels: Record<string, string> = {
     WHATSAPP_ACCESS_TOKEN: "رمز الوصول الآمن",
     WHATSAPP_PHONE_NUMBER_ID: "رقم حساب المرسل",
@@ -31,13 +48,16 @@ export function WhatsAppIntegration() {
     VALID_PHONE_NUMBER_ID: "معرّف صحيح لرقم واتساب",
     VALID_TEMPLATE_NAME: "اسم قالب صالح",
     VALID_API_VERSION: "إصدار صالح للاتصال",
+    LOVABLE_API_KEY: "مفتاح خدمة البريد في Lovable",
+    EMAIL_SENDER_DOMAIN: "نطاق المرسل الموثّق",
   };
+  const email = channel === "email";
   return (
     <section className="panel whatsapp-integration">
       <div className="panel-head">
         <h2>
-          <MessageCircle size={19} />
-          تأكيد الشكاوى عبر واتساب
+          {email ? <Mail size={19} /> : <MessageCircle size={19} />}
+          {email ? "تأكيد الشكاوى بالبريد الإلكتروني" : "تأكيد الشكاوى عبر واتساب"}
         </h2>
         <button className="text-btn" onClick={() => void load()}>
           <RefreshCw size={15} />
@@ -62,7 +82,7 @@ export function WhatsAppIntegration() {
                   (status.statuses["QUEUED"] ?? 0) + (status.statuses["SENDING"] ?? 0),
                 ],
                 [
-                  "مقبولة لدى واتساب",
+                  email ? "أُرسلت" : "مقبولة لدى واتساب",
                   (status.statuses["ACCEPTED"] ?? 0) + (status.statuses["SENT"] ?? 0),
                 ],
                 [
@@ -82,6 +102,22 @@ export function WhatsAppIntegration() {
                 </span>
               ))}
             </div>
+            <p className="hint">
+              يُرسل للعميل تأكيد واحد لكل شكوى، فقط إذا وافق على ذلك في النموذج.
+            </p>
+            {status.enabled ? (
+              <button className="secondary" disabled={busy} onClick={() => void toggle(false)}>
+                إيقاف الإرسال
+              </button>
+            ) : (
+              <button
+                className="primary"
+                disabled={busy || status.missing.length > 0}
+                onClick={() => void toggle(true)}
+              >
+                تفعيل الإرسال
+              </button>
+            )}
             {!status.ready && (
               <details>
                 <summary>متطلبات الربط</summary>

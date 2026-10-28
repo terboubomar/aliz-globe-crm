@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as QCodeRouteImport } from './routes/q.$code'
 import { Route as TrackTokenRouteImport } from './routes/track.$token'
+import { Route as ApiPublicCronReceiptsRouteImport } from './routes/api/public/cron/receipts'
 import { Route as ApiPublicWebhooksTelegramRouteImport } from './routes/api/public/webhooks/telegram'
 import { Route as ApiPublicWebhooksWhatsappRouteImport } from './routes/api/public/webhooks/whatsapp'
 
@@ -28,6 +29,11 @@ const QCodeRoute = QCodeRouteImport.update({
 const TrackTokenRoute = TrackTokenRouteImport.update({
   id: '/track/$token',
   path: '/track/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicCronReceiptsRoute = ApiPublicCronReceiptsRouteImport.update({
+  id: '/api/public/cron/receipts',
+  path: '/api/public/cron/receipts',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicWebhooksTelegramRoute =
@@ -47,6 +53,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/q/$code': typeof QCodeRoute
   '/track/$token': typeof TrackTokenRoute
+  '/api/public/cron/receipts': typeof ApiPublicCronReceiptsRoute
   '/api/public/webhooks/telegram': typeof ApiPublicWebhooksTelegramRoute
   '/api/public/webhooks/whatsapp': typeof ApiPublicWebhooksWhatsappRoute
 }
@@ -54,6 +61,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/q/$code': typeof QCodeRoute
   '/track/$token': typeof TrackTokenRoute
+  '/api/public/cron/receipts': typeof ApiPublicCronReceiptsRoute
   '/api/public/webhooks/telegram': typeof ApiPublicWebhooksTelegramRoute
   '/api/public/webhooks/whatsapp': typeof ApiPublicWebhooksWhatsappRoute
 }
@@ -62,6 +70,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/q/$code': typeof QCodeRoute
   '/track/$token': typeof TrackTokenRoute
+  '/api/public/cron/receipts': typeof ApiPublicCronReceiptsRoute
   '/api/public/webhooks/telegram': typeof ApiPublicWebhooksTelegramRoute
   '/api/public/webhooks/whatsapp': typeof ApiPublicWebhooksWhatsappRoute
 }
@@ -71,6 +80,7 @@ export interface FileRouteTypes {
     | '/'
     | '/q/$code'
     | '/track/$token'
+    | '/api/public/cron/receipts'
     | '/api/public/webhooks/telegram'
     | '/api/public/webhooks/whatsapp'
   fileRoutesByTo: FileRoutesByTo
@@ -78,6 +88,7 @@ export interface FileRouteTypes {
     | '/'
     | '/q/$code'
     | '/track/$token'
+    | '/api/public/cron/receipts'
     | '/api/public/webhooks/telegram'
     | '/api/public/webhooks/whatsapp'
   id:
@@ -85,6 +96,7 @@ export interface FileRouteTypes {
     | '/'
     | '/q/$code'
     | '/track/$token'
+    | '/api/public/cron/receipts'
     | '/api/public/webhooks/telegram'
     | '/api/public/webhooks/whatsapp'
   fileRoutesById: FileRoutesById
@@ -93,6 +105,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   QCodeRoute: typeof QCodeRoute
   TrackTokenRoute: typeof TrackTokenRoute
+  ApiPublicCronReceiptsRoute: typeof ApiPublicCronReceiptsRoute
   ApiPublicWebhooksTelegramRoute: typeof ApiPublicWebhooksTelegramRoute
   ApiPublicWebhooksWhatsappRoute: typeof ApiPublicWebhooksWhatsappRoute
 }
@@ -120,6 +133,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TrackTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/cron/receipts': {
+      id: '/api/public/cron/receipts'
+      path: '/api/public/cron/receipts'
+      fullPath: '/api/public/cron/receipts'
+      preLoaderRoute: typeof ApiPublicCronReceiptsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/webhooks/telegram': {
       id: '/api/public/webhooks/telegram'
       path: '/api/public/webhooks/telegram'
@@ -141,6 +161,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   QCodeRoute: QCodeRoute,
   TrackTokenRoute: TrackTokenRoute,
+  ApiPublicCronReceiptsRoute: ApiPublicCronReceiptsRoute,
   ApiPublicWebhooksTelegramRoute: ApiPublicWebhooksTelegramRoute,
   ApiPublicWebhooksWhatsappRoute: ApiPublicWebhooksWhatsappRoute,
 }

@@ -20,6 +20,8 @@ export const ticketInput = z.object({
   platform: z.string().max(80).optional(),
   receivedAt: z.string().datetime().optional(),
   whatsappConsent: z.boolean().default(false),
+  email: z.string().trim().toLowerCase().email("أدخل بريداً إلكترونياً صحيحاً").max(200).optional().or(z.literal("")),
+  emailConsent: z.boolean().default(false),
 });
 
 export type Receipt = {
@@ -53,6 +55,9 @@ export async function createTicketCore(
   const phone = body.phone ? normalizePhone(body.phone) : "";
   if (body.whatsappConsent && !phone)
     throw new DomainError("PHONE_REQUIRED", 400, "أدخل رقم الجوال لاستلام تأكيد واتساب.");
+  const email = body.email ?? "";
+  if (body.emailConsent && !email)
+    throw new DomainError("EMAIL_REQUIRED", 400, "أدخل البريد الإلكتروني لاستلام تأكيد الشكوى.");
   const [{ data: brand }, branchRow] = await Promise.all([
     db.from("brands").select("name,status").eq("id", brandId).maybeSingle(),
     branchId ? db.from("branches").select("name").eq("id", branchId).maybeSingle() : Promise.resolve({ data: null }),
@@ -67,7 +72,7 @@ export async function createTicketCore(
   const { data: seq, error: seqErr } = await db.rpc("next_ticket_sequence");
   rpcError(seqErr);
   const number = ticketNumber(Number(seq), now);
-  const access = publicQr || (body.whatsappConsent && phone) ? randomToken() : null;
+  const access = publicQr || (body.whatsappConsent && phone) || (body.emailConsent && email) ? randomToken() : null;
   const receipt: Receipt = {
     number, brand: brand.name, branch: branchRow?.data?.name ?? "غير محدد",
     receivedAt: received.toISOString(), category: categoryLabels[body.category] ?? body.category,
@@ -75,14 +80,14 @@ export async function createTicketCore(
     platform: body.platform ?? "", source: publicQr ? "QR" : "الهاتف", trackingPath: access ? "/track/" + access : "",
   };
   const receiptEnc = await encrypt(JSON.stringify(receipt));
-  const response = { number, trackingToken: access, receipt, confirmationStatus: "PROVIDER_NOT_CONFIGURED" };
+  const response = { number, trackingToken: access, receipt, confirmationStatus: "NOT_REQUESTED" as string };
   const { data, error } = await db.rpc("create_ticket_tx", {
     p: {
       idem_key: idemKey, request_hash: requestHash, sequence: seq, brand_id: brandId, branch_id: branchId,
       unknown_reason: branchId ? null : body.unknownReason, source: publicQr ? "PUBLIC_QR" : "PHONE_AGENT",
       category: body.category, priority, description_enc: await encrypt(body.description),
       receipt_enc: receiptEnc,
-      customer_enc: body.name || phone ? await encrypt(JSON.stringify({ name: body.name ?? "", phone })) : null,
+      customer_enc: body.name || phone || email ? await encrypt(JSON.stringify({ name: body.name ?? "", phone, ...(email ? { email } : {}) })) : null,
       phone_hash: phone ? await keyedHash("phone:" + phone) : null,
       external_order: body.externalOrder || null, platform: body.platform || null,
       communications_owner: publicQr ? "UNASSIGNED" : actorId, creator: publicQr ? "PUBLIC_QR" : actorId,
@@ -95,8 +100,18 @@ export async function createTicketCore(
   });
   rpcError(error);
   const out = data as { replay: boolean; id?: string; response_enc?: string };
-  if (out.replay) return JSON.parse(await decrypt(out.response_enc!)) as typeof response;
-  return { ...response, id: out.id };
+  if (out.replay) return JSON.parse(await decrypt(out.response_enc!)) as typeof response & { emailStatus?: string };
+  const { queueAndSend } = await import("./receipts.server");
+  const sent = await queueAndSend(out.id!, {
+    whatsapp: body.whatsappConsent ? phone : undefined,
+    email: body.emailConsent ? email : undefined,
+  });
+  return {
+    ...response,
+    id: out.id,
+    confirmationStatus: sent.whatsapp ?? "NOT_REQUESTED",
+    emailStatus: sent.email ?? "NOT_REQUESTED",
+  };
 }
 
 type TicketRow = {
@@ -118,11 +133,11 @@ export async function presentTicket(t: TicketRow, a: Actor, detail = false) {
     acknowledgedAt: t.acknowledged_at, actionCompletedAt: t.action_completed_at,
     customerConfirmedAt: t.customer_confirmed_at, closedAt: t.closed_at, version: t.version, escalated: t.escalated,
   };
-  if (!detail) return { ...base, description: null as string | null, customer: null as { name: string; phone: string } | null, branchBrief: null as string | null };
+  if (!detail) return { ...base, description: null as string | null, customer: null as { name: string; phone: string; email?: string } | null, branchBrief: null as string | null };
   return {
     ...base,
     description: pii ? await decrypt(t.description_enc) : "تفاصيل العميل محجوبة حسب الصلاحية",
-    customer: pii && t.customer_enc ? (JSON.parse(await decrypt(t.customer_enc)) as { name: string; phone: string }) : null,
+    customer: pii && t.customer_enc ? (JSON.parse(await decrypt(t.customer_enc)) as { name: string; phone: string; email?: string }) : null,
     branchBrief: t.branch_brief_enc ? await decrypt(t.branch_brief_enc) : null,
   };
 }

@@ -22,6 +22,7 @@ export async function settings() {
     financeLimitMinor: typeof map["finance_approval_limit_minor"] === "number" ? (map["finance_approval_limit_minor"] as number) : null,
     sla: map["sla_policy"] as SlaPolicy & { approved?: boolean },
     whatsapp: map["whatsapp_enabled"] === true,
+    emailReceipts: map["email_receipts_enabled"] === true,
     telegram: map["telegram_enabled"] === true,
   };
 }

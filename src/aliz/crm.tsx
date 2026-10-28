@@ -1079,6 +1079,7 @@ function Intake({
         {
           ...b,
           whatsappConsent: b["whatsappConsent"] === "on",
+          emailConsent: b["emailConsent"] === "on",
           branchId: unknown ? null : b["branchId"],
           receivedAt: b["receivedAt"] ? new Date(b["receivedAt"]).toISOString() : undefined,
         },
@@ -1169,6 +1170,17 @@ function Intake({
               <input name="whatsappConsent" type="checkbox" />
               إرسال تأكيد واتساب بموافقة العميل
             </label>
+          )}
+          {data.integrations?.email && (
+            <>
+              <Field label="البريد الإلكتروني (اختياري)">
+                <input name="email" type="email" dir="ltr" maxLength={200} autoComplete="off" />
+              </Field>
+              <label className="checkbox full">
+                <input name="emailConsent" type="checkbox" />
+                إرسال تأكيد بالبريد الإلكتروني بموافقة العميل
+              </label>
+            </>
           )}
           {duplicates.length > 0 && (
             <div className="notice full">
@@ -1312,6 +1324,7 @@ function TicketDetail({
             <small>العميل</small>
             <b>{t.customer?.name || "غير مسجل / محجوب"}</b>
             <span dir="ltr">{t.customer?.phone}</span>
+            {t.customer?.email && <span dir="ltr">{t.customer.email}</span>}
           </div>
         </div>
         <div className="detail-facts">

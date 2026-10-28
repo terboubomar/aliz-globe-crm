@@ -20,6 +20,7 @@ export const getBootstrap = createServerFn({ method: "POST" })
       c.staffDirectory(a.role === "SUPER_ADMIN" ? ["waqf", "kabab", "batatisyon", "mazmuzil", "shawarman", ...a.brandIds] : a.brandIds),
       c.settings(),
     ]);
+    const live = await (await import("./receipts.server")).liveChannels();
     return {
       status: "OK" as const,
       email,
@@ -34,7 +35,8 @@ export const getBootstrap = createServerFn({ method: "POST" })
         financeLimitMinor: s.financeLimitMinor,
         slaVersion: s.sla?.version ?? "PENDING",
         slaApproved: !!s.sla?.approved,
-        whatsapp: s.whatsapp,
+        whatsapp: live.whatsapp,
+        email: live.email,
         telegram: s.telegram,
       },
     };

@@ -43,7 +43,7 @@ export type Ticket = {
   state: string;
   description: string;
   branchBrief: string | null;
-  customer: { name: string; phone: string } | null;
+  customer: { name: string; phone: string; email?: string } | null;
   externalOrder: string | null;
   platform: string | null;
   creator: string;
@@ -133,7 +133,7 @@ export type Data = {
   shifts: Shift[];
   leave: Leave[];
   permissions: string[];
-  integrations?: { whatsapp: boolean };
+  integrations?: { whatsapp: boolean; email?: boolean };
   policy: { sla: string; finance: boolean; publicIntake: boolean };
 };
 export const categories: Record<string, string> = {

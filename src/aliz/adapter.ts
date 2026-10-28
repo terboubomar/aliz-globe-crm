@@ -27,6 +27,7 @@ import {
   setBranchActive,
   updateBrand,
   updateSetting,
+  receiptChannelStatus,
   updateStaff,
   uploadEvidence,
 } from "@/functions/admin.functions";
@@ -240,7 +241,7 @@ async function bootstrap(): Promise<Data> {
     shifts: (shifts as Row[]).map(toShift),
     leave: [],
     permissions: b.permissions,
-    integrations: { whatsapp: b.flags.whatsapp },
+    integrations: { whatsapp: b.flags.whatsapp, email: b.flags.email },
     policy: {
       sla: b.flags.slaVersion,
       finance: b.flags.financeApproved,
@@ -498,6 +499,7 @@ async function route(
       ...body,
       priority: body["priority"] || "P3",
       whatsappConsent: !!body["whatsappConsent"],
+      emailConsent: !!body["emailConsent"],
     };
     return createPhoneComplaint({ data: { key, input } });
   }
@@ -636,6 +638,10 @@ async function route(
   }
 
   // Settings (super admin; the server authorizes and audits)
+  if (is("settings", "receipts", "*")) {
+    const key = at(2) === "email" ? "email_receipts_enabled" : "whatsapp_enabled";
+    return updateSetting({ data: { key, value: !!body["enabled"] } });
+  }
   if (is("settings", "public-intake"))
     return updateSetting({ data: { key: "public_intake_enabled", value: !!body["enabled"] } });
 
@@ -651,7 +657,8 @@ async function route(
       branch: info.branchName,
       logo: logoFile(info.logo),
       demo: false,
-      whatsappAvailable: false,
+      whatsappAvailable: info.whatsappAvailable,
+      emailAvailable: info.emailAvailable,
     };
   }
   if (is("public", "q", "*")) {
@@ -670,10 +677,19 @@ async function route(
           externalOrder: (body["externalOrder"] as string) || undefined,
           platform: (body["platform"] as string) || undefined,
           consent: body["consent"] === true ? true : (undefined as never),
+          email: (body["email"] as string) || undefined,
+          whatsappConsent: body["whatsappConsent"] === true,
+          emailConsent: body["emailConsent"] === true,
         },
       },
     });
-    return { id: "", number: res.number, trackingToken: res.trackingToken ?? "" };
+    return {
+      id: "",
+      number: res.number,
+      trackingToken: res.trackingToken ?? "",
+      confirmationStatus: res.confirmationStatus,
+      emailStatus: res.emailStatus,
+    };
   }
   if (is("public", "attachments", "*"))
     return publicUpload(
@@ -706,7 +722,9 @@ async function route(
   // Not built on this backend yet.
   if (is("integrations", "telegram", "account"))
     return { available: false, linked: false, label: null, pending: null, expiresAt: null };
-  if (is("integrations", "telegram") || is("integrations", "whatsapp"))
+  if (is("integrations", "whatsapp") || is("integrations", "email"))
+    return receiptChannelStatus({ data: { channel: at(1) as "whatsapp" | "email" } });
+  if (is("integrations", "telegram"))
     return { ready: false, enabled: false, missing: [], statuses: {}, users: [] };
   throw new Error(NOT_YET);
 }
