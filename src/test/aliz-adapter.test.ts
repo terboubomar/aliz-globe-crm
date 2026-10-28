@@ -14,6 +14,7 @@ const fn = vi.hoisted(() => ({
   refundAction: vi.fn(),
   requestRefund: vi.fn(),
   listShifts: vi.fn(),
+  updateSetting: vi.fn(),
   publicQrInfo: vi.fn(),
   publicCreate: vi.fn(),
   trackStatus: vi.fn(),
@@ -35,6 +36,7 @@ vi.mock("@/functions/refunds.functions", () => ({
 }));
 vi.mock("@/functions/admin.functions", () => ({
   listShifts: fn.listShifts,
+  updateSetting: fn.updateSetting,
   cancelShift: vi.fn(),
   createStaff: vi.fn(),
   evidenceLink: vi.fn(),
@@ -228,5 +230,19 @@ describe("unbuilt features", () => {
   it("fail with a clear message rather than pretending to work", async () => {
     await expect(api("tasks", { ticketId: "t1" })).rejects.toThrow("غير مفعلة بعد");
     await expect(api("leave", {})).rejects.toThrow("غير مفعلة بعد");
+  });
+});
+
+describe("settings", () => {
+  it("switches customer QR intake through the audited server setting", async () => {
+    fn.updateSetting.mockResolvedValue({ ok: true });
+    await api("settings/public-intake", { enabled: true });
+    expect(fn.updateSetting).toHaveBeenCalledWith({
+      data: { key: "public_intake_enabled", value: true },
+    });
+    await api("settings/public-intake", { enabled: false });
+    expect(fn.updateSetting).toHaveBeenLastCalledWith({
+      data: { key: "public_intake_enabled", value: false },
+    });
   });
 });

@@ -810,7 +810,12 @@ export default function CRM() {
             />
           )}
           {view === "qr" && (
-            <QRWorkspace data={data} brand={brand} onDirectory={() => go("branches")} />
+            <QRWorkspace
+              data={data}
+              brand={brand}
+              onDirectory={() => go("branches")}
+              onSettings={() => go("settings")}
+            />
           )}
           {view === "customers" && (
             <section className="panel">
@@ -879,6 +884,7 @@ export default function CRM() {
           {view === "settings" && (
             <SettingsWorkspace
               data={data}
+              onMutate={mutate}
               onNavigate={go}
               onRole={async (id) => {
                 await api("demo-login", { id });

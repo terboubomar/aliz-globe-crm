@@ -31,3 +31,24 @@
 .sign-in-form > .secondary {
   margin-top: 16px;
 }
+.qr-intake-off {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.settings-intake {
+  margin-top: 20px;
+}
+.settings-intake-body p {
+  margin: 0 0 14px;
+}
+.settings-intake-warning {
+  color: var(--amber);
+}
+.settings-intake-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
