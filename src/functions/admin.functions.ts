@@ -140,9 +140,9 @@ const staffInput = z.object({
   name: z.string().trim().min(2).max(100),
   role: z.enum(assignableRoles),
   financeDuty: z.enum(financeDuties),
-  brandIds: z.array(z.string()).min(1, "اختر علامة واحدة على الأقل"),
+  brandIds: z.array(z.string()).default([]),
   branchIds: z.array(z.string().uuid()).default([]),
-});
+}).refine((s) => s.role === "SUPER_ADMIN" || s.brandIds.length > 0, { message: "اختر علامة واحدة على الأقل", path: ["brandIds"] });
 
 export const listStaff = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -165,19 +165,26 @@ export const createStaff = createServerFn({ method: "POST" })
     const db = await c.admin();
     // Creates a confirmed account with an admin-set temporary password. No invite email is sent.
     const { data: created, error } = await db.auth.admin.createUser({ email: data.email, password: data.password, email_confirm: true });
-    if (error || !created.user) throw new DomainError("CREATE_FAILED", 400, error?.message.includes("already") ? "البريد مسجل مسبقاً" : "تعذر إنشاء الحساب");
+    if (error || !created.user) {
+      const { accountErrorMessage } = await import("@/lib/auth-errors");
+      throw new DomainError("CREATE_FAILED", 400, accountErrorMessage(error as never));
+    }
     const { error: e2 } = await db.from("user_roles").insert({
       user_id: created.user.id, email: data.email, name: data.name, role: data.role, finance_duty: data.financeDuty,
       brand_ids: data.brandIds, branch_ids: data.branchIds, enabled: true,
     });
-    c.rpcError(e2);
+    if (e2) {
+      // Don't leave a sign-in account without a role; the admin can simply try again.
+      await db.auth.admin.deleteUser(created.user.id);
+      c.rpcError(e2);
+    }
     await db.rpc("write_audit", { _actor: a.id, _action: `USER_CREATED_${data.role}`, _entity: created.user.id });
     return { id: created.user.id };
   });
 
 export const updateStaff = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => staffInput.extend({ userId: z.string().uuid(), enabled: z.boolean() }).parse(d))
+  .inputValidator((d: unknown) => staffInput.extend({ userId: z.string().uuid(), enabled: z.boolean(), password: z.string().min(12, "كلمة المرور 12 حرفاً على الأقل").max(128).optional() }).parse(d))
   .handler(async ({ data, context }) => {
     const c = await core();
     const a = await c.requireActor(context as never);
@@ -189,7 +196,14 @@ export const updateStaff = createServerFn({ method: "POST" })
     }).eq("user_id", data.userId);
     c.rpcError(error);
     // Disabled staff: role row blocks every server function and RLS read immediately; the ban stops token refresh.
-    await db.auth.admin.updateUserById(data.userId, { ban_duration: data.enabled ? "none" : "876000h" });
+    const { error: authErr } = await db.auth.admin.updateUserById(data.userId, {
+      ban_duration: data.enabled ? "none" : "876000h",
+      ...(data.password ? { password: data.password } : {}),
+    });
+    if (authErr && data.password) {
+      const { accountErrorMessage } = await import("@/lib/auth-errors");
+      throw new DomainError("PASSWORD_REJECTED", 400, accountErrorMessage(authErr as never).replace("تعذر إنشاء الحساب", "تعذر تحديث كلمة المرور"));
+    }
     await db.rpc("write_audit", { _actor: a.id, _action: data.enabled ? "USER_UPDATED" : "USER_DISABLED", _entity: data.userId });
     return { ok: true };
   });
