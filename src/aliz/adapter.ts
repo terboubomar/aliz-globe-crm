@@ -30,7 +30,13 @@ import {
   updateStaff,
   uploadEvidence,
 } from "@/functions/admin.functions";
-import { publicCreate, publicQrInfo, trackStatus } from "@/functions/public.functions";
+import {
+  publicAttach,
+  publicCreate,
+  publicQrInfo,
+  trackStatus,
+} from "@/functions/public.functions";
+import { prepareImage } from "./prepare-image";
 import { aggregateReport, previousReportPeriod, summarize } from "./report-aggregate";
 import type { Brand, Branch, Data, Refund, Shift, Ticket, User } from "./types";
 
@@ -274,7 +280,7 @@ async function ticketAction(id: string, action: string, body: Row) {
   });
 }
 
-const toBase64 = async (file: File) => {
+const toBase64 = async (file: Blob) => {
   const bytes = new Uint8Array(await file.arrayBuffer());
   let bin = "";
   for (let i = 0; i < bytes.length; i += 0x8000)
@@ -287,8 +293,22 @@ async function upload(
 ) {
   const files = body instanceof FormData ? (body.getAll("files") as File[]) : [];
   if (!files.length) throw new Error("اختر صورة واحدة على الأقل");
+  for (const f of files) {
+    const prepared = await prepareImage(f);
+    await uploadEvidence({
+      data: { ...owner, mime: prepared.type || f.type, base64: await toBase64(prepared) },
+    });
+  }
+  return { ok: true };
+}
+
+/** Photos from the QR form, authorized by the new complaint's tracking link. */
+async function publicUpload(token: string, body: BodyInit | null | undefined) {
+  const files = body instanceof FormData ? (body.getAll("files") as File[]) : [];
+  if (!files.length) throw new Error("اختر صورة واحدة على الأقل");
+  if (!token) throw new Error("انتهت جلسة إرفاق الصور");
   for (const f of files)
-    await uploadEvidence({ data: { ...owner, mime: f.type, base64: await toBase64(f) } });
+    await publicAttach({ data: { token, base64: await toBase64(await prepareImage(f)) } });
   return { ok: true };
 }
 
@@ -655,6 +675,11 @@ async function route(
     });
     return { id: "", number: res.number, trackingToken: res.trackingToken ?? "" };
   }
+  if (is("public", "attachments", "*"))
+    return publicUpload(
+      String((extra?.headers as Record<string, string> | undefined)?.["x-case-token"] ?? ""),
+      extra?.body,
+    );
   if (is("public", "status", "*")) {
     const r = await trackStatus({ data: { token: at(2) } });
     if (!r.ok) throw new Error(r.message);
