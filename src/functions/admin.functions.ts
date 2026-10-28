@@ -344,13 +344,11 @@ export const updateSetting = createServerFn({ method: "POST" })
   });
 
 /* ---------------- Private evidence ---------------- */
-const allowed: Record<string, number[]> = { "image/jpeg": [0xff, 0xd8, 0xff], "image/png": [0x89, 0x50, 0x4e, 0x47], "image/webp": [0x52, 0x49, 0x46, 0x46], "application/pdf": [0x25, 0x50, 0x44, 0x46] };
 export const uploadEvidence = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ ticketId: z.string().uuid().optional(), refundId: z.string().uuid().optional(), mime: z.string(), base64: z.string().max(11_200_000) }).parse(d))
   .handler(async ({ data, context }) => {
     const c = await core();
-    const { sha256 } = await import("./crypto.server");
     const a = await c.requireActor(context as never);
     authorize(a, "evidence.attach");
     if (!!data.ticketId === !!data.refundId) throw new DomainError("OWNER_REQUIRED", 400, "حدد شكوى أو طلباً مالياً واحداً");
@@ -358,24 +356,24 @@ export const uploadEvidence = createServerFn({ method: "POST" })
       ? (await context.supabase.from("tickets").select("brand_id,branch_id").eq("id", data.ticketId).maybeSingle()).data
       : (await context.supabase.from("refunds").select("brand_id,branch_id").eq("id", data.refundId!).maybeSingle()).data;
     if (!owner || !inScope(a, { brandId: owner.brand_id, branchId: owner.branch_id })) throw new DomainError("NOT_FOUND", 404, "خارج نطاقك");
-    const bytes = Uint8Array.from(atob(data.base64), (ch) => ch.charCodeAt(0));
-    const magic = allowed[data.mime];
-    if (!magic || !magic.every((b, i) => bytes[i] === b)) throw new DomainError("BAD_FILE", 400, "نوع الملف غير مسموح");
-    if (bytes.length > 8 * 1024 * 1024) throw new DomainError("TOO_LARGE", 400, "الحد الأقصى 8MB");
+    const raw = Uint8Array.from(atob(data.base64), (ch) => ch.charCodeAt(0));
+    if (raw.length > 8 * 1024 * 1024) throw new DomainError("TOO_LARGE", 400, "الحد الأقصى 8MB");
+    // Images only, rebuilt from pixels before storage (see evidence.server.ts).
+    const { cleanPhoto, putEvidence, sha256Hex } = await import("./evidence.server");
+    const bytes = cleanPhoto(raw);
     const db = await c.admin();
     const key = `${data.ticketId ? "t/" + data.ticketId : "r/" + data.refundId}/${crypto.randomUUID()}`;
-    const { putEvidence } = await import("./evidence.server");
-    c.rpcError(await putEvidence(key, bytes, data.mime));
+    c.rpcError(await putEvidence(key, bytes, "image/jpeg"));
     const { data: row, error: e2 } = await db.from("attachments").insert({
-      ticket_id: data.ticketId ?? null, refund_id: data.refundId ?? null, storage_key: key, mime: data.mime, size: bytes.length,
-      checksum: await sha256(data.base64), status: "PENDING_SCAN", uploaded_by: a.id,
+      ticket_id: data.ticketId ?? null, refund_id: data.refundId ?? null, storage_key: key, mime: "image/jpeg", size: bytes.length,
+      checksum: await sha256Hex(bytes), status: "CLEAN", uploaded_by: a.id,
     }).select("id").single();
     c.rpcError(e2);
     await db.rpc("write_audit", { _actor: a.id, _action: "EVIDENCE_UPLOADED", _entity: row!.id });
-    return { id: row!.id, status: "PENDING_SCAN" };
+    return { id: row!.id, status: "CLEAN" };
   });
 
-/** Short-lived signed link, only for files a malware scanner marked CLEAN. No public evidence URLs exist. */
+/** Short-lived signed link, only for CLEAN (rebuilt) files. No public evidence URLs exist. */
 export const evidenceLink = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
@@ -385,6 +383,10 @@ export const evidenceLink = createServerFn({ method: "POST" })
     authorize(a, "evidence.view");
     const { data: f } = await context.supabase.from("attachments").select("storage_key,status").eq("id", data.id).maybeSingle();
     if (!f) throw new DomainError("NOT_FOUND", 404, "غير متاح");
+    if (f.status === "PENDING_SCAN") {
+      const { clearPending } = await import("./evidence.server");
+      if (await clearPending(data.id, f.storage_key, a.id)) f.status = "CLEAN";
+    }
     if (f.status !== "CLEAN") throw new DomainError("SCAN_PENDING", 409, "الملف بانتظار فحص الأمان");
     const db = await c.admin();
     const { data: s } = await db.storage.from("evidence").createSignedUrl(f.storage_key, 60);
