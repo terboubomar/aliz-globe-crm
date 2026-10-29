@@ -1,6 +1,16 @@
 import { BulkScheduleModal } from "./bulk-schedule-modal";
+import { RotationPanel } from "./rotation-panel";
+import { ScheduleGenerator } from "./schedule-generator";
 import { useState, FormEvent } from "react";
-import { Plus, ChevronRight, ChevronLeft, Clock, Search } from "lucide-react";
+import {
+  Plus,
+  ChevronRight,
+  ChevronLeft,
+  Clock,
+  Search,
+  CalendarDays,
+  Sparkles,
+} from "lucide-react";
 import { Data, Shift, n, date, roleNames } from "./types";
 import { Modal, Field, Submit, Empty } from "./ui";
 import {
@@ -27,6 +37,17 @@ const dayLabel = (v: string, weekday = false) =>
     ...(weekday ? { weekday: "short" as const } : {}),
     timeZone: "Asia/Riyadh",
   }).format(new Date(riyadhISO(v, "12:00")));
+/** Time of day a shift starts, for its colour: day, evening or night. */
+const period = (start: string) => {
+  const hour = Number(
+    new Intl.DateTimeFormat("en-GB", {
+      hour: "2-digit",
+      hourCycle: "h23",
+      timeZone: "Asia/Riyadh",
+    }).format(new Date(start)),
+  );
+  return hour >= 5 && hour < 15 ? "day" : hour < 19 && hour >= 15 ? "evening" : "night";
+};
 const staffRoles = ["AGENT", "SHIFT_LEAD", "CUSTOMER_SERVICE_MANAGER", "MARKETING_MANAGER"];
 export function ScheduleWorkspace({
   data,
@@ -37,7 +58,8 @@ export function ScheduleWorkspace({
   mutate: (p: string, b?: unknown) => Promise<unknown>;
   busy: boolean;
 }) {
-  const [week, setWeek] = useState(0),
+  const [section, setSection] = useState<"week" | "generate">("week"),
+    [week, setWeek] = useState(0),
     [search, setSearch] = useState(""),
     [bulk, setBulk] = useState(false),
     [editing, setEditing] = useState<Shift | null | undefined>(),
@@ -92,270 +114,269 @@ export function ScheduleWorkspace({
   };
   return (
     <>
-      <section className="panel staff-schedule">
-        <div className="panel-head">
-          <div>
-            <h2>{manage ? "جدول فريق الدعم" : "جدولي"}</h2>
-            <span className="badge neutral">جميع العلامات</span>
+      {manage && (
+        <div className="queue-tabs schedule-tabs" role="tablist" aria-label="أقسام الجدول">
+          <button
+            role="tab"
+            aria-selected={section === "week"}
+            className={section === "week" ? "current" : ""}
+            onClick={() => setSection("week")}
+          >
+            <CalendarDays size={16} /> الجدول الأسبوعي
+          </button>
+          <button
+            role="tab"
+            aria-selected={section === "generate"}
+            className={section === "generate" ? "current" : ""}
+            onClick={() => setSection("generate")}
+          >
+            <Sparkles size={16} /> إنشاء الجدول والتدوير
+          </button>
+        </div>
+      )}
+      {notice && (
+        <p className="notice schedule-notice" role="status">
+          {notice}
+        </p>
+      )}
+      {section === "week" && (
+        <section className="panel staff-schedule">
+          <div className="panel-head">
+            <div>
+              <h2>{manage ? "جدول فريق الدعم" : "جدولي"}</h2>
+              <span className="badge neutral">جميع العلامات</span>
+            </div>
+            <div className="table-tools">
+              {manage && (
+                <button
+                  className="secondary"
+                  disabled={!staff.length || busy}
+                  onClick={() => {
+                    setError("");
+                    setBulk(true);
+                  }}
+                >
+                  جدولة جماعية
+                </button>
+              )}
+              {manage && (
+                <button className="primary" disabled={!staff.length || busy} onClick={() => open()}>
+                  <Plus size={17} /> إضافة وردية
+                </button>
+              )}
+            </div>
           </div>
-          <div className="table-tools">
-            {manage && (
+          <div className="schedule-toolbar">
+            <div className="schedule-week-nav">
               <button
-                className="secondary"
-                disabled={!staff.length || busy}
-                onClick={() => {
-                  setError("");
-                  setBulk(true);
-                }}
+                className="icon-btn"
+                aria-label="الأسبوع السابق"
+                onClick={() => setWeek(week - 1)}
               >
-                جدولة جماعية
+                <ChevronRight size={19} />
               </button>
-            )}
+              <b>
+                {dayLabel(days[0]!)} – {dayLabel(days[6]!)}
+              </b>
+              <button
+                className="icon-btn"
+                aria-label="الأسبوع التالي"
+                onClick={() => setWeek(week + 1)}
+              >
+                <ChevronLeft size={19} />
+              </button>
+              <button className="secondary" onClick={() => setWeek(0)} disabled={week === 0}>
+                هذا الأسبوع
+              </button>
+            </div>
+            <span className="schedule-zone">
+              <Clock size={15} /> توقيت الرياض
+            </span>
             {manage && (
-              <button className="primary" disabled={!staff.length || busy} onClick={() => open()}>
-                <Plus size={17} /> إضافة وردية
-              </button>
+              <label className="qr-search">
+                <Search size={17} />
+                <input
+                  aria-label="البحث عن موظف"
+                  placeholder="ابحث عن موظف"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </label>
             )}
           </div>
-        </div>
-        <div className="schedule-toolbar">
-          <div className="schedule-week-nav">
-            <button
-              className="icon-btn"
-              aria-label="الأسبوع السابق"
-              onClick={() => setWeek(week - 1)}
-            >
-              <ChevronRight size={19} />
-            </button>
-            <b>
-              {dayLabel(days[0]!)} – {dayLabel(days[6]!)}
-            </b>
-            <button
-              className="icon-btn"
-              aria-label="الأسبوع التالي"
-              onClick={() => setWeek(week + 1)}
-            >
-              <ChevronLeft size={19} />
-            </button>
-            <button className="secondary" onClick={() => setWeek(0)} disabled={week === 0}>
-              هذا الأسبوع
-            </button>
+          <div className="schedule-totals">
+            <span>
+              <b>{n(staff.filter((u) => shifts.some((s) => s.userId === u.id)).length)}</b> موظفون
+              مجدولون
+            </span>
+            <span>
+              <b>{n(shifts.filter((s) => !s.dayOff).length)}</b> ورديات
+            </span>
+            <span>
+              <b>{n(Math.round(netHours(shifts, from, to) * 10) / 10)}</b> ساعات عمل
+            </span>
+            <span className="schedule-legend" aria-label="ألوان الورديات">
+              <i className="shift-day" /> نهارية
+              <i className="shift-evening" /> مسائية
+              <i className="shift-night" /> ليلية
+              <i className="schedule-day-off" /> راحة
+            </span>
           </div>
-          <span className="schedule-zone">
-            <Clock size={15} /> توقيت الرياض
-          </span>
-          {manage && (
-            <label className="qr-search">
-              <Search size={17} />
-              <input
-                aria-label="البحث عن موظف"
-                placeholder="ابحث عن موظف"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </label>
-          )}
-        </div>
-        <div className="schedule-totals">
-          <span>
-            <b>{n(staff.filter((u) => shifts.some((s) => s.userId === u.id)).length)}</b> موظفون
-            مجدولون
-          </span>
-          <span>
-            <b>{n(shifts.filter((s) => !s.dayOff).length)}</b> ورديات
-          </span>
-          <span>
-            <b>{n(Math.round(netHours(shifts, from, to) * 10) / 10)}</b> ساعات عمل
-          </span>
-        </div>
-        {notice && (
-          <p className="notice" role="status">
-            {notice}
-          </p>
-        )}
-        {!visible.length ? (
-          <Empty title="لا يوجد موظفون مطابقون" />
-        ) : (
-          <div className="table-scroll">
-            <table className="schedule-table shared-schedule-table">
-              <thead>
-                <tr>
-                  <th>الموظف</th>
-                  {days.map((day) => (
-                    <th key={day} className={day === today ? "schedule-today" : ""}>
-                      {dayLabel(day, true)}
-                    </th>
-                  ))}
-                  <th>الساعات</th>
-                </tr>
-              </thead>
-              <tbody>
-                {visible.map((user) => (
-                  <tr key={user.id}>
-                    <td>
-                      <b>{user.name}</b>
-                      <small className="schedule-staff-role">{roleNames[user.role]}</small>
-                    </td>
-                    {days.map((day) => {
-                      const dayFrom = riyadhISO(day),
-                        dayTo = riyadhISO(addDays(day, 1)),
-                        own = shifts.filter(
-                          (s) => s.userId === user.id && intersects(s.start, s.end, dayFrom, dayTo),
-                        ),
-                        leave = leaves.find(
-                          (l) =>
-                            l.userId === user.id &&
-                            l.status === "APPROVED" &&
-                            intersects(l.start, l.end, dayFrom, dayTo),
+          {!visible.length ? (
+            <Empty title="لا يوجد موظفون مطابقون" />
+          ) : (
+            <div className="table-scroll">
+              <table className="schedule-table shared-schedule-table">
+                <thead>
+                  <tr>
+                    <th>الموظف</th>
+                    {days.map((day) => (
+                      <th key={day} className={day === today ? "schedule-today" : ""}>
+                        {dayLabel(day, true)}
+                      </th>
+                    ))}
+                    <th>الساعات</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visible.map((user) => (
+                    <tr key={user.id}>
+                      <td>
+                        <b>{user.name}</b>
+                        <small className="schedule-staff-role">{roleNames[user.role]}</small>
+                      </td>
+                      {days.map((day) => {
+                        const dayFrom = riyadhISO(day),
+                          dayTo = riyadhISO(addDays(day, 1)),
+                          own = shifts.filter(
+                            (s) =>
+                              s.userId === user.id &&
+                              (s.dayOff
+                                ? intersects(s.start, s.end, dayFrom, dayTo)
+                                : riyadhDay(s.start) === day),
+                          ),
+                          leave = leaves.find(
+                            (l) =>
+                              l.userId === user.id &&
+                              l.status === "APPROVED" &&
+                              intersects(l.start, l.end, dayFrom, dayTo),
+                          );
+                        return (
+                          <td key={day} className={day === today ? "schedule-today" : ""}>
+                            {leave && <span className="badge amber">إجازة</span>}
+                            {own.map((shift) => (
+                              <button
+                                type="button"
+                                className={
+                                  "shift-block schedule-shift " +
+                                  (shift.dayOff
+                                    ? "schedule-day-off"
+                                    : "shift-" + period(shift.start))
+                                }
+                                key={shift.id}
+                                disabled={!manage}
+                                onClick={() => {
+                                  setError("");
+                                  setDayOff(!!shift.dayOff);
+                                  setEditing(shift);
+                                }}
+                                aria-label={`${shift.dayOff ? "تعديل يوم راحة" : "تعديل وردية"} ${user.name} ${day}`}
+                              >
+                                {shift.dayOff ? (
+                                  <b>يوم راحة</b>
+                                ) : (
+                                  <>
+                                    <b>
+                                      {clock(shift.start)} – {clock(shift.end)}
+                                    </b>
+                                    {shift.lead && <small>قائد الوردية</small>}
+                                    {shift.breakStart && shift.breakEnd && (
+                                      <small>
+                                        استراحة {clock(shift.breakStart)} – {clock(shift.breakEnd)}
+                                      </small>
+                                    )}
+                                  </>
+                                )}
+                              </button>
+                            ))}
+                            {!own.length && !leave && <span className="unplanned">غير مجدول</span>}
+                            {manage && !leave && !own.some((s) => s.dayOff) && (
+                              <button
+                                className="schedule-add"
+                                aria-label={`إضافة وردية ${user.name} ${day}`}
+                                onClick={() => open(user.id, day)}
+                              >
+                                <Plus size={14} />
+                              </button>
+                            )}
+                          </td>
                         );
+                      })}
+                      <td>
+                        <b>
+                          {n(
+                            Math.round(
+                              netHours(
+                                shifts.filter((s) => s.userId === user.id),
+                                from,
+                                to,
+                              ) * 10,
+                            ) / 10,
+                          )}
+                        </b>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <th scope="row">على رأس العمل</th>
+                    {days.map((day) => {
+                      const working = new Set(
+                        shifts
+                          .filter((s) => !s.dayOff && riyadhDay(s.start) === day)
+                          .map((s) => s.userId),
+                      ).size;
                       return (
                         <td key={day} className={day === today ? "schedule-today" : ""}>
-                          {leave && <span className="badge amber">إجازة</span>}
-                          {own.map((shift) => (
-                            <button
-                              type="button"
-                              className={
-                                "shift-block schedule-shift" +
-                                (shift.dayOff ? " schedule-day-off" : "")
-                              }
-                              key={shift.id}
-                              disabled={!manage}
-                              onClick={() => {
-                                setError("");
-                                setDayOff(!!shift.dayOff);
-                                setEditing(shift);
-                              }}
-                              aria-label={`${shift.dayOff ? "تعديل يوم راحة" : "تعديل وردية"} ${user.name} ${day}`}
-                            >
-                              {shift.dayOff ? (
-                                <b>يوم راحة</b>
-                              ) : (
-                                <>
-                                  <b>
-                                    {clock(shift.start)} – {clock(shift.end)}
-                                  </b>
-                                  {riyadhDay(shift.start) !== riyadhDay(shift.end) && (
-                                    <small>
-                                      {riyadhDay(shift.start) === day
-                                        ? "تنتهي في اليوم التالي"
-                                        : "بدأت في اليوم السابق"}
-                                    </small>
-                                  )}
-                                  {shift.lead && <small>قائد الوردية</small>}
-                                  {shift.breakStart && shift.breakEnd && (
-                                    <small>
-                                      استراحة {clock(shift.breakStart)} – {clock(shift.breakEnd)}
-                                    </small>
-                                  )}
-                                </>
-                              )}
-                            </button>
-                          ))}
-                          {!own.length && !leave && <span className="unplanned">غير مجدول</span>}
-                          {manage && !leave && !own.some((s) => s.dayOff) && (
-                            <button
-                              className="schedule-add"
-                              aria-label={`إضافة وردية ${user.name} ${day}`}
-                              onClick={() => open(user.id, day)}
-                            >
-                              <Plus size={14} />
-                            </button>
-                          )}
+                          <b className={working ? "" : "schedule-empty-day"}>{n(working)}</b>
                         </td>
                       );
                     })}
-                    <td>
-                      <b>
-                        {n(
-                          Math.round(
-                            netHours(
-                              shifts.filter((s) => s.userId === user.id),
-                              from,
-                              to,
-                            ) * 10,
-                          ) / 10,
-                        )}
-                      </b>
-                    </td>
+                    <td />
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
-      <section className="panel">
-        <div className="panel-head">
-          <h2>الإجازات</h2>
-        </div>
-        <div className="padded">
-          <form
-            className="schedule-leave-form"
-            onSubmit={async (e) => {
-              e.preventDefault();
-              setError("");
-              const form = e.currentTarget,
-                v = Object.fromEntries(new FormData(form)) as Record<string, string>;
-              try {
-                await mutate("leave", {
-                  start: riyadhISO(v["start"] ?? ""),
-                  end: riyadhISO(addDays(v["end"] ?? "", 1)),
-                });
-                form.reset();
-                setNotice("تم إرسال طلب الإجازة.");
-              } catch (e) {
-                setError((e as Error).message);
-              }
-            }}
-          >
-            <Field label="من">
-              <input name="start" type="date" required />
-            </Field>
-            <Field label="إلى">
-              <input name="end" type="date" required />
-            </Field>
-            <Submit busy={busy}>طلب إجازة لحسابي</Submit>
-          </form>
-          {!allLeaves.length && <Empty title="لا توجد طلبات إجازة" />}
-          {allLeaves.map((l) => (
-            <div className="task-row" key={l.id}>
-              <b>{data.users.find((u) => u.id === l.userId)?.name ?? data.me.name}</b>
-              <span>
-                {date(l.start)} – {date(l.end)}
-              </span>
-              <span className="badge">
-                {l.status === "REQUESTED"
-                  ? "بانتظار الموافقة"
-                  : l.status === "APPROVED"
-                    ? "معتمدة"
-                    : "مرفوضة"}
-              </span>
-              {manage && l.status === "REQUESTED" && (
-                <div className="table-tools">
-                  {["approve", "reject"].map((action) => (
-                    <button
-                      key={action}
-                      disabled={busy}
-                      className="secondary"
-                      onClick={async () => {
-                        setError("");
-                        try {
-                          await mutate(`leave/${l.id}/${action}`, {});
-                          setNotice("تم تحديث طلب الإجازة.");
-                        } catch (e) {
-                          setError((e as Error).message);
-                        }
-                      }}
-                    >
-                      {action === "approve" ? "اعتماد" : "رفض"}
-                    </button>
-                  ))}
-                </div>
-              )}
+                </tfoot>
+              </table>
             </div>
-          ))}
+          )}
+        </section>
+      )}
+      {manage && section === "generate" && (
+        <div className="schedule-generate">
+          <ScheduleGenerator
+            staff={staff}
+            mutate={mutate}
+            busy={busy}
+            onNotice={setNotice}
+            onCreated={(sunday) => {
+              setWeek(
+                Math.round(
+                  (Date.parse(`${sunday}T12:00:00Z`) - Date.parse(`${weekDays(0)[0]}T12:00:00Z`)) /
+                    (7 * 86400000),
+                ),
+              );
+              setSection("week");
+            }}
+          />
+          <RotationPanel
+            staff={staff}
+            sunday={days[0]!}
+            mutate={mutate}
+            busy={busy}
+            onNotice={setNotice}
+          />
         </div>
-      </section>
+      )}
       {error && editing === undefined && (
         <p className="error" role="alert">
           {error}

@@ -26,10 +26,21 @@ import {
   saveShifts,
   setBranchActive,
   updateBrand,
+  updateSetting,
+  getRotation,
+  saveRotation,
+  applyRotation,
+  receiptChannelStatus,
   updateStaff,
   uploadEvidence,
 } from "@/functions/admin.functions";
-import { publicCreate, publicQrInfo, trackStatus } from "@/functions/public.functions";
+import {
+  publicAttach,
+  publicCreate,
+  publicQrInfo,
+  trackStatus,
+} from "@/functions/public.functions";
+import { prepareImage } from "./prepare-image";
 import { aggregateReport, previousReportPeriod, summarize } from "./report-aggregate";
 import type { Brand, Branch, Data, Refund, Shift, Ticket, User } from "./types";
 
@@ -233,11 +244,12 @@ async function bootstrap(): Promise<Data> {
     shifts: (shifts as Row[]).map(toShift),
     leave: [],
     permissions: b.permissions,
-    integrations: { whatsapp: b.flags.whatsapp },
+    integrations: { whatsapp: b.flags.whatsapp, email: b.flags.email },
     policy: {
       sla: b.flags.slaVersion,
       finance: b.flags.financeApproved,
       publicIntake: b.flags.publicIntake,
+      autoAssign: b.flags.autoAssign,
     },
   };
 }
@@ -273,7 +285,7 @@ async function ticketAction(id: string, action: string, body: Row) {
   });
 }
 
-const toBase64 = async (file: File) => {
+const toBase64 = async (file: Blob) => {
   const bytes = new Uint8Array(await file.arrayBuffer());
   let bin = "";
   for (let i = 0; i < bytes.length; i += 0x8000)
@@ -286,8 +298,22 @@ async function upload(
 ) {
   const files = body instanceof FormData ? (body.getAll("files") as File[]) : [];
   if (!files.length) throw new Error("اختر صورة واحدة على الأقل");
+  for (const f of files) {
+    const prepared = await prepareImage(f);
+    await uploadEvidence({
+      data: { ...owner, mime: prepared.type || f.type, base64: await toBase64(prepared) },
+    });
+  }
+  return { ok: true };
+}
+
+/** Photos from the QR form, authorized by the new complaint's tracking link. */
+async function publicUpload(token: string, body: BodyInit | null | undefined) {
+  const files = body instanceof FormData ? (body.getAll("files") as File[]) : [];
+  if (!files.length) throw new Error("اختر صورة واحدة على الأقل");
+  if (!token) throw new Error("انتهت جلسة إرفاق الصور");
   for (const f of files)
-    await uploadEvidence({ data: { ...owner, mime: f.type, base64: await toBase64(f) } });
+    await publicAttach({ data: { token, base64: await toBase64(await prepareImage(f)) } });
   return { ok: true };
 }
 
@@ -477,6 +503,7 @@ async function route(
       ...body,
       priority: body["priority"] || "P3",
       whatsappConsent: !!body["whatsappConsent"],
+      emailConsent: !!body["emailConsent"],
     };
     return createPhoneComplaint({ data: { key, input } });
   }
@@ -487,7 +514,7 @@ async function route(
     const r = await searchComplaints({
       data: { q: String(body["phone"] ?? ""), filter: "all", offset: 0 },
     });
-    return r.tickets.map((t) => ({ ...toTicket(t), number: t.number }));
+    return (r?.tickets ?? []).map((t) => ({ ...toTicket(t), number: t.number }));
   }
 
   // Refunds
@@ -560,18 +587,28 @@ async function route(
 
   // Staff
   if (is("users") && method === "GET") {
-    const rows = await listStaff();
-    return rows.map((u) => ({
-      id: u.user_id,
-      name: u.name,
-      email: u.email,
-      role: u.role,
-      financeDuty: u.finance_duty,
-      brandIds: u.brand_ids,
-      branchIds: u.branch_ids,
-      active: u.enabled,
-      createdAt: u.created_at,
-    }));
+    const rows = (await listStaff()) ?? [];
+    const { assignableRoles, financeDuties, permissionsForRole } = await import("@/lib/domain");
+    return {
+      users: rows.map((u) => ({
+        id: u.user_id,
+        name: u.name,
+        email: u.email,
+        role: u.role,
+        financeDuty: u.finance_duty,
+        brandIds: u.brand_ids ?? [],
+        branchIds: u.branch_ids ?? [],
+        enabled: u.enabled,
+        active: u.enabled,
+        version: 1,
+        loginType: "password" as const,
+        subject: null,
+        createdAt: u.created_at,
+      })),
+      roles: assignableRoles.map((id) => ({ id, permissions: permissionsForRole(id) })),
+      financeDuties: financeDuties.map((id) => ({ id, permissions: permissionsForRole("AGENT", id) })),
+      passwordLogin: true,
+    };
   }
   if (is("users") && method === "POST")
     return createStaff({
@@ -579,6 +616,7 @@ async function route(
         ...staffFields(body),
         email: String(body["email"]),
         password: String(body["password"]),
+        enabled: body["enabled"] !== false,
       },
     });
   if (is("users", "*", "status")) {
@@ -598,11 +636,21 @@ async function route(
   }
   if (is("users", "*") && method === "POST")
     return updateStaff({
-      data: { ...staffFields(body), userId: at(1), enabled: body["active"] !== false },
+      data: {
+        ...staffFields(body),
+        userId: at(1),
+        enabled: (body["enabled"] ?? body["active"]) !== false,
+        ...(body["password"] ? { password: String(body["password"]) } : {}),
+      },
     });
 
   // Schedule
   if (is("shifts")) return saveShifts({ data: { entries: [shiftEntry(body)] } });
+  if (is("schedule", "rotation") && method === "GET")
+    return getRotation({ data: params.get("sunday") ? { sunday: params.get("sunday")! } : {} });
+  if (is("schedule", "rotation")) return saveRotation({ data: body as never });
+  if (is("schedule", "rotation", "apply"))
+    return applyRotation({ data: { sunday: String(body["sunday"] ?? "") } });
   if (is("shifts", "bulk"))
     return saveShifts({
       data: { entries: ((body["entries"] ?? body["shifts"]) as Row[]).map(shiftEntry) },
@@ -613,6 +661,16 @@ async function route(
     await cancelShift({ data: { id: at(1), version: Number(body["version"]) } });
     return saveShifts({ data: { entries: [shiftEntry(body)] } });
   }
+
+  // Settings (super admin; the server authorizes and audits)
+  if (is("settings", "receipts", "*")) {
+    const key = at(2) === "email" ? "email_receipts_enabled" : "whatsapp_enabled";
+    return updateSetting({ data: { key, value: !!body["enabled"] } });
+  }
+  if (is("settings", "auto-assign"))
+    return updateSetting({ data: { key: "auto_assign_enabled", value: !!body["enabled"] } });
+  if (is("settings", "public-intake"))
+    return updateSetting({ data: { key: "public_intake_enabled", value: !!body["enabled"] } });
 
   // Reports
   if (is("reports")) return report(params);
@@ -626,7 +684,8 @@ async function route(
       branch: info.branchName,
       logo: logoFile(info.logo),
       demo: false,
-      whatsappAvailable: false,
+      whatsappAvailable: info.whatsappAvailable,
+      emailAvailable: info.emailAvailable,
     };
   }
   if (is("public", "q", "*")) {
@@ -645,11 +704,25 @@ async function route(
           externalOrder: (body["externalOrder"] as string) || undefined,
           platform: (body["platform"] as string) || undefined,
           consent: body["consent"] === true ? true : (undefined as never),
+          email: (body["email"] as string) || undefined,
+          whatsappConsent: body["whatsappConsent"] === true,
+          emailConsent: body["emailConsent"] === true,
         },
       },
     });
-    return { id: "", number: res.number, trackingToken: res.trackingToken ?? "" };
+    return {
+      id: "",
+      number: res.number,
+      trackingToken: res.trackingToken ?? "",
+      confirmationStatus: res.confirmationStatus,
+      emailStatus: res.emailStatus,
+    };
   }
+  if (is("public", "attachments", "*"))
+    return publicUpload(
+      String((extra?.headers as Record<string, string> | undefined)?.["x-case-token"] ?? ""),
+      extra?.body,
+    );
   if (is("public", "status", "*")) {
     const r = await trackStatus({ data: { token: at(2) } });
     if (!r.ok) throw new Error(r.message);
@@ -676,7 +749,9 @@ async function route(
   // Not built on this backend yet.
   if (is("integrations", "telegram", "account"))
     return { available: false, linked: false, label: null, pending: null, expiresAt: null };
-  if (is("integrations", "telegram") || is("integrations", "whatsapp"))
+  if (is("integrations", "whatsapp") || is("integrations", "email"))
+    return receiptChannelStatus({ data: { channel: at(1) as "whatsapp" | "email" } });
+  if (is("integrations", "telegram"))
     return { ready: false, enabled: false, missing: [], statuses: {}, users: [] };
   throw new Error(NOT_YET);
 }

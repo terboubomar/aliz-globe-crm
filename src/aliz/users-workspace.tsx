@@ -63,7 +63,7 @@ export function UsersWorkspace({
       </section>
     );
   const users =
-    directory?.users.filter(
+    directory?.users?.filter(
       (u) =>
         (brand === "all" || u.role === "SUPER_ADMIN" || u.brandIds.includes(brand)) &&
         (role === "all" || u.role === role) &&
@@ -114,7 +114,7 @@ export function UsersWorkspace({
         <div className="queue-tabs">
           <button className={tab === "users" ? "current" : ""} onClick={() => setTab("users")}>
             <Users size={16} />
-            المستخدمون {directory && n(directory.users.length)}
+            المستخدمون {directory && n((directory.users?.length ?? 0))}
           </button>
           <button className={tab === "roles" ? "current" : ""} onClick={() => setTab("roles")}>
             <ShieldCheck size={16} />
@@ -156,7 +156,7 @@ export function UsersWorkspace({
                 onChange={(e) => setRole(e.target.value)}
               >
                 <option value="all">جميع الأدوار</option>
-                {directory.roles.map((r) => (
+                {(directory.roles ?? []).map((r) => (
                   <option key={r.id} value={r.id}>
                     {roleNames[r.id] ?? r.id}
                   </option>
@@ -264,7 +264,7 @@ export function UsersWorkspace({
         ) : (
           directory && (
             <div className="roles-list">
-              {directory.roles.map((r) => (
+              {(directory.roles ?? []).map((r) => (
                 <article key={r.id}>
                   <h3>{roleNames[r.id] ?? r.id}</h3>
                   <p>{roleDescriptions[r.id]}</p>
@@ -351,7 +351,7 @@ function UserEditor({
     [restricted, setRestricted] = useState(!!user?.branchIds.length),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
-  const selectedRole = directory.roles.find((r) => r.id === role);
+  const selectedRole = (directory.roles ?? []).find((r) => r.id === role);
   const previewPermissions = [
     ...new Set([
       ...(selectedRole?.permissions ?? []),
@@ -436,7 +436,7 @@ function UserEditor({
                   if (e.target.value === "BRANCH_MANAGER") setRestricted(true);
                 }}
               >
-                {directory.roles.map((r) => (
+                {(directory.roles ?? []).map((r) => (
                   <option key={r.id} value={r.id}>
                     {roleNames[r.id] ?? r.id}
                   </option>

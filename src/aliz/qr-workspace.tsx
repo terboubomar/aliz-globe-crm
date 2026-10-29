@@ -27,10 +27,12 @@ export function QRWorkspace({
   data,
   brand,
   onDirectory,
+  onSettings,
 }: {
   data: Data;
   brand: string;
   onDirectory: () => void;
+  onSettings?: (() => void) | undefined;
 }) {
   const [qrs, setQrs] = useState<BranchQR[]>([]),
     [loading, setLoading] = useState(true),
@@ -86,6 +88,19 @@ export function QRWorkspace({
     );
   return (
     <>
+      {!data.policy.publicIntake && (
+        <div className="notice qr-intake-off" role="status">
+          <span>
+            استقبال شكاوى العملاء متوقف: الرموز تعمل، لكن النموذج يعرض «الرابط غير متاح» حتى يفعّله
+            المسؤول الأعلى من الإعدادات.
+          </span>
+          {data.me.role === "SUPER_ADMIN" && onSettings && (
+            <button className="text-btn" onClick={onSettings}>
+              فتح الإعدادات
+            </button>
+          )}
+        </div>
+      )}
       <section className="panel qr-workspace">
         <div className="panel-head">
           <div>

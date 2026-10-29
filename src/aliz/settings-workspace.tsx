@@ -12,11 +12,12 @@ import {
   CalendarDays,
   RefreshCw,
   Search,
+  Mail,
 } from "lucide-react";
 import { api, date, eventNames, n, roleNames, type Data } from "./types";
 import { Field, Empty } from "./ui";
 import { canOpenView } from "./access";
-import { WhatsAppIntegration } from "./whatsapp-integration";
+import { EmailIntegration, WhatsAppIntegration } from "./whatsapp-integration";
 import { TelegramIntegration } from "./telegram-integration";
 
 type Section = "general" | "integrations" | "audit";
@@ -24,13 +25,15 @@ export function SettingsWorkspace({
   data,
   onRole,
   onNavigate,
+  onMutate,
 }: {
   data: Data;
   onRole: (id: string) => void;
   onNavigate: (view: string) => void;
+  onMutate: (path: string, body?: unknown) => Promise<unknown>;
 }) {
   const [section, setSection] = useState<Section>("general"),
-    [channel, setChannel] = useState<"whatsapp" | "telegram">("whatsapp");
+    [channel, setChannel] = useState<"whatsapp" | "email" | "telegram">("whatsapp");
   const sections = [
     { id: "general" as const, label: "عام", icon: Building2 },
     ...(data.me.role === "SUPER_ADMIN"
@@ -169,6 +172,12 @@ export function SettingsWorkspace({
                 )}
               </section>
             </div>
+            {data.me.role === "SUPER_ADMIN" && (
+              <>
+                <PublicIntakeSetting data={data} onMutate={onMutate} />
+                <AutoAssignSetting data={data} onMutate={onMutate} />
+              </>
+            )}
             {shortcuts.length > 0 && (
               <section className="panel settings-management">
                 <div className="panel-head">
@@ -202,6 +211,16 @@ export function SettingsWorkspace({
                 </span>
                 <ChevronLeft size={18} />
               </button>
+              <button aria-pressed={channel === "email"} onClick={() => setChannel("email")}>
+                <span className="settings-channel-icon">
+                  <Mail size={24} />
+                </span>
+                <span>
+                  <b>البريد الإلكتروني</b>
+                  <small>تأكيد الشكوى للعميل</small>
+                </span>
+                <ChevronLeft size={18} />
+              </button>
               <button aria-pressed={channel === "telegram"} onClick={() => setChannel("telegram")}>
                 <span className="settings-channel-icon">
                   <Send size={24} />
@@ -213,7 +232,13 @@ export function SettingsWorkspace({
                 <ChevronLeft size={18} />
               </button>
             </div>
-            {channel === "whatsapp" ? <WhatsAppIntegration /> : <TelegramIntegration />}
+            {channel === "whatsapp" ? (
+              <WhatsAppIntegration />
+            ) : channel === "email" ? (
+              <EmailIntegration />
+            ) : (
+              <TelegramIntegration />
+            )}
           </>
         )}
         {section === "audit" &&
@@ -330,6 +355,140 @@ function AuditSettings({ data }: { data: Data }) {
         ) : (
           <Empty title={search ? "لا توجد نتائج مطابقة" : "لا توجد إجراءات مسجلة"} />
         ))}
+    </section>
+  );
+}
+
+/** Super admin switch for customer complaints through branch QR codes (audited server-side). */
+function PublicIntakeSetting({
+  data,
+  onMutate,
+}: {
+  data: Data;
+  onMutate: (path: string, body?: unknown) => Promise<unknown>;
+}) {
+  const on = data.policy.publicIntake;
+  const [confirming, setConfirming] = useState(false),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState("");
+  async function save(enabled: boolean) {
+    setBusy(true);
+    setError("");
+    try {
+      await onMutate("settings/public-intake", { enabled });
+      setConfirming(false);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <section className="panel settings-intake">
+      <div className="panel-head">
+        <h2>
+          <QrCode size={18} />
+          شكاوى العملاء عبر رموز QR
+        </h2>
+        <span className={"badge " + (on ? "green" : "neutral")}>{on ? "مفعّل" : "متوقف"}</span>
+      </div>
+      <div className="padded settings-intake-body">
+        <p>
+          {on
+            ? "يستقبل النظام الآن شكاوى العملاء من رموز QR في الفروع المفعلة."
+            : "رموز QR تعمل، لكن نموذج العميل يعرض «الرابط غير متاح» حتى تفعيل الاستقبال."}
+        </p>
+        {confirming ? (
+          <>
+            <p className="settings-intake-warning">
+              قبل التفعيل: تأكد من اعتماد إشعار الخصوصية الظاهر للعميل وسياسة الاحتفاظ بالبيانات
+              (القرار D07). سيُسجَّل التفعيل في سجل التدقيق.
+            </p>
+            <div className="settings-intake-actions">
+              <button className="primary" disabled={busy} onClick={() => save(true)}>
+                تأكيد التفعيل
+              </button>
+              <button className="secondary" disabled={busy} onClick={() => setConfirming(false)}>
+                إلغاء
+              </button>
+            </div>
+          </>
+        ) : (
+          <div className="settings-intake-actions">
+            {on ? (
+              <button className="secondary" disabled={busy} onClick={() => save(false)}>
+                إيقاف الاستقبال
+              </button>
+            ) : (
+              <button className="primary" disabled={busy} onClick={() => setConfirming(true)}>
+                تفعيل الاستقبال
+              </button>
+            )}
+          </div>
+        )}
+        {error && (
+          <p className="error" role="alert">
+            {error}
+          </p>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function AutoAssignSetting({
+  data,
+  onMutate,
+}: {
+  data: Data;
+  onMutate: (path: string, body?: unknown) => Promise<unknown>;
+}) {
+  const on = data.policy.autoAssign !== false;
+  const [busy, setBusy] = useState(false),
+    [error, setError] = useState("");
+  async function save(enabled: boolean) {
+    setBusy(true);
+    setError("");
+    try {
+      await onMutate("settings/auto-assign", { enabled });
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <section className="panel settings-intake">
+      <div className="panel-head">
+        <h2>
+          <Users size={18} />
+          الإسناد التلقائي للشكاوى
+        </h2>
+        <span className={"badge " + (on ? "green" : "neutral")}>{on ? "مفعّل" : "متوقف"}</span>
+      </div>
+      <div className="padded settings-intake-body">
+        <p>
+          {on
+            ? "تُسند كل شكوى جديدة تلقائياً إلى موظف خدمة العملاء الأقل حالات مفتوحة ضمن العلامة والفرع، مع تفضيل الموظفين المناوبين الآن."
+            : "الشكاوى الجديدة تبقى بانتظار الإسناد اليدوي من المشرف."}
+        </p>
+        <div className="settings-intake-actions">
+          {on ? (
+            <button className="secondary" disabled={busy} onClick={() => save(false)}>
+              إيقاف الإسناد التلقائي
+            </button>
+          ) : (
+            <button className="primary" disabled={busy} onClick={() => save(true)}>
+              تفعيل الإسناد التلقائي
+            </button>
+          )}
+        </div>
+        {error && (
+          <p className="error" role="alert">
+            {error}
+          </p>
+        )}
+      </div>
     </section>
   );
 }

@@ -140,9 +140,9 @@ const staffInput = z.object({
   name: z.string().trim().min(2).max(100),
   role: z.enum(assignableRoles),
   financeDuty: z.enum(financeDuties),
-  brandIds: z.array(z.string()).min(1, "اختر علامة واحدة على الأقل"),
+  brandIds: z.array(z.string()).default([]),
   branchIds: z.array(z.string().uuid()).default([]),
-});
+}).refine((s) => s.role === "SUPER_ADMIN" || s.brandIds.length > 0, { message: "اختر علامة واحدة على الأقل", path: ["brandIds"] });
 
 export const listStaff = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -165,19 +165,26 @@ export const createStaff = createServerFn({ method: "POST" })
     const db = await c.admin();
     // Creates a confirmed account with an admin-set temporary password. No invite email is sent.
     const { data: created, error } = await db.auth.admin.createUser({ email: data.email, password: data.password, email_confirm: true });
-    if (error || !created.user) throw new DomainError("CREATE_FAILED", 400, error?.message.includes("already") ? "البريد مسجل مسبقاً" : "تعذر إنشاء الحساب");
+    if (error || !created.user) {
+      const { accountErrorMessage } = await import("@/lib/auth-errors");
+      throw new DomainError("CREATE_FAILED", 400, accountErrorMessage(error as never));
+    }
     const { error: e2 } = await db.from("user_roles").insert({
       user_id: created.user.id, email: data.email, name: data.name, role: data.role, finance_duty: data.financeDuty,
       brand_ids: data.brandIds, branch_ids: data.branchIds, enabled: true,
     });
-    c.rpcError(e2);
+    if (e2) {
+      // Don't leave a sign-in account without a role; the admin can simply try again.
+      await db.auth.admin.deleteUser(created.user.id);
+      c.rpcError(e2);
+    }
     await db.rpc("write_audit", { _actor: a.id, _action: `USER_CREATED_${data.role}`, _entity: created.user.id });
     return { id: created.user.id };
   });
 
 export const updateStaff = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => staffInput.extend({ userId: z.string().uuid(), enabled: z.boolean() }).parse(d))
+  .inputValidator((d: unknown) => staffInput.extend({ userId: z.string().uuid(), enabled: z.boolean(), password: z.string().min(12, "كلمة المرور 12 حرفاً على الأقل").max(128).optional() }).parse(d))
   .handler(async ({ data, context }) => {
     const c = await core();
     const a = await c.requireActor(context as never);
@@ -189,7 +196,14 @@ export const updateStaff = createServerFn({ method: "POST" })
     }).eq("user_id", data.userId);
     c.rpcError(error);
     // Disabled staff: role row blocks every server function and RLS read immediately; the ban stops token refresh.
-    await db.auth.admin.updateUserById(data.userId, { ban_duration: data.enabled ? "none" : "876000h" });
+    const { error: authErr } = await db.auth.admin.updateUserById(data.userId, {
+      ban_duration: data.enabled ? "none" : "876000h",
+      ...(data.password ? { password: data.password } : {}),
+    });
+    if (authErr && data.password) {
+      const { accountErrorMessage } = await import("@/lib/auth-errors");
+      throw new DomainError("PASSWORD_REJECTED", 400, accountErrorMessage(authErr as never).replace("تعذر إنشاء الحساب", "تعذر تحديث كلمة المرور"));
+    }
     await db.rpc("write_audit", { _actor: a.id, _action: data.enabled ? "USER_UPDATED" : "USER_DISABLED", _entity: data.userId });
     return { ok: true };
   });
@@ -276,6 +290,72 @@ export const cancelShift = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/* ---------------- Weekly rotation ---------------- */
+const hhmm = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "وقت غير صالح");
+const sundayDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((d) => new Date(`${d}T12:00:00Z`).getUTCDay() === 0, "بداية الأسبوع يجب أن تكون يوم أحد");
+const rotationInput = z.object({
+  enabled: z.boolean(),
+  shifts: z.array(z.object({
+    id: z.string().min(1).max(40),
+    name: z.string().trim().min(1, "أدخل اسم الوردية").max(40),
+    start: hhmm, end: hhmm,
+    breakStart: hhmm.nullable().optional(), breakEnd: hhmm.nullable().optional(),
+  })).min(1, "أضف وردية واحدة على الأقل").max(6),
+  members: z.array(z.string().uuid()).max(100),
+  leads: z.array(z.string().uuid()).max(100).default([]),
+  daysOff: z.number().int().min(1).max(3),
+  anchor: sundayDay,
+  weeksAhead: z.number().int().min(1).max(4),
+  slots: z.array(z.string().min(1).max(40)).max(100).optional(),
+  generator: z.object({
+    employees: z.number().int().min(1).max(100), hours: z.number().min(1).max(16),
+    open: hhmm, close: hhmm, peakStart: hhmm, peakEnd: hhmm,
+  }).optional(),
+});
+
+export const getRotation = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ sunday: sundayDay.optional() }).parse(d ?? {}))
+  .handler(async ({ data, context }) => {
+    const c = await core();
+    const a = await c.requireActor(context as never);
+    authorize(a, "schedule");
+    const r = await import("./rotation.server");
+    const plan = await r.loadPlan();
+    const preview = data.sunday && plan.members.length ? await r.previewWeek(plan, data.sunday) : null;
+    const { updatedBy: _u, ...rest } = plan;
+    return { plan: rest, preview };
+  });
+
+export const saveRotation = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => rotationInput.parse(d))
+  .handler(async ({ data, context }) => {
+    const c = await core();
+    const a = await c.requireActor(context as never);
+    authorize(a, "schedule");
+    for (const s of data.shifts)
+      if ((s.breakStart == null) !== (s.breakEnd == null)) throw new DomainError("INVALID_BREAK", 400, `حدد بداية ونهاية الاستراحة لوردية ${s.name}`);
+    if (data.daysOff >= 7) throw new DomainError("INVALID_DAYS_OFF", 400, "عدد أيام الراحة غير صالح");
+    const r = await import("./rotation.server");
+    await r.savePlan({ ...data, leads: data.leads.filter((id) => data.members.includes(id)) }, a.id);
+    const weeks = await r.ensureUpcoming();
+    return { ok: true, weeks };
+  });
+
+export const applyRotation = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ sunday: sundayDay }).parse(d))
+  .handler(async ({ data, context }) => {
+    const c = await core();
+    const a = await c.requireActor(context as never);
+    authorize(a, "schedule");
+    const r = await import("./rotation.server");
+    const plan = await r.loadPlan();
+    if (!plan.members.length) throw new DomainError("NO_MEMBERS", 400, "أعد إعداد التدوير واختر الموظفين أولاً");
+    return r.generateWeek(plan, data.sunday, a.id);
+  });
+
 /* ---------------- Scoped reports (full-dataset totals) ---------------- */
 const reportInput = z.object({
   from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -331,26 +411,31 @@ export const runReport = createServerFn({ method: "POST" })
 /* ---------------- Activation settings (SUPER_ADMIN) ---------------- */
 export const updateSetting = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({ key: z.enum(["public_intake_enabled", "require_mfa"]), value: z.boolean() }).parse(d))
+  .inputValidator((d: unknown) => z.object({ key: z.enum(["public_intake_enabled", "require_mfa", "whatsapp_enabled", "email_receipts_enabled", "auto_assign_enabled"]), value: z.boolean() }).parse(d))
   .handler(async ({ data, context }) => {
     const c = await core();
     const a = await c.requireActor(context as never);
     authorize(a, "users.manage");
+    if (data.key === "whatsapp_enabled" || data.key === "email_receipts_enabled") {
+      // Customer messages may only be switched on once the channel is fully configured.
+      if (a.role !== "SUPER_ADMIN") throw new DomainError("FORBIDDEN", 403, "متاح لمدير النظام فقط");
+      const { missingConfig } = await import("./receipts.server");
+      if (data.value && missingConfig(data.key === "whatsapp_enabled" ? "whatsapp" : "email").length)
+        throw new DomainError("NOT_CONFIGURED", 409, "أكمل إعدادات القناة قبل تفعيل الإرسال");
+    }
     const db = await c.admin();
-    const { error } = await db.from("app_settings").update({ value: data.value, updated_at: new Date().toISOString() }).eq("key", data.key);
+    const { error } = await db.from("app_settings").upsert({ key: data.key, value: data.value, updated_at: new Date().toISOString() });
     c.rpcError(error);
     await db.rpc("write_audit", { _actor: a.id, _action: `SETTING_${data.key}_${data.value}`, _entity: data.key });
     return { ok: true };
   });
 
 /* ---------------- Private evidence ---------------- */
-const allowed: Record<string, number[]> = { "image/jpeg": [0xff, 0xd8, 0xff], "image/png": [0x89, 0x50, 0x4e, 0x47], "image/webp": [0x52, 0x49, 0x46, 0x46], "application/pdf": [0x25, 0x50, 0x44, 0x46] };
 export const uploadEvidence = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ ticketId: z.string().uuid().optional(), refundId: z.string().uuid().optional(), mime: z.string(), base64: z.string().max(11_200_000) }).parse(d))
   .handler(async ({ data, context }) => {
     const c = await core();
-    const { sha256 } = await import("./crypto.server");
     const a = await c.requireActor(context as never);
     authorize(a, "evidence.attach");
     if (!!data.ticketId === !!data.refundId) throw new DomainError("OWNER_REQUIRED", 400, "حدد شكوى أو طلباً مالياً واحداً");
@@ -358,24 +443,24 @@ export const uploadEvidence = createServerFn({ method: "POST" })
       ? (await context.supabase.from("tickets").select("brand_id,branch_id").eq("id", data.ticketId).maybeSingle()).data
       : (await context.supabase.from("refunds").select("brand_id,branch_id").eq("id", data.refundId!).maybeSingle()).data;
     if (!owner || !inScope(a, { brandId: owner.brand_id, branchId: owner.branch_id })) throw new DomainError("NOT_FOUND", 404, "خارج نطاقك");
-    const bytes = Uint8Array.from(atob(data.base64), (ch) => ch.charCodeAt(0));
-    const magic = allowed[data.mime];
-    if (!magic || !magic.every((b, i) => bytes[i] === b)) throw new DomainError("BAD_FILE", 400, "نوع الملف غير مسموح");
-    if (bytes.length > 8 * 1024 * 1024) throw new DomainError("TOO_LARGE", 400, "الحد الأقصى 8MB");
+    const raw = Uint8Array.from(atob(data.base64), (ch) => ch.charCodeAt(0));
+    if (raw.length > 8 * 1024 * 1024) throw new DomainError("TOO_LARGE", 400, "الحد الأقصى 8MB");
+    // Images only, rebuilt from pixels before storage (see evidence.server.ts).
+    const { cleanPhoto, putEvidence, sha256Hex } = await import("./evidence.server");
+    const bytes = cleanPhoto(raw);
     const db = await c.admin();
     const key = `${data.ticketId ? "t/" + data.ticketId : "r/" + data.refundId}/${crypto.randomUUID()}`;
-    const { error } = await db.storage.from("evidence").upload(key, bytes, { contentType: data.mime, upsert: false });
-    c.rpcError(error);
+    c.rpcError(await putEvidence(key, bytes, "image/jpeg"));
     const { data: row, error: e2 } = await db.from("attachments").insert({
-      ticket_id: data.ticketId ?? null, refund_id: data.refundId ?? null, storage_key: key, mime: data.mime, size: bytes.length,
-      checksum: await sha256(data.base64), status: "PENDING_SCAN", uploaded_by: a.id,
+      ticket_id: data.ticketId ?? null, refund_id: data.refundId ?? null, storage_key: key, mime: "image/jpeg", size: bytes.length,
+      checksum: await sha256Hex(bytes), status: "CLEAN", uploaded_by: a.id,
     }).select("id").single();
     c.rpcError(e2);
     await db.rpc("write_audit", { _actor: a.id, _action: "EVIDENCE_UPLOADED", _entity: row!.id });
-    return { id: row!.id, status: "PENDING_SCAN" };
+    return { id: row!.id, status: "CLEAN" };
   });
 
-/** Short-lived signed link, only for files a malware scanner marked CLEAN. No public evidence URLs exist. */
+/** Short-lived signed link, only for CLEAN (rebuilt) files. No public evidence URLs exist. */
 export const evidenceLink = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
@@ -385,9 +470,24 @@ export const evidenceLink = createServerFn({ method: "POST" })
     authorize(a, "evidence.view");
     const { data: f } = await context.supabase.from("attachments").select("storage_key,status").eq("id", data.id).maybeSingle();
     if (!f) throw new DomainError("NOT_FOUND", 404, "غير متاح");
+    if (f.status === "PENDING_SCAN") {
+      const { clearPending } = await import("./evidence.server");
+      if (await clearPending(data.id, f.storage_key, a.id)) f.status = "CLEAN";
+    }
     if (f.status !== "CLEAN") throw new DomainError("SCAN_PENDING", 409, "الملف بانتظار فحص الأمان");
     const db = await c.admin();
     const { data: s } = await db.storage.from("evidence").createSignedUrl(f.storage_key, 60);
     await db.rpc("write_audit", { _actor: a.id, _action: "EVIDENCE_VIEWED", _entity: data.id });
     return { url: s?.signedUrl ?? null };
+  });
+
+/* ---------------- Customer receipt channels ---------------- */
+export const receiptChannelStatus = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ channel: z.enum(["whatsapp", "email"]) }).parse(d))
+  .handler(async ({ data, context }) => {
+    const c = await core();
+    const a = await c.requireActor(context as never);
+    if (a.role !== "SUPER_ADMIN") throw new DomainError("FORBIDDEN", 403, "متاح لمدير النظام فقط");
+    return (await import("./receipts.server")).channelStatus(data.channel);
   });

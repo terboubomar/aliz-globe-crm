@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 // Meta WhatsApp webhook. Disabled until WHATSAPP_APP_SECRET and WHATSAPP_VERIFY_TOKEN are configured.
+// Updates customer receipt delivery status (sent, delivered, read, failed).
 // Verifies the raw-body X-Hub-Signature-256 before reading anything, and never echoes payload data.
 async function validSignature(raw: string, header: string | null, secret: string) {
   if (!header?.startsWith("sha256=")) return false;
@@ -30,7 +31,13 @@ export const Route = createFileRoute("/api/public/webhooks/whatsapp")({
         const raw = await request.text();
         if (raw.length > 256_000) return new Response(null, { status: 413 });
         if (!(await validSignature(raw, request.headers.get("x-hub-signature-256"), secret))) return new Response(null, { status: 401 });
-        // Delivery-status processing is not yet ported (no messages are sent). Acknowledge without storing payload.
+        // Delivery reports for customer receipts. Payload is never stored or logged.
+        try {
+          const { applyWhatsAppStatuses } = await import("@/functions/receipts.server");
+          await applyWhatsAppStatuses(JSON.parse(raw));
+        } catch {
+          /* Malformed or unknown payloads are acknowledged and ignored. */
+        }
         return new Response(null, { status: 200 });
       },
     },
