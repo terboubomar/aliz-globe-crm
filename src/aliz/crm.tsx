@@ -1493,7 +1493,7 @@ function TicketDetail({
 }
 function CustomerLookup({ onOpen }: { onOpen: (id: string) => void }) {
   const [result, setResult] = useState<
-      | { id: string; number: string; state: string; customer: { name: string; phone: string } }[]
+      | { id: string; number: string; state: string; customer: { name: string; phone: string } | null }[]
       | null
     >(null),
     [error, setError] = useState("");
@@ -1529,7 +1529,7 @@ function CustomerLookup({ onOpen }: { onOpen: (id: string) => void }) {
       {error && <p className="error">{error}</p>}
       {result?.map((t) => (
         <button className="notification-item" key={t.id} onClick={() => onOpen(t.id)}>
-          <b>{t.customer.name || "عميل"}</b>
+          <b>{t.customer?.name || "عميل"}</b>
           <span dir="ltr">{t.number}</span>
           <Badge>{states[t.state]}</Badge>
         </button>

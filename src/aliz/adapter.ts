@@ -514,7 +514,7 @@ async function route(
     const r = await searchComplaints({
       data: { q: String(body["phone"] ?? ""), filter: "all", offset: 0 },
     });
-    return r.tickets.map((t) => ({ ...toTicket(t), number: t.number }));
+    return (r?.tickets ?? []).map((t) => ({ ...toTicket(t), number: t.number }));
   }
 
   // Refunds
