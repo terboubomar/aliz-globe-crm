@@ -60,7 +60,7 @@ export function RotationPanel({
     <section className="panel rotation-panel">
       <div className="panel-head">
         <h2>
-          <RefreshCw size={18} /> التدوير الأسبوعي
+          <RefreshCw size={18} /> إعدادات التدوير المتقدمة
         </h2>
         {plan && (
           <span className={"badge " + (plan.enabled ? "green" : "neutral")}>
