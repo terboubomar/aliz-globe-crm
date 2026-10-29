@@ -230,7 +230,7 @@ export function ScheduleTemplatePanel({
                   onChange={(e) => setRotate(e.target.checked)}
                 />
                 تدوير الصفوف بين الموظفين أسبوعياً (يأخذ كل موظف جدول الموظف التالي في الأسبوع
-                القادم)
+                القادم؛ قادة الورديات يبقون على جدولهم)
               </label>
             </div>
             <div className="table-tools">
