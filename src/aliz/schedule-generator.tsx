@@ -33,11 +33,13 @@ export function ScheduleGenerator({
   mutate,
   busy,
   onNotice,
+  onCreated,
 }: {
   staff: User[];
   mutate: (path: string, body?: unknown) => Promise<unknown>;
   busy: boolean;
   onNotice: (text: string) => void;
+  onCreated?: (sunday: string) => void;
 }) {
   const sundays = Array.from({ length: 5 }, (_, i) => weekDays(i)[0]!);
   const [input, setInput] = useState<StaffingInput>({
@@ -101,6 +103,7 @@ export function ScheduleGenerator({
           r?.saved ?? 0,
         )} سجلات لأسبوع ${weekLabel(anchor)}.`,
       );
+      onCreated?.(anchor);
     } catch (e) {
       setError((e as Error).message);
     }
@@ -118,6 +121,9 @@ export function ScheduleGenerator({
           أدخل عدد الموظفين وساعات العمل، وسيوزعهم النظام على ورديات تغطي ساعات العمل كاملة مع تركيز
           أكبر في وقت الذروة، ويوم راحة واحد أسبوعياً لكل موظف يتغير كل أسبوع.
         </p>
+        <h3 className="generator-step">
+          <span>1</span> ساعات العمل والفريق
+        </h3>
         <div className="form-grid generator-inputs">
           <Field label="عدد الموظفين">
             <input
@@ -172,6 +178,9 @@ export function ScheduleGenerator({
         )}
         {result && (
           <>
+            <h3 className="generator-step">
+              <span>2</span> الورديات المقترحة
+            </h3>
             <div className="generator-shifts">
               {counts.map((s) => (
                 <div key={s.id} className="generator-shift">
@@ -206,10 +215,24 @@ export function ScheduleGenerator({
             )}
           </>
         )}
+        <h3 className="generator-step">
+          <span>3</span> اختر الموظفين وابدأ
+        </h3>
         <fieldset className="schedule-bulk-group">
           <legend>
             الموظفون ({n(members.length)} من {n(input.employees)})
           </legend>
+          <button
+            type="button"
+            className="text-btn"
+            onClick={() =>
+              setMembers(members.length ? [] : staff.slice(0, input.employees).map((u) => u.id))
+            }
+          >
+            {members.length
+              ? "إلغاء التحديد"
+              : `تحديد أول ${n(Math.min(input.employees, staff.length))} موظفين`}
+          </button>
           <div className="schedule-bulk-options">
             {staff.map((u) => (
               <label className="checkbox" key={u.id}>
