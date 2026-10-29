@@ -60,3 +60,16 @@
 .rotation-members li { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border: 1px solid var(--line, #e6e0d8); border-radius: 10px; }
 .rotation-members li b { flex: 1; }
 @media (max-width: 760px) { .rotation-shift { grid-template-columns: 1fr 1fr; } }
+
+/* Schedule generator */
+.generator-inputs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.generator-warning { border-color: #e2a33a; }
+.generator-shifts { display: flex; flex-wrap: wrap; gap: 10px; margin: 14px 0; }
+.generator-shift { display: grid; gap: 2px; padding: 10px 14px; border: 1px solid var(--line, #e6e0d8); border-radius: 10px; min-width: 150px; }
+.generator-shift small { color: var(--muted, #6b625a); }
+.generator-coverage { display: flex; align-items: flex-end; gap: 4px; height: 140px; padding: 8px 0 0; direction: ltr; overflow-x: auto; }
+.generator-hour { flex: 1 0 28px; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 2px; font-size: 12px; }
+.generator-bar { width: 100%; min-height: 2px; border-radius: 4px 4px 0 0; background: var(--line, #d9d2c8); }
+.generator-hour.peak .generator-bar { background: var(--brand, #b62e30); }
+.generator-hour small { color: var(--muted, #6b625a); }
+@media (max-width: 760px) { .generator-inputs { grid-template-columns: 1fr 1fr; } }

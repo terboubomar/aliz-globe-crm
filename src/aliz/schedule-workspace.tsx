@@ -1,5 +1,6 @@
 import { BulkScheduleModal } from "./bulk-schedule-modal";
 import { RotationPanel } from "./rotation-panel";
+import { ScheduleGenerator } from "./schedule-generator";
 import { useState, FormEvent } from "react";
 import { Plus, ChevronRight, ChevronLeft, Clock, Search } from "lucide-react";
 import { Data, Shift, n, date, roleNames } from "./types";
@@ -285,6 +286,9 @@ export function ScheduleWorkspace({
           </div>
         )}
       </section>
+      {manage && (
+        <ScheduleGenerator staff={staff} mutate={mutate} busy={busy} onNotice={setNotice} />
+      )}
       {manage && (
         <RotationPanel
           staff={staff}
