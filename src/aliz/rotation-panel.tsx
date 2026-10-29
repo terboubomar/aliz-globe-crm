@@ -276,6 +276,13 @@ function RotationSetup({
         daysOff,
         anchor,
         weeksAhead,
+        // Keep the generator's peak-weighted spread while the team size and shift list are unchanged.
+        ...(plan.slots &&
+        members.length === plan.slots.length &&
+        plan.slots.every((id) => shifts.some((x) => x.id === id))
+          ? { slots: plan.slots }
+          : {}),
+        ...(plan.generator ? { generator: plan.generator } : {}),
       });
     } catch (e) {
       setError((e as Error).message);

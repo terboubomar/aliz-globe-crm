@@ -306,6 +306,11 @@ const rotationInput = z.object({
   daysOff: z.number().int().min(1).max(3),
   anchor: sundayDay,
   weeksAhead: z.number().int().min(1).max(4),
+  slots: z.array(z.string().min(1).max(40)).max(100).optional(),
+  generator: z.object({
+    employees: z.number().int().min(1).max(100), hours: z.number().min(1).max(16),
+    open: hhmm, close: hhmm, peakStart: hhmm, peakEnd: hhmm,
+  }).optional(),
 });
 
 export const getRotation = createServerFn({ method: "POST" })

@@ -26,6 +26,19 @@ export type RotationPlan = {
   daysOff: number; // per week, consecutive
   anchor: string; // a Sunday (YYYY-MM-DD) where week 0 starts
   weeksAhead: number; // how many future weeks to keep generated
+  // From the schedule generator: one pattern id per member position, so busy
+  // patterns (e.g. peak) get more people. Without it, patterns get equal shares.
+  slots?: string[] | undefined;
+  generator?:
+    | {
+        employees: number;
+        hours: number;
+        open: string;
+        close: string;
+        peakStart: string;
+        peakEnd: string;
+      }
+    | undefined;
 };
 export type Entry = {
   userId: string;
@@ -45,7 +58,11 @@ const mod = (a: number, m: number) => ((a % m) + m) % m;
 /** Which pattern and which days off a member gets in a given week. */
 export function assignmentFor(plan: RotationPlan, memberIndex: number, week: number) {
   const n = plan.members.length;
-  const shift = plan.shifts[mod(memberIndex + week, plan.shifts.length)]!;
+  const slotId =
+    plan.slots && plan.slots.length === n ? plan.slots[mod(memberIndex + week, n)] : undefined;
+  const shift =
+    plan.shifts.find((p) => p.id === slotId) ??
+    plan.shifts[mod(memberIndex + week, plan.shifts.length)]!;
   const firstOff = mod(Math.floor((memberIndex * 7) / Math.max(n, 1)) + week, 7);
   const offDays = Array.from({ length: plan.daysOff }, (_, k) => mod(firstOff + k, 7));
   return { shift, offDays };
