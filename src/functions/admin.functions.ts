@@ -290,6 +290,67 @@ export const cancelShift = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/* ---------------- Weekly rotation ---------------- */
+const hhmm = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "وقت غير صالح");
+const sundayDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((d) => new Date(`${d}T12:00:00Z`).getUTCDay() === 0, "بداية الأسبوع يجب أن تكون يوم أحد");
+const rotationInput = z.object({
+  enabled: z.boolean(),
+  shifts: z.array(z.object({
+    id: z.string().min(1).max(40),
+    name: z.string().trim().min(1, "أدخل اسم الوردية").max(40),
+    start: hhmm, end: hhmm,
+    breakStart: hhmm.nullable().optional(), breakEnd: hhmm.nullable().optional(),
+  })).min(1, "أضف وردية واحدة على الأقل").max(6),
+  members: z.array(z.string().uuid()).max(100),
+  leads: z.array(z.string().uuid()).max(100).default([]),
+  daysOff: z.number().int().min(1).max(3),
+  anchor: sundayDay,
+  weeksAhead: z.number().int().min(1).max(4),
+});
+
+export const getRotation = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ sunday: sundayDay.optional() }).parse(d ?? {}))
+  .handler(async ({ data, context }) => {
+    const c = await core();
+    const a = await c.requireActor(context as never);
+    authorize(a, "schedule");
+    const r = await import("./rotation.server");
+    const plan = await r.loadPlan();
+    const preview = data.sunday && plan.members.length ? await r.previewWeek(plan, data.sunday) : null;
+    const { updatedBy: _u, ...rest } = plan;
+    return { plan: rest, preview };
+  });
+
+export const saveRotation = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => rotationInput.parse(d))
+  .handler(async ({ data, context }) => {
+    const c = await core();
+    const a = await c.requireActor(context as never);
+    authorize(a, "schedule");
+    for (const s of data.shifts)
+      if ((s.breakStart == null) !== (s.breakEnd == null)) throw new DomainError("INVALID_BREAK", 400, `حدد بداية ونهاية الاستراحة لوردية ${s.name}`);
+    if (data.daysOff >= 7) throw new DomainError("INVALID_DAYS_OFF", 400, "عدد أيام الراحة غير صالح");
+    const r = await import("./rotation.server");
+    await r.savePlan({ ...data, leads: data.leads.filter((id) => data.members.includes(id)) }, a.id);
+    const weeks = await r.ensureUpcoming();
+    return { ok: true, weeks };
+  });
+
+export const applyRotation = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ sunday: sundayDay }).parse(d))
+  .handler(async ({ data, context }) => {
+    const c = await core();
+    const a = await c.requireActor(context as never);
+    authorize(a, "schedule");
+    const r = await import("./rotation.server");
+    const plan = await r.loadPlan();
+    if (!plan.members.length) throw new DomainError("NO_MEMBERS", 400, "أعد إعداد التدوير واختر الموظفين أولاً");
+    return r.generateWeek(plan, data.sunday, a.id);
+  });
+
 /* ---------------- Scoped reports (full-dataset totals) ---------------- */
 const reportInput = z.object({
   from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
