@@ -14,6 +14,8 @@ export const getBootstrap = createServerFn({ method: "POST" })
     const email = (context.claims as { email?: string }).email ?? "";
     if (state.status !== "OK") return { status: state.status, email, me: null };
     const a = state.actor;
+    // Keeps the coming weeks of the rotation scheduled; a no-op when it is off or done.
+    await (await import("./rotation.server")).ensureUpcoming();
     const [{ data: brands }, { data: branches }, staff, s] = await Promise.all([
       context.supabase.from("brands").select("*").order("created_at"),
       context.supabase.from("branches").select("*").order("name"),

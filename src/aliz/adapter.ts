@@ -27,6 +27,9 @@ import {
   setBranchActive,
   updateBrand,
   updateSetting,
+  getRotation,
+  saveRotation,
+  applyRotation,
   receiptChannelStatus,
   updateStaff,
   uploadEvidence,
@@ -643,6 +646,11 @@ async function route(
 
   // Schedule
   if (is("shifts")) return saveShifts({ data: { entries: [shiftEntry(body)] } });
+  if (is("schedule", "rotation") && method === "GET")
+    return getRotation({ data: params.get("sunday") ? { sunday: params.get("sunday")! } : {} });
+  if (is("schedule", "rotation")) return saveRotation({ data: body as never });
+  if (is("schedule", "rotation", "apply"))
+    return applyRotation({ data: { sunday: String(body["sunday"] ?? "") } });
   if (is("shifts", "bulk"))
     return saveShifts({
       data: { entries: ((body["entries"] ?? body["shifts"]) as Row[]).map(shiftEntry) },
