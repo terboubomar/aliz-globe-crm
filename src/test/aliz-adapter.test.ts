@@ -14,9 +14,11 @@ const fn = vi.hoisted(() => ({
   refundAction: vi.fn(),
   requestRefund: vi.fn(),
   listShifts: vi.fn(),
+  updateSetting: vi.fn(),
   publicQrInfo: vi.fn(),
   publicCreate: vi.fn(),
   trackStatus: vi.fn(),
+  publicAttach: vi.fn(),
   rows: {} as Record<string, unknown[]>,
   session: { access_token: "t" } as unknown,
 }));
@@ -35,6 +37,7 @@ vi.mock("@/functions/refunds.functions", () => ({
 }));
 vi.mock("@/functions/admin.functions", () => ({
   listShifts: fn.listShifts,
+  updateSetting: fn.updateSetting,
   cancelShift: vi.fn(),
   createStaff: vi.fn(),
   evidenceLink: vi.fn(),
@@ -54,7 +57,9 @@ vi.mock("@/functions/public.functions", () => ({
   publicQrInfo: fn.publicQrInfo,
   publicCreate: fn.publicCreate,
   trackStatus: fn.trackStatus,
+  publicAttach: fn.publicAttach,
 }));
+vi.mock("@/aliz/prepare-image", () => ({ prepareImage: (f: Blob) => Promise.resolve(f) }));
 vi.mock("@/integrations/supabase/client", () => {
   const query = (table: string) => {
     const q = {
@@ -228,5 +233,62 @@ describe("unbuilt features", () => {
   it("fail with a clear message rather than pretending to work", async () => {
     await expect(api("tasks", { ticketId: "t1" })).rejects.toThrow("غير مفعلة بعد");
     await expect(api("leave", {})).rejects.toThrow("غير مفعلة بعد");
+  });
+});
+
+describe("settings", () => {
+  it("switches customer QR intake through the audited server setting", async () => {
+    fn.updateSetting.mockResolvedValue({ ok: true });
+    await api("settings/public-intake", { enabled: true });
+    expect(fn.updateSetting).toHaveBeenCalledWith({
+      data: { key: "public_intake_enabled", value: true },
+    });
+    await api("settings/public-intake", { enabled: false });
+    expect(fn.updateSetting).toHaveBeenLastCalledWith({
+      data: { key: "public_intake_enabled", value: false },
+    });
+  });
+});
+
+// jsdom's Blob lacks arrayBuffer(); real browsers have it.
+if (!Blob.prototype.arrayBuffer)
+  Blob.prototype.arrayBuffer = function (this: Blob) {
+    return new Promise<ArrayBuffer>((done) => {
+      const reader = new FileReader();
+      reader.onload = () => done(reader.result as ArrayBuffer);
+      reader.readAsArrayBuffer(this);
+    });
+  };
+
+describe("QR form photos", () => {
+  it("sends each photo with the complaint's tracking link, nothing else", async () => {
+    fn.publicAttach.mockResolvedValue({ ok: true });
+    const body = new FormData();
+    body.append(
+      "files",
+      new File([new Uint8Array([0xff, 0xd8, 0xff])], "a.jpg", { type: "image/jpeg" }),
+    );
+    body.append(
+      "files",
+      new File([new Uint8Array([0xff, 0xd8, 0xff])], "b.jpg", { type: "image/jpeg" }),
+    );
+    await api("public/attachments/", undefined, {
+      method: "POST",
+      headers: { "x-case-token": "abcdefghijklmnop" },
+      body,
+    });
+    expect(fn.publicAttach).toHaveBeenCalledTimes(2);
+    expect(fn.publicAttach).toHaveBeenCalledWith({
+      data: { token: "abcdefghijklmnop", base64: "/9j/" },
+    });
+  });
+
+  it("refuses without a tracking link", async () => {
+    const body = new FormData();
+    body.append("files", new File(["x"], "a.jpg", { type: "image/jpeg" }));
+    await expect(api("public/attachments/", undefined, { method: "POST", body })).rejects.toThrow(
+      "انتهت جلسة إرفاق الصور",
+    );
+    expect(fn.publicAttach).not.toHaveBeenCalled();
   });
 });

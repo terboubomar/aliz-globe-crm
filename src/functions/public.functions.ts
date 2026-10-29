@@ -28,7 +28,8 @@ export const publicQrInfo = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     try {
       const q = await resolveQr(data.code, true);
-      return { ok: true as const, brandName: q.brandName, branchName: q.branchName, logo: q.logo };
+      const live = await (await import("./receipts.server")).liveChannels();
+      return { ok: true as const, brandName: q.brandName, branchName: q.branchName, logo: q.logo, whatsappAvailable: live.whatsapp, emailAvailable: live.email };
     } catch (e) {
       return { ok: false as const, message: e instanceof DomainError ? e.message : "الرابط غير متاح" };
     }
@@ -41,6 +42,7 @@ export const publicCreate = createServerFn({ method: "POST" })
       input: z.object({
         description: z.string(), category: z.string(), name: z.string().optional(), phone: z.string().optional(),
         externalOrder: z.string().optional(), platform: z.string().optional(), consent: z.literal(true),
+        email: z.string().optional(), whatsappConsent: z.boolean().optional(), emailConsent: z.boolean().optional(),
       }),
     }).parse(d),
   )
@@ -50,11 +52,11 @@ export const publicCreate = createServerFn({ method: "POST" })
     const { consent: _c, ...rest } = data.input;
     const res = await t.createTicketCore(
       `QR:${q.qrId}`,
-      { ...rest, whatsappConsent: false, brandId: q.brandId, branchId: q.branchId, priority: rest.category === "SAFETY" ? "P1" : "P3" },
+      { ...rest, whatsappConsent: !!rest.whatsappConsent, emailConsent: !!rest.emailConsent, brandId: q.brandId, branchId: q.branchId, priority: rest.category === "SAFETY" ? "P1" : "P3" },
       data.key,
       { brandId: q.brandId, branchId: q.branchId, qrId: q.qrId },
     );
-    return { number: res.number, trackingToken: res.trackingToken };
+    return { number: res.number, trackingToken: res.trackingToken, confirmationStatus: res.confirmationStatus, emailStatus: res.emailStatus ?? "NOT_REQUESTED" };
   });
 
 export const trackStatus = createServerFn({ method: "POST" })
@@ -69,4 +71,69 @@ export const trackStatus = createServerFn({ method: "POST" })
     const r = t.receipt_enc ? JSON.parse(await decrypt(t.receipt_enc)) : null;
     // Only the customer's own receipt fields; never staff, notes or other cases.
     return { ok: true as const, state: t.state, number: r?.number as string, brand: r?.brand as string, branch: r?.branch as string, receivedAt: r?.receivedAt as string, category: r?.category as string };
+  });
+
+/**
+ * Photos from the customer who just submitted on the QR form. Authorized only by
+ * that complaint's private tracking link, and only in the first 10 minutes; at
+ * most 3 photos, 5 MB each. Each photo is rebuilt from its pixels before it is
+ * stored (no metadata or hidden content survives), then marked CLEAN.
+ */
+export const publicAttach = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) =>
+    z.object({ token: code, base64: z.string().min(1).max(7_000_000) }).parse(d),
+  )
+  .handler(async ({ data }) => {
+    const core = await import("./core.server");
+    const { keyedHash } = await import("./crypto.server");
+    const db = await core.admin();
+    const { data: acc } = await db
+      .from("tracking_access")
+      .select("expires_at, ticket_id, tickets!inner(created_at)")
+      .eq("hash", await keyedHash("track:" + data.token))
+      .maybeSingle();
+    const createdAt = (acc?.tickets as unknown as { created_at: string } | undefined)?.created_at;
+    if (
+      !acc ||
+      !createdAt ||
+      new Date(acc.expires_at) < new Date() ||
+      Date.now() - +new Date(createdAt) > 10 * 60000
+    )
+      throw new DomainError("FORBIDDEN", 403, "انتهت جلسة إرفاق الصور");
+    const { count } = await db
+      .from("attachments")
+      .select("id", { count: "exact", head: true })
+      .eq("ticket_id", acc.ticket_id);
+    if ((count ?? 0) >= 3)
+      throw new DomainError("FILE_COUNT", 400, "الحد الأعلى ثلاث صور لكل بلاغ");
+    const raw = Uint8Array.from(atob(data.base64), (ch) => ch.charCodeAt(0));
+    if (raw.length > 5 * 1024 * 1024)
+      throw new DomainError("TOO_LARGE", 400, "يسمح بصور حتى 5 ميغابايت");
+    const { cleanPhoto, putEvidence, sha256Hex } = await import("./evidence.server");
+    const bytes = cleanPhoto(raw);
+    const key = `t/${acc.ticket_id}/${crypto.randomUUID()}`;
+    core.rpcError(await putEvidence(key, bytes, "image/jpeg"));
+    const { data: row, error } = await db
+      .from("attachments")
+      .insert({
+        ticket_id: acc.ticket_id,
+        storage_key: key,
+        mime: "image/jpeg",
+        size: bytes.length,
+        checksum: await sha256Hex(bytes),
+        status: "CLEAN",
+        uploaded_by: "PUBLIC_QR",
+      })
+      .select("id")
+      .single();
+    core.rpcError(error);
+    await db
+      .from("ticket_events")
+      .insert({ ticket_id: acc.ticket_id, type: "EVIDENCE_ATTACHED", actor: "PUBLIC_QR" });
+    await db.rpc("write_audit", {
+      _actor: "PUBLIC_QR",
+      _action: "PUBLIC_EVIDENCE_UPLOADED",
+      _entity: row!.id,
+    });
+    return { ok: true };
   });
