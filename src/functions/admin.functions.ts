@@ -359,7 +359,7 @@ export const saveRotation = createServerFn({ method: "POST" })
 
 export const applyRotation = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({ sunday: sundayDay }).parse(d))
+  .inputValidator((d: unknown) => z.object({ sunday: sundayDay, replace: z.boolean().default(false) }).parse(d))
   .handler(async ({ data, context }) => {
     const c = await core();
     const a = await c.requireActor(context as never);
@@ -367,7 +367,11 @@ export const applyRotation = createServerFn({ method: "POST" })
     const r = await import("./rotation.server");
     const plan = await r.loadPlan();
     if (!plan.members.length) throw new DomainError("NO_MEMBERS", 400, "أعد إعداد التدوير واختر الموظفين أولاً");
-    return r.generateWeek(plan, data.sunday, a.id);
+    // Replacing clears these people's shifts from that week onward, then fills it and the coming weeks.
+    const cleared = data.replace ? await r.clearFrom(plan, data.sunday, a.id) : 0;
+    const result = await r.generateWeek(plan, data.sunday, a.id);
+    if (data.replace) await r.ensureUpcoming();
+    return { ...result, cleared };
   });
 
 /* ---------------- Scoped reports (full-dataset totals) ---------------- */

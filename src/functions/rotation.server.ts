@@ -68,7 +68,9 @@ export async function previewWeek(plan: RotationPlan, sunday: string) {
 }
 
 export async function generateWeek(plan: StoredPlan, sunday: string, actorId: string) {
-  if (!plan.members.length || !plan.shifts.length) return { saved: 0, skipped: 0 };
+  // A template plan has no shift patterns; it carries its own times.
+  if (!plan.members.length || (!plan.shifts.length && !plan.template))
+    return { saved: 0, skipped: 0 };
   const { entries, skipped } = await previewWeek(plan, sunday);
   const db = await admin();
   let saved = 0;
@@ -91,19 +93,55 @@ export async function generateWeek(plan: StoredPlan, sunday: string, actorId: st
   }
   const done = await generatedWeeks();
   if (!done.includes(sunday))
-    await db
-      .from("app_settings")
-      .upsert({
-        key: DONE,
-        value: [...done, sunday].slice(-60) as never,
-        updated_at: new Date().toISOString(),
-      });
+    await db.from("app_settings").upsert({
+      key: DONE,
+      value: [...done, sunday].slice(-60) as never,
+      updated_at: new Date().toISOString(),
+    });
   await db.rpc("write_audit", {
     _actor: actorId,
     _action: "ROTATION_WEEK_GENERATED",
     _entity: sunday,
   });
   return { saved, skipped: skipped.length };
+}
+
+/**
+ * Clears the plan's people from a week onward so a new plan can replace the old
+ * one: their shifts and days off starting from that Sunday (never before now)
+ * through the weeks that may already be prepared are cancelled, and those weeks
+ * are marked as not yet generated. Past shifts are never touched.
+ */
+export async function clearFrom(
+  plan: StoredPlan,
+  sunday: string,
+  actorId: string,
+  now = new Date(),
+) {
+  const db = await admin();
+  const from = new Date(Math.max(Date.parse(riyadhISO(sunday)), +now)).toISOString();
+  const to = riyadhISO(addDays(sunday, 7 * 5));
+  const { data: rows, error } = await db
+    .from("shifts")
+    .update({ cancelled_at: new Date().toISOString() })
+    .in("user_id", plan.members)
+    .is("cancelled_at", null)
+    .gte("start_at", from)
+    .lt("start_at", to)
+    .select("id");
+  rpcError(error);
+  const done = await generatedWeeks();
+  await db.from("app_settings").upsert({
+    key: DONE,
+    value: done.filter((d) => d < sunday) as never,
+    updated_at: new Date().toISOString(),
+  });
+  await db.rpc("write_audit", {
+    _actor: actorId,
+    _action: "ROTATION_SCHEDULE_REPLACED",
+    _entity: sunday,
+  });
+  return rows?.length ?? 0;
 }
 
 /**

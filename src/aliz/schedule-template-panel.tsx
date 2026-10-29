@@ -59,6 +59,7 @@ export function ScheduleTemplatePanel({
     [anchor, setAnchor] = useState(sundays[1]!),
     [repeat, setRepeat] = useState(true),
     [rotate, setRotate] = useState(false),
+    [replace, setReplace] = useState(true),
     [error, setError] = useState("");
   const people = staff.map((u) => ({ id: u.id, name: u.name }));
   const name = (id: string) => staff.find((u) => u.id === id)?.name ?? "—";
@@ -110,11 +111,16 @@ export function ScheduleTemplatePanel({
         weeksAhead: 2,
         template: { ...template, rotate },
       });
-      const r = (await mutate("schedule/rotation/apply", { sunday: anchor })) as { saved?: number };
+      const r = (await mutate("schedule/rotation/apply", { sunday: anchor, replace })) as {
+        saved?: number;
+        cleared?: number;
+        skipped?: number;
+      };
       onNotice(
-        `تم تطبيق القالب على أسبوع ${weekLabel(anchor)} (${n(r?.saved ?? 0)} سجلات)${
-          repeat ? "، وسيتكرر تلقائياً كل أسبوع." : "."
-        }`,
+        `تم تطبيق القالب على أسبوع ${weekLabel(anchor)} (${n(r?.saved ?? 0)} سجلات)` +
+          (r?.cleared ? `، واستُبدلت ${n(r.cleared)} وردية سابقة` : "") +
+          (r?.skipped ? `، وبقيت ${n(r.skipped)} أيام مجدولة مسبقاً كما هي` : "") +
+          (repeat ? "، وسيتكرر تلقائياً كل أسبوع." : "."),
       );
       setTemplate(null);
       setFileName("");
@@ -232,6 +238,15 @@ export function ScheduleTemplatePanel({
                 تدوير الصفوف بين الموظفين أسبوعياً (يأخذ كل موظف جدول الموظف التالي في الأسبوع
                 القادم)
               </label>
+              <label className="checkbox full">
+                <input
+                  type="checkbox"
+                  checked={replace}
+                  onChange={(e) => setReplace(e.target.checked)}
+                />
+                استبدال الجدول الحالي لهؤلاء الموظفين من هذا الأسبوع وما بعده (الأيام الماضية لا
+                تتغير)
+              </label>
             </div>
             <div className="table-tools">
               <button className="primary" disabled={busy} onClick={() => void apply()}>
@@ -248,7 +263,9 @@ export function ScheduleTemplatePanel({
             {error}
           </p>
         )}
-        <p className="hint">الأيام المجدولة مسبقاً في الأسبوع لا تتغير عند تطبيق القالب.</p>
+        <p className="hint">
+          دون خيار الاستبدال، تبقى الأيام المجدولة مسبقاً كما هي ويُملأ الباقي من القالب.
+        </p>
       </div>
     </section>
   );
