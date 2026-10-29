@@ -1,4 +1,5 @@
 import { addDays, riyadhISO } from "@/aliz/schedule-time";
+import { templateEntries, type Template } from "./schedule-template";
 
 /*
  * Weekly rotation for the support team.
@@ -28,6 +29,9 @@ export type RotationPlan = {
   weeksAhead: number; // how many future weeks to keep generated
   // From the schedule generator: one pattern id per member position, so busy
   // patterns (e.g. peak) get more people. Without it, patterns get equal shares.
+  // A schedule the manager built in the template file; when set, it is used
+  // instead of the shift patterns (repeated each week, optionally rotating rows).
+  template?: Template | undefined;
   slots?: string[] | undefined;
   generator?:
     | {
@@ -91,6 +95,7 @@ export function weekEntries(
   busy: (userId: string, from: string, to: string) => boolean = () => false,
 ) {
   const week = weekIndex(plan.anchor, sunday);
+  if (plan.template) return { ...templateEntries(plan.template, sunday, week, busy), week };
   const entries: Entry[] = [];
   const skipped: { userId: string; day: string }[] = [];
   plan.members.forEach((userId, i) => {
@@ -125,6 +130,7 @@ export function weekEntries(
 
 /** People working each pattern on each day of the week, to spot gaps before saving. */
 export function coverage(plan: RotationPlan, sunday: string) {
+  if (plan.template) return [];
   const week = weekIndex(plan.anchor, sunday);
   return Array.from({ length: 7 }, (_, d) =>
     plan.shifts.map((s) => ({

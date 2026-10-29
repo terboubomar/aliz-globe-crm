@@ -300,13 +300,25 @@ const rotationInput = z.object({
     name: z.string().trim().min(1, "أدخل اسم الوردية").max(40),
     start: hhmm, end: hhmm,
     breakStart: hhmm.nullable().optional(), breakEnd: hhmm.nullable().optional(),
-  })).min(1, "أضف وردية واحدة على الأقل").max(6),
+  })).max(6),
   members: z.array(z.string().uuid()).max(100),
   leads: z.array(z.string().uuid()).max(100).default([]),
   daysOff: z.number().int().min(1).max(3),
   anchor: sundayDay,
   weeksAhead: z.number().int().min(1).max(4),
   slots: z.array(z.string().min(1).max(40)).max(100).optional(),
+  template: z.object({
+    rotate: z.boolean(),
+    rows: z.array(z.object({
+      userId: z.string().uuid(),
+      lead: z.boolean(),
+      days: z.array(z.union([
+        z.null(),
+        z.object({ off: z.literal(true) }),
+        z.object({ start: hhmm, end: hhmm, breakStart: hhmm.optional(), breakEnd: hhmm.optional() }),
+      ])).length(7),
+    })).min(1).max(100),
+  }).optional(),
   generator: z.object({
     employees: z.number().int().min(1).max(100), hours: z.number().min(1).max(16),
     open: hhmm, close: hhmm, peakStart: hhmm, peakEnd: hhmm,
@@ -334,6 +346,8 @@ export const saveRotation = createServerFn({ method: "POST" })
     const c = await core();
     const a = await c.requireActor(context as never);
     authorize(a, "schedule");
+    if (!data.template && !data.shifts.length) throw new DomainError("NO_SHIFTS", 400, "أضف وردية واحدة على الأقل");
+    if (data.template) data.members = data.template.rows.map((r) => r.userId);
     for (const s of data.shifts)
       if ((s.breakStart == null) !== (s.breakEnd == null)) throw new DomainError("INVALID_BREAK", 400, `حدد بداية ونهاية الاستراحة لوردية ${s.name}`);
     if (data.daysOff >= 7) throw new DomainError("INVALID_DAYS_OFF", 400, "عدد أيام الراحة غير صالح");
