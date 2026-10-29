@@ -109,3 +109,12 @@
   .staff-schedule .schedule-totals { display: flex; flex-wrap: wrap; gap: 6px 18px; padding-top: 12px; padding-bottom: 12px; }
   .staff-schedule .schedule-totals > span { margin: 0; }
 }
+
+/* Schedule template import/export */
+.template-actions { flex-wrap: wrap; gap: 10px; margin: 12px 0; }
+.template-actions button, .template-upload { display: inline-flex; align-items: center; gap: 6px; }
+.template-upload { position: relative; cursor: pointer; }
+.template-upload .upload-input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
+.template-errors ul { margin: 8px 0 0; padding-inline-start: 18px; }
+.template-preview td { font-size: 12px; }
+.template-preview td.template-off { color: var(--muted, #8c8278); background: #f6f3ef; }

@@ -1,6 +1,7 @@
 import { BulkScheduleModal } from "./bulk-schedule-modal";
 import { RotationPanel } from "./rotation-panel";
 import { ScheduleGenerator } from "./schedule-generator";
+import { ScheduleTemplatePanel } from "./schedule-template-panel";
 import { useState, FormEvent } from "react";
 import {
   Plus,
@@ -130,7 +131,7 @@ export function ScheduleWorkspace({
             className={section === "generate" ? "current" : ""}
             onClick={() => setSection("generate")}
           >
-            <Sparkles size={16} /> إنشاء الجدول والتدوير
+            <Sparkles size={16} /> إنشاء الجدول والقوالب
           </button>
         </div>
       )}
@@ -355,6 +356,23 @@ export function ScheduleWorkspace({
         <div className="schedule-generate">
           <ScheduleGenerator
             staff={staff}
+            mutate={mutate}
+            busy={busy}
+            onNotice={setNotice}
+            onCreated={(sunday) => {
+              setWeek(
+                Math.round(
+                  (Date.parse(`${sunday}T12:00:00Z`) - Date.parse(`${weekDays(0)[0]}T12:00:00Z`)) /
+                    (7 * 86400000),
+                ),
+              );
+              setSection("week");
+            }}
+          />
+          <ScheduleTemplatePanel
+            staff={staff}
+            shifts={data.shifts.filter((s) => !s.cancelledAt)}
+            sunday={days[0]!}
             mutate={mutate}
             busy={busy}
             onNotice={setNotice}

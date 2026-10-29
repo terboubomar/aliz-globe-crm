@@ -71,11 +71,15 @@ export function RotationPanel({
       <div className="padded rotation-body">
         {plan && (
           <p>
-            {plan.members.length
-              ? `${n(plan.members.length)} موظفين يتناوبون أسبوعياً على ${plan.shifts
-                  .map((s) => `${s.name} (${s.start}–${s.end})`)
-                  .join(" و")}، مع ${offLabel(plan.daysOff)} راحة أسبوعياً تتغير كل أسبوع.`
-              : "حدد الورديات والموظفين مرة واحدة، ويجهّز النظام جدول الأسابيع القادمة تلقائياً بالتناوب."}
+            {plan.template
+              ? `يُطبَّق قالب جدول مرفوع على ${n(plan.template.rows.length)} موظفين${
+                  plan.template.rotate ? " مع تدوير الصفوف أسبوعياً" : ""
+                }. «إعداد التدوير» يستبدل القالب بورديات ثابتة.`
+              : plan.members.length
+                ? `${n(plan.members.length)} موظفين يتناوبون أسبوعياً على ${plan.shifts
+                    .map((s) => `${s.name} (${s.start}–${s.end})`)
+                    .join(" و")}، مع ${offLabel(plan.daysOff)} راحة أسبوعياً تتغير كل أسبوع.`
+                : "حدد الورديات والموظفين مرة واحدة، ويجهّز النظام جدول الأسابيع القادمة تلقائياً بالتناوب."}
             {plan.enabled &&
               ` يُجهَّز ${n(plan.weeksAhead)} ${plan.weeksAhead === 1 ? "أسبوع" : "أسابيع"} مقدماً.`}
           </p>
