@@ -14,12 +14,15 @@ export const getBootstrap = createServerFn({ method: "POST" })
     const email = (context.claims as { email?: string }).email ?? "";
     if (state.status !== "OK") return { status: state.status, email, me: null };
     const a = state.actor;
+    // Keeps the coming weeks of the rotation scheduled; a no-op when it is off or done.
+    await (await import("./rotation.server")).ensureUpcoming();
     const [{ data: brands }, { data: branches }, staff, s] = await Promise.all([
       context.supabase.from("brands").select("*").order("created_at"),
       context.supabase.from("branches").select("*").order("name"),
       c.staffDirectory(a.role === "SUPER_ADMIN" ? ["waqf", "kabab", "batatisyon", "mazmuzil", "shawarman", ...a.brandIds] : a.brandIds),
       c.settings(),
     ]);
+    const live = await (await import("./receipts.server")).liveChannels();
     return {
       status: "OK" as const,
       email,
@@ -30,11 +33,13 @@ export const getBootstrap = createServerFn({ method: "POST" })
       staff,
       flags: {
         publicIntake: s.publicIntake,
+        autoAssign: s.autoAssign,
         financeApproved: s.financeApproved,
         financeLimitMinor: s.financeLimitMinor,
         slaVersion: s.sla?.version ?? "PENDING",
         slaApproved: !!s.sla?.approved,
-        whatsapp: s.whatsapp,
+        whatsapp: live.whatsapp,
+        email: live.email,
         telegram: s.telegram,
       },
     };

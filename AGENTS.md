@@ -19,3 +19,11 @@
 - Browsers only SELECT through RLS (role + brand/branch scope + MFA in `current_staff()`); every write goes through a server function that authorizes with domain rules, then calls a service-role-only SQL procedure so state change + event + audit are atomic.
 - Event and audit tables are append-only via triggers; never add UPDATE/DELETE paths.
 - Roles live only in `public.user_roles`; never read privileges from auth metadata.
+
+## Customer receipts
+
+WhatsApp and email confirmations to the customer live in
+`src/functions/receipts.server.ts`; setup and rules are in
+`docs/CUSTOMER_RECEIPTS.md`. Delivery state uses the existing `outbox` table
+(no schema change). Both channels stay off until a super admin switches them on
+in Settings, which is refused while any required secret is missing.

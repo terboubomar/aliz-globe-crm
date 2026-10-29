@@ -13,6 +13,15 @@ export const confirmationLabels: Record<string, string> = {
   NOT_CONFIGURED: "تأكيد واتساب غير متاح حالياً",
   RATE_LIMITED: "لم يُرسل تأكيد إضافي لهذا الرقم",
 };
+export const emailConfirmationLabels: Record<string, string> = {
+  QUEUED: "تأكيد البريد الإلكتروني قيد الإرسال",
+  ACCEPTED: "أُرسل التأكيد إلى بريدك الإلكتروني",
+  FAILED: "تعذر إرسال التأكيد بالبريد الإلكتروني",
+  UNKNOWN: "لم يتأكد إرسال التأكيد بالبريد الإلكتروني",
+  EXPIRED: "انتهت مهلة إرسال التأكيد بالبريد",
+  NOT_CONFIGURED: "التأكيد بالبريد الإلكتروني غير متاح حالياً",
+  RATE_LIMITED: "لم يُرسل تأكيد إضافي لهذا البريد",
+};
 export function ReceiptDetails({ receipt }: { receipt: ComplaintReceipt }) {
   const [feedback, setFeedback] = useState("");
   const items = [

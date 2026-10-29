@@ -5,6 +5,12 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    # The app framework and build tools come from Lovable's template and move
+    # together; Lovable updates them. Bumping them here breaks the server functions.
+    ignore:
+      - dependency-name: "@tanstack/*"
+      - dependency-name: "@lovable.dev/*"
+      - dependency-name: "vite"
     groups:
       minor-and-patch:
         update-types: [minor, patch]

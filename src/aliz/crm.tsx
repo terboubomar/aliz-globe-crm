@@ -1079,6 +1079,7 @@ function Intake({
         {
           ...b,
           whatsappConsent: b["whatsappConsent"] === "on",
+          emailConsent: b["emailConsent"] === "on",
           branchId: unknown ? null : b["branchId"],
           receivedAt: b["receivedAt"] ? new Date(b["receivedAt"]).toISOString() : undefined,
         },
@@ -1169,6 +1170,17 @@ function Intake({
               <input name="whatsappConsent" type="checkbox" />
               إرسال تأكيد واتساب بموافقة العميل
             </label>
+          )}
+          {data.integrations?.email && (
+            <>
+              <Field label="البريد الإلكتروني (اختياري)">
+                <input name="email" type="email" dir="ltr" maxLength={200} autoComplete="off" />
+              </Field>
+              <label className="checkbox full">
+                <input name="emailConsent" type="checkbox" />
+                إرسال تأكيد بالبريد الإلكتروني بموافقة العميل
+              </label>
+            </>
           )}
           {duplicates.length > 0 && (
             <div className="notice full">
@@ -1312,6 +1324,7 @@ function TicketDetail({
             <small>العميل</small>
             <b>{t.customer?.name || "غير مسجل / محجوب"}</b>
             <span dir="ltr">{t.customer?.phone}</span>
+            {t.customer?.email && <span dir="ltr">{t.customer.email}</span>}
           </div>
         </div>
         <div className="detail-facts">
@@ -1381,7 +1394,8 @@ function TicketDetail({
                 <div>
                   <b>{eventNames[e.type] ?? e.type.replaceAll("_", " ")}</b>
                   <small>
-                    {data.users.find((u) => u.id === e.actor)?.name ?? e.actor} •{" "}
+                    {data.users.find((u) => u.id === e.actor)?.name ??
+                      (e.actor === "SYSTEM" ? "النظام" : e.actor)} •{" "}
                     {date(e.createdAt)}
                   </small>
                   {e.note && <p>{e.note}</p>}
@@ -1479,7 +1493,7 @@ function TicketDetail({
 }
 function CustomerLookup({ onOpen }: { onOpen: (id: string) => void }) {
   const [result, setResult] = useState<
-      | { id: string; number: string; state: string; customer: { name: string; phone: string } }[]
+      | { id: string; number: string; state: string; customer: { name: string; phone: string } | null }[]
       | null
     >(null),
     [error, setError] = useState("");
@@ -1515,7 +1529,7 @@ function CustomerLookup({ onOpen }: { onOpen: (id: string) => void }) {
       {error && <p className="error">{error}</p>}
       {result?.map((t) => (
         <button className="notification-item" key={t.id} onClick={() => onOpen(t.id)}>
-          <b>{t.customer.name || "عميل"}</b>
+          <b>{t.customer?.name || "عميل"}</b>
           <span dir="ltr">{t.number}</span>
           <Badge>{states[t.state]}</Badge>
         </button>
