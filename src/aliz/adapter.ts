@@ -606,7 +606,10 @@ async function route(
         createdAt: u.created_at,
       })),
       roles: assignableRoles.map((id) => ({ id, permissions: permissionsForRole(id) })),
-      financeDuties: financeDuties.map((id) => ({ id, permissions: permissionsForRole("AGENT", id) })),
+      financeDuties: financeDuties.map((id) => ({
+        id,
+        permissions: permissionsForRole("AGENT", id),
+      })),
       passwordLogin: true,
     };
   }
@@ -650,7 +653,9 @@ async function route(
     return getRotation({ data: params.get("sunday") ? { sunday: params.get("sunday")! } : {} });
   if (is("schedule", "rotation")) return saveRotation({ data: body as never });
   if (is("schedule", "rotation", "apply"))
-    return applyRotation({ data: { sunday: String(body["sunday"] ?? "") } });
+    return applyRotation({
+      data: { sunday: String(body["sunday"] ?? ""), replace: body["replace"] === true },
+    });
   if (is("shifts", "bulk"))
     return saveShifts({
       data: { entries: ((body["entries"] ?? body["shifts"]) as Row[]).map(shiftEntry) },
