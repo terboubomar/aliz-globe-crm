@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { ArrowDown, ArrowUp, ListChecks, Plus, Trash2 } from "lucide-react";
+import { GripVertical, ListChecks, Plus, Trash2 } from "lucide-react";
 import { newCategoryId, type Catalog, type CategoryItem, type PlatformItem } from "@/lib/catalog";
 import { api, lists, n } from "./types";
 
@@ -10,54 +10,69 @@ const move = <T,>(list: T[], from: number, to: number) => {
   return next;
 };
 
-/** Position number with up/down buttons; the order here is the order in every form. */
-function Order({
-  index,
-  count,
-  name,
-  onMove,
-}: {
-  index: number;
-  count: number;
-  name: string;
-  onMove: (to: number) => void;
-}) {
-  return (
-    <span className="list-order">
-      <b>{n(index + 1)}</b>
-      <button
-        type="button"
-        className="icon-btn"
-        aria-label={`رفع ${name}`}
-        disabled={index === 0}
-        onClick={() => onMove(index - 1)}
-      >
-        <ArrowUp size={15} />
-      </button>
-      <button
-        type="button"
-        className="icon-btn"
-        aria-label={`خفض ${name}`}
-        disabled={index === count - 1}
-        onClick={() => onMove(index + 1)}
-      >
-        <ArrowDown size={15} />
-      </button>
-    </span>
-  );
+/**
+ * Drag to reorder: hold the handle (⋮⋮) and move the row, with a mouse, finger
+ * or pen. With the keyboard, focus the handle and use the up/down arrows.
+ * The order here is the order in every form.
+ */
+function useDragSort(onMove: (from: number, to: number) => void) {
+  const [dragging, setDragging] = useState<number | null>(null);
+  const handle = (index: number, count: number, name: string) => ({
+    type: "button" as const,
+    className: "drag-handle",
+    "aria-label": `اسحب لترتيب ${name} (الترتيب ${index + 1} من ${count})`,
+    title: "اسحب لتغيير الترتيب",
+    onPointerDown: (e: React.PointerEvent<HTMLButtonElement>) => {
+      e.preventDefault();
+      e.currentTarget.setPointerCapture?.(e.pointerId);
+      setDragging(index);
+    },
+    onPointerMove: (e: React.PointerEvent<HTMLButtonElement>) => {
+      if (dragging === null) return;
+      const list = e.currentTarget.closest("ul");
+      const row = document
+        .elementFromPoint(e.clientX, e.clientY)
+        ?.closest<HTMLElement>("[data-drag-index]");
+      if (!row || !list?.contains(row)) return;
+      const to = Number(row.dataset["dragIndex"]);
+      if (to !== dragging) {
+        onMove(dragging, to);
+        setDragging(to);
+      }
+    },
+    onPointerUp: () => setDragging(null),
+    onPointerCancel: () => setDragging(null),
+    onKeyDown: (e: React.KeyboardEvent<HTMLButtonElement>) => {
+      const to = e.key === "ArrowUp" ? index - 1 : e.key === "ArrowDown" ? index + 1 : -1;
+      if (to < 0 || to >= count) return;
+      e.preventDefault();
+      onMove(index, to);
+    },
+  });
+  const row = (index: number, off: boolean) => ({
+    "data-drag-index": index,
+    className: [off ? "off" : "", dragging === index ? "dragging" : ""].join(" ").trim(),
+  });
+  return { handle, row, dragging };
 }
+
+let uid = 0;
+type PlatformRow = PlatformItem & { key: number };
+const withKeys = (list: PlatformItem[]): PlatformRow[] => list.map((p) => ({ ...p, key: ++uid }));
 
 /** Complaint reasons and order platforms, managed in Settings → Lists. */
 export function ListsPanel() {
   const [cats, setCats] = useState<(CategoryItem & { fresh?: boolean })[]>(() =>
       lists.categories.map((c) => ({ ...c })),
     ),
-    [plats, setPlats] = useState<PlatformItem[]>(() => lists.platforms.map((p) => ({ ...p }))),
+    [plats, setPlats] = useState<PlatformRow[]>(() => withKeys(lists.platforms)),
     [newCat, setNewCat] = useState(""),
     [newPlat, setNewPlat] = useState(""),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [notice, setNotice] = useState("");
+  const catDrag = useDragSort((from, to) => setCats((list) => move(list, from, to)));
+  const platDrag = useDragSort((from, to) => setPlats((list) => move(list, from, to)));
 
   const addCat = () => {
     const label = newCat.trim();
@@ -77,7 +92,7 @@ export function ListsPanel() {
   const addPlat = () => {
     const label = newPlat.trim();
     if (label.length < 2) return;
-    setPlats([...plats, { label, active: true }]);
+    setPlats([...plats, ...withKeys([{ label, active: true }])]);
     setNewPlat("");
   };
   const save = async (e: FormEvent) => {
@@ -88,10 +103,10 @@ export function ListsPanel() {
     try {
       const saved = await api<Catalog>("settings/lists", {
         categories: cats.map(({ id, label, active, urgent }) => ({ id, label, active, urgent })),
-        platforms: plats,
+        platforms: plats.map(({ label, active }) => ({ label, active })),
       });
       setCats(saved.categories.map((c) => ({ ...c })));
-      setPlats(saved.platforms.map((p) => ({ ...p })));
+      setPlats(withKeys(saved.platforms));
       setNotice("تم حفظ القوائم. تظهر الآن في نموذج الشكوى ونموذج QR وطلبات الاسترجاع.");
     } catch (e) {
       setError((e as Error).message);
@@ -119,17 +134,15 @@ export function ListsPanel() {
           <p className="hint">
             تظهر الأسباب المفعّلة بهذا الترتيب في نموذج تسجيل الشكوى ونموذج QR للعملاء، والأول هو
             الاختيار الافتراضي. الأسباب المستخدمة لا تُحذف؛ أوقفها لإخفائها مع بقاء الشكاوى السابقة
-            كما هي. السبب «العاجل» يجعل الشكوى P1 تلقائياً.
+            كما هي. السبب «العاجل» يجعل الشكوى P1 تلقائياً. اسحب أي سطر من المقبض ⋮⋮ لتغيير ترتيبه.
           </p>
           <ul className="list-editor">
             {cats.map((c, i) => (
-              <li key={c.id} className={c.active ? "" : "off"}>
-                <Order
-                  index={i}
-                  count={cats.length}
-                  name={c.label}
-                  onMove={(to) => setCats(move(cats, i, to))}
-                />
+              <li key={c.id} {...catDrag.row(i, !c.active)}>
+                <button {...catDrag.handle(i, cats.length, c.label)}>
+                  <GripVertical size={16} />
+                </button>
+                <b className="list-position">{n(i + 1)}</b>
                 <input
                   aria-label="اسم السبب"
                   value={c.label}
@@ -204,18 +217,16 @@ export function ListsPanel() {
         </div>
         <div className="padded">
           <p className="hint">
-            المنصات التي يختار منها الفريق والعميل مصدر الطلب، مثل تطبيقات التوصيل أو الطلب من
-            الفرع.
+            المنصات التي يختار منها الفريق والعميل مصدر الطلب، بهذا الترتيب. اسحب أي سطر من المقبض
+            ⋮⋮ ليظهر الأكثر استخداماً أولاً.
           </p>
           <ul className="list-editor">
             {plats.map((p, i) => (
-              <li key={i} className={p.active ? "" : "off"}>
-                <Order
-                  index={i}
-                  count={plats.length}
-                  name={p.label}
-                  onMove={(to) => setPlats(move(plats, i, to))}
-                />
+              <li key={p.key} {...platDrag.row(i, !p.active)}>
+                <button {...platDrag.handle(i, plats.length, p.label)}>
+                  <GripVertical size={16} />
+                </button>
+                <b className="list-position">{n(i + 1)}</b>
                 <input
                   aria-label="اسم المنصة"
                   value={p.label}

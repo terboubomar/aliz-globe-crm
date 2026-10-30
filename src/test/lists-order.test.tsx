@@ -12,14 +12,17 @@ vi.mock("@/aliz/adapter", () => ({
 import { ListsPanel } from "@/aliz/lists-workspace";
 
 describe("list order", () => {
-  it("moves a platform up and saves the new order", async () => {
+  it("reorders by dragging the handle (keyboard arrows on the handle) and saves the order", async () => {
     render(<ListsPanel />);
     const names = () =>
       screen.getAllByLabelText("اسم المنصة").map((el) => (el as HTMLInputElement).value);
     expect(names().slice(0, 2)).toEqual(["هنقرستيشن", "جاهز"]);
-    fireEvent.click(screen.getByLabelText("رفع جاهز"));
+    const handle = screen.getByLabelText(/اسحب لترتيب جاهز/);
+    fireEvent.keyDown(handle, { key: "ArrowUp" });
     expect(names().slice(0, 2)).toEqual(["جاهز", "هنقرستيشن"]);
-    expect(screen.getByLabelText("رفع جاهز")).toBeDisabled();
+    // Already first: nothing moves.
+    fireEvent.keyDown(screen.getByLabelText(/اسحب لترتيب جاهز/), { key: "ArrowUp" });
+    expect(names()[0]).toBe("جاهز");
     fireEvent.click(screen.getByText("حفظ القوائم"));
     await screen.findByRole("status");
     const body = saved.body as { platforms: { label: string }[] };
