@@ -10,7 +10,7 @@ vi.mock("@/aliz/adapter", () => ({
 }));
 
 import { ListsPanel } from "@/aliz/lists-workspace";
-import { ReasonOptions } from "@/aliz/reason-options";
+import { ReasonOptions, ReasonPicker } from "@/aliz/reason-options";
 
 describe("list order", () => {
   it("reorders by dragging the handle (keyboard arrows on the handle) and saves the order", async () => {
@@ -66,5 +66,32 @@ describe("grouped reasons", () => {
       "جسم غريب (عاجلة P1)",
     );
     expect(container.querySelector("select > option")?.textContent).toBe("أخرى");
+  });
+});
+
+describe("other reason", () => {
+  it("asks what the problem is only when Other is picked", () => {
+    render(
+      <form>
+        <ReasonPicker
+          reasons={[
+            { id: "DELAY", label: "تأخر الطلب", group: "مشكلة في الطلب" },
+            { id: "OTHER", label: "أخرى", group: "" },
+          ]}
+          label="سبب الشكوى"
+          detailLabel="ما نوع المشكلة؟"
+          detailPlaceholder="اكتب نوع المشكلة"
+        />
+      </form>,
+    );
+    const select = screen.getByRole("combobox") as HTMLSelectElement;
+    expect(select.value).toBe("DELAY");
+    expect(screen.queryByPlaceholderText("اكتب نوع المشكلة")).toBeNull();
+    fireEvent.change(select, { target: { value: "OTHER" } });
+    const box = screen.getByPlaceholderText("اكتب نوع المشكلة") as HTMLInputElement;
+    expect(box.name).toBe("otherDetail");
+    expect(box.required).toBe(true);
+    fireEvent.change(select, { target: { value: "DELAY" } });
+    expect(screen.queryByPlaceholderText("اكتب نوع المشكلة")).toBeNull();
   });
 });
