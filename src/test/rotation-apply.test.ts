@@ -137,7 +137,7 @@ describe("applying a template", () => {
     const cleared = await clearFrom(plan, SUN, plan.updatedBy, new Date("2026-10-29T12:00:00Z"));
     expect(cleared).toBe(1);
     const r = await generateWeek(plan, SUN, plan.updatedBy);
-    expect(r).toEqual({ saved: 14, skipped: 0 });
+    expect(r).toEqual({ saved: 14, skipped: 0, notified: 0 });
     const past = db.tables["shifts"]!.find((s) => s["start_at"] === "2026-10-25T15:00:00Z")!;
     expect(past["cancelled_at"]).toBeNull();
   });

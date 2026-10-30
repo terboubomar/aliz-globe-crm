@@ -34,6 +34,7 @@ import {
   telegramStatus,
   telegramRegisterWebhook,
   telegramTest,
+  telegramSendSchedule,
   getRotation,
   saveRotation,
   applyRotation,
@@ -659,6 +660,8 @@ async function route(
   if (is("schedule", "rotation") && method === "GET")
     return getRotation({ data: params.get("sunday") ? { sunday: params.get("sunday")! } : {} });
   if (is("schedule", "rotation")) return saveRotation({ data: body as never });
+  if (is("schedule", "telegram"))
+    return telegramSendSchedule({ data: { sunday: String(body["sunday"] ?? "") } });
   if (is("schedule", "rotation", "apply"))
     return applyRotation({
       data: { sunday: String(body["sunday"] ?? ""), replace: body["replace"] === true },

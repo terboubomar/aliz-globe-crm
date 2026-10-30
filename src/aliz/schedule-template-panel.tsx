@@ -115,12 +115,14 @@ export function ScheduleTemplatePanel({
         saved?: number;
         cleared?: number;
         skipped?: number;
+        notified?: number;
       };
       onNotice(
         `تم تطبيق القالب على أسبوع ${weekLabel(anchor)} (${n(r?.saved ?? 0)} سجلات)` +
           (r?.cleared ? `، واستُبدلت ${n(r.cleared)} وردية سابقة` : "") +
           (r?.skipped ? `، وبقيت ${n(r.skipped)} أيام مجدولة مسبقاً كما هي` : "") +
-          (repeat ? "، وسيتكرر تلقائياً كل أسبوع." : "."),
+          (repeat ? "، وسيتكرر تلقائياً كل أسبوع." : ".") +
+          (r?.notified ? ` أُرسل الجدول الجديد إلى ${n(r.notified)} موظفين على تيليجرام.` : ""),
       );
       setTemplate(null);
       setFileName("");

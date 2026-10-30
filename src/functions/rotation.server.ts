@@ -70,7 +70,7 @@ export async function previewWeek(plan: RotationPlan, sunday: string) {
 export async function generateWeek(plan: StoredPlan, sunday: string, actorId: string) {
   // A template plan has no shift patterns; it carries its own times.
   if (!plan.members.length || (!plan.shifts.length && !plan.template))
-    return { saved: 0, skipped: 0 };
+    return { saved: 0, skipped: 0, notified: 0 };
   const { entries, skipped } = await previewWeek(plan, sunday);
   const db = await admin();
   let saved = 0;
@@ -103,7 +103,15 @@ export async function generateWeek(plan: StoredPlan, sunday: string, actorId: st
     _action: "ROTATION_WEEK_GENERATED",
     _entity: sunday,
   });
-  return { saved, skipped: skipped.length };
+  // A new schedule for this week or next week goes straight to the team on Telegram.
+  let notified = 0;
+  if (sunday <= weekDays(1)[0]!)
+    try {
+      notified = (await (await import("./telegram.server")).sendWeek(sunday, "auto")).sent;
+    } catch {
+      /* the schedule is saved either way */
+    }
+  return { saved, skipped: skipped.length, notified };
 }
 
 /**

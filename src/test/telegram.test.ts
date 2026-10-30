@@ -389,3 +389,53 @@ describe("deadlines", () => {
     expect(sent.filter((m) => m.text?.includes("مهلة"))).toHaveLength(0);
   });
 });
+
+describe("sending the weekly schedule", () => {
+  // 2026-11-01 is a Sunday; "now" is that morning.
+  const now = new Date("2026-11-01T05:00:00Z");
+  it("sends each person their own week on demand and reports who is not linked", async () => {
+    await link(AGENT, 111);
+    sent.length = 0;
+    db.tables["shifts"]!.push({
+      id: "s2",
+      user_id: ADMIN.id,
+      start_at: "2026-11-02T09:00:00Z",
+      end_at: "2026-11-02T18:00:00Z",
+      break_start: null,
+      break_end: null,
+      day_off: false,
+      lead: false,
+      cancelled_at: null,
+    });
+    const r = await tg.sendWeek("2026-11-01", "manual", now);
+    expect(r).toEqual({ sent: 1, scheduled: 2, notLinked: ["Omar"] });
+    expect(sent[0]!.chat_id).toBe("111");
+    expect(sent[0]!.text).toContain("جدول جديد");
+    expect(sent[0]!.text).toContain("12:00–21:00");
+    expect(sent[0]!.text).not.toContain("Omar");
+    // Pressing the button again sends again.
+    expect((await tg.sendWeek("2026-11-01", "manual", now)).sent).toBe(1);
+    await expect(tg.sendWeek("2026-10-18", "manual", now)).rejects.toThrow("انتهى");
+  });
+
+  it("sends a generated schedule once, and again only when it changes", async () => {
+    await link(AGENT, 111);
+    sent.length = 0;
+    expect((await tg.sendWeek("2026-11-01", "auto", now)).sent).toBe(1);
+    expect((await tg.sendWeek("2026-11-01", "auto", now)).sent).toBe(0);
+    db.tables["shifts"]![0]!["end_at"] = "2026-11-01T19:00:00Z";
+    expect((await tg.sendWeek("2026-11-01", "auto", now)).sent).toBe(1);
+    expect(sent.at(-1)!.text).toContain("تم تحديث جدولك");
+  });
+
+  it("skips Saturday's reminder when the same schedule went out that day", async () => {
+    await link(AGENT, 111);
+    db.tables["shifts"]![0]!["start_at"] = "2026-11-08T09:00:00Z";
+    db.tables["shifts"]![0]!["end_at"] = "2026-11-08T18:00:00Z";
+    const saturday = new Date("2026-11-07T17:30:00Z"); // 20:30 Riyadh
+    await tg.sendWeek("2026-11-08", "auto", new Date("2026-11-07T10:00:00Z"));
+    sent.length = 0;
+    await tg.runScheduled(saturday);
+    expect(sent.filter((m) => m.text?.includes("جدولك"))).toHaveLength(0);
+  });
+});
