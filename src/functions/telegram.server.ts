@@ -7,6 +7,7 @@ import {
   type Actor,
 } from "@/lib/domain";
 import { addDays, riyadhDay, riyadhISO, weekDays } from "@/aliz/schedule-time";
+import { word, type WordKey } from "@/lib/telegram-words";
 import { admin, rpcError, settings } from "./core.server";
 import { decrypt, encrypt, keyedHash, randomToken } from "./crypto.server";
 
@@ -74,6 +75,31 @@ export function missingConfig() {
 }
 export async function ready() {
   return (await settings()).telegram && missingConfig().length === 0;
+}
+
+/* ---------------- wording a super admin can change ---------------- */
+let wordsCache: { at: number; value: Record<string, unknown> } | null = null;
+export function clearWordsCache() {
+  wordsCache = null;
+}
+async function w(key: WordKey, vars: Record<string, string> = {}) {
+  if (!wordsCache || Date.now() - wordsCache.at > 60_000) {
+    const db = await admin();
+    const { data } = await db
+      .from("app_settings")
+      .select("value")
+      .eq("key", "telegram_templates")
+      .maybeSingle();
+    const value = data?.value;
+    wordsCache = {
+      at: Date.now(),
+      value:
+        value && typeof value === "object" && !Array.isArray(value)
+          ? (value as Record<string, unknown>)
+          : {},
+    };
+  }
+  return esc(word(wordsCache.value, key, vars));
 }
 
 /* ---------------- storage in the outbox table ---------------- */
@@ -189,7 +215,7 @@ export async function confirmLink(a: Actor, fingerprint: string) {
   await db.rpc("write_audit", { _actor: a.id, _action: "TELEGRAM_LINKED", _entity: a.id });
   await send(
     link.pending.chatId,
-    `✅ <b>تم ربط حسابك بنظام شكاوى أليز</b>\nأهلاً ${esc(a.name)}، استخدم الأزرار بالأسفل لعرض ورديتك وشكاواك.`,
+    `✅ <b>${await w("welcome")}</b>\nأهلاً ${esc(a.name)}، استخدم الأزرار بالأسفل لعرض ورديتك وشكاواك.`,
     menu(a.role),
   );
   return { ok: true };
@@ -419,12 +445,19 @@ export async function notifyAssigned(ticketId: string, ownerId: string) {
     )
       return;
     const title = urgent(info.t)
-      ? "🔴 <b>شكوى عاجلة أُسندت إليك</b>"
-      : "📋 <b>تم إسناد شكوى إليك</b>";
+      ? `🔴 <b>${await w("assignedUrgent")}</b>`
+      : `📋 <b>${await w("assigned")}</b>`;
     const due = await dueText(ticketId, "ACKNOWLEDGMENT");
+    const note = await w("assignedNote");
     await send(
       chat,
-      [title, "", ...ticketLines(info), ...(due ? [due] : [])].join("\n"),
+      [
+        title,
+        "",
+        ...ticketLines(info),
+        ...(due ? [due] : []),
+        ...(note ? ["", `📌 ${note}`] : []),
+      ].join("\n"),
       ticketButtons(info, true),
     );
   } catch {
@@ -443,7 +476,9 @@ export async function notifyNewComplaint(ticketId: string) {
     ]);
     if (!info) return;
     const owner = info.t.resolution_owner ? await enabledUser(info.t.resolution_owner) : null;
-    const title = urgent(info.t) ? "🔴 <b>شكوى عاجلة جديدة (P1)</b>" : "🆕 <b>شكوى جديدة</b>";
+    const title = urgent(info.t)
+      ? `🔴 <b>${await w("newUrgent")}</b>`
+      : `🆕 <b>${await w("newComplaint")}</b>`;
     const text = [
       title,
       "",
@@ -635,10 +670,10 @@ export async function sendWeek(
     const updated = !!prevHash && prevHash !== hash;
     const text =
       (updated
-        ? "📝 <b>تم تحديث جدولك</b>\n"
+        ? `📝 <b>${await w("weekUpdated")}</b>\n`
         : mode === "reminder"
           ? ""
-          : "📣 <b>جدول جديد</b>\n") + weekBody(own, sunday, now);
+          : `📣 <b>${await w("weekNew")}</b>\n`) + weekBody(own, sunday, now);
     const ok = await send(chat, text, {
       inline_keyboard: [[{ text: "عرض الجدول في النظام ↗", url: `${origin()}/?view=schedule` }]],
     });
@@ -968,8 +1003,9 @@ export async function runScheduled(now = new Date()) {
     if (!chat || !(await once(`SHIFT:${s.id}`, s.user_id))) continue;
     const open = await openCount(s.user_id);
     const text =
-      `⏰ <b>تذكير بورديتك اليوم</b>\n${shiftText(s)}` +
-      (open ? `\n\n📋 لديك ${open} شكوى مفتوحة.` : "");
+      `⏰ <b>${await w("shiftReminder")}</b>\n${shiftText(s)}` +
+      (open ? `\n\n📋 لديك ${open} شكوى مفتوحة.` : "") +
+      ((await w("shiftNote")) ? `\n\n📌 ${await w("shiftNote")}` : "");
     if (
       await send(
         chat,
@@ -1016,8 +1052,8 @@ export async function runScheduled(now = new Date()) {
         owner: true,
         text: lines(
           missed
-            ? `⚠️ <b>تجاوزت شكواك مهلة ${what}</b>`
-            : `⏳ <b>اقتربت مهلة ${what} لشكوى مسندة إليك</b>`,
+            ? `⚠️ <b>${await w("deadlineMissed", { المرحلة: what })}</b>`
+            : `⏳ <b>${await w("deadlineWarn", { المرحلة: what })}</b>`,
           true,
         ),
       });
@@ -1029,7 +1065,7 @@ export async function runScheduled(now = new Date()) {
             owner: false,
             text: lines(
               missed
-                ? `⚠️ <b>شكوى تجاوزت مهلة ${what}</b>`
+                ? `⚠️ <b>${await w("deadlineMissed", { المرحلة: what })}</b>`
                 : `⏳ <b>شكوى بدون مسؤول تقترب مهلتها</b>`,
               false,
             ),

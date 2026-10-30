@@ -5715,3 +5715,85 @@ th {
   align-items: center;
   gap: 6px;
 }
+.templates-workspace {
+  display: grid;
+  gap: 20px;
+}
+.template-list {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+}
+.template-list li {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 0;
+  border-top: 1px solid var(--border);
+}
+.template-list li > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.template-list p {
+  margin: 0;
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-line;
+}
+.template-list small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.template-row-actions {
+  display: inline-flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.template-checks {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin: 16px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  min-width: 0;
+}
+.template-checks legend {
+  padding: 0 8px;
+  font-weight: 700;
+  font-size: 13px;
+}
+.template-checks legend small {
+  color: var(--muted);
+  font-weight: 400;
+}
+.template-placeholders {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+.template-word {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.template-word input {
+  flex: 1;
+  min-width: 0;
+}
+.template-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.template-picker select {
+  flex: 1;
+  min-width: 0;
+}

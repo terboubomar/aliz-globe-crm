@@ -3,6 +3,8 @@ import { ArrowLeft, UserRound } from "lucide-react";
 import { Data, Ticket, states } from "./types";
 import { complaintActions, nextComplaintAction, canWorkComplaint, agentInvolved } from "./workflow";
 import { Field, Submit } from "./ui";
+import { fill, matching } from "@/lib/reply-templates";
+import { useReplyTemplates } from "./reply-templates-cache";
 export function ComplaintActionPanel({
   ticket: t,
   data,
@@ -17,6 +19,7 @@ export function ComplaintActionPanel({
   const [action, setAction] = useState<string | null>(null),
     [error, setError] = useState(""),
     [outcome, setOutcome] = useState("");
+  const templates = useReplyTemplates();
   const next = nextComplaintAction(t);
   const allowed = complaintActions.filter(
     (a) =>
@@ -202,6 +205,19 @@ export function ComplaintActionPanel({
                   }
                   full
                 >
+                  <TemplatePicker
+                    options={matching(templates, {
+                      action: selected ?? "",
+                      category: t.category,
+                      brandId: t.brandId,
+                    })}
+                    vars={{
+                      number: t.number,
+                      brand: t.brand?.name ?? "",
+                      branch: t.branch?.name ?? "",
+                      me: data.me.name,
+                    }}
+                  />
                   <textarea name="note" rows={2} required minLength={3} maxLength={2000} />
                 </Field>
               )}
@@ -233,5 +249,40 @@ export function ComplaintActionPanel({
         </>
       )}
     </section>
+  );
+}
+
+/** Fills the note box below it with a ready-made reply; the text stays editable. */
+function TemplatePicker({
+  options,
+  vars,
+}: {
+  options: ReturnType<typeof matching>;
+  vars: Parameters<typeof fill>[1];
+}) {
+  if (!options.length) return null;
+  return (
+    <span className="template-picker">
+      <select
+        aria-label="رد جاهز"
+        value=""
+        onChange={(e) => {
+          const picked = options.find((o) => o.id === e.target.value);
+          const box = e.currentTarget
+            .closest(".template-picker")
+            ?.parentElement?.querySelector<HTMLTextAreaElement>('textarea[name="note"]');
+          if (!picked || !box) return;
+          box.value = fill(picked.text, vars).slice(0, 2000);
+          box.focus();
+        }}
+      >
+        <option value="">📝 اختر رداً جاهزاً ({options.length})</option>
+        {options.map((o) => (
+          <option key={o.id} value={o.id}>
+            {o.title}
+          </option>
+        ))}
+      </select>
+    </span>
   );
 }

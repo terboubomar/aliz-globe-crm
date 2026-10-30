@@ -13,14 +13,17 @@ import {
   RefreshCw,
   Search,
   Mail,
+  FileText,
 } from "lucide-react";
+import { MANAGE_ROLES } from "@/lib/reply-templates";
+import { ReplyTemplatesPanel, TelegramWordsPanel } from "./templates-workspace";
 import { api, date, eventNames, n, roleNames, type Data } from "./types";
 import { Field, Empty } from "./ui";
 import { canOpenView } from "./access";
 import { EmailIntegration, WhatsAppIntegration } from "./whatsapp-integration";
 import { TelegramIntegration } from "./telegram-integration";
 
-type Section = "general" | "integrations" | "audit";
+type Section = "general" | "templates" | "integrations" | "audit";
 export function SettingsWorkspace({
   data,
   onRole,
@@ -36,6 +39,9 @@ export function SettingsWorkspace({
     [channel, setChannel] = useState<"whatsapp" | "email" | "telegram">("whatsapp");
   const sections = [
     { id: "general" as const, label: "عام", icon: Building2 },
+    ...(MANAGE_ROLES.includes(data.me.role)
+      ? [{ id: "templates" as const, label: "القوالب", icon: FileText }]
+      : []),
     ...(data.me.role === "SUPER_ADMIN"
       ? [{ id: "integrations" as const, label: "التكاملات", icon: Plug }]
       : []),
@@ -90,6 +96,12 @@ export function SettingsWorkspace({
         tabIndex={0}
         className="settings-content"
       >
+        {section === "templates" && (
+          <div className="templates-workspace">
+            <ReplyTemplatesPanel data={data} />
+            {data.me.role === "SUPER_ADMIN" && <TelegramWordsPanel />}
+          </div>
+        )}
         {section === "general" && (
           <>
             <div className="settings-general-grid">
