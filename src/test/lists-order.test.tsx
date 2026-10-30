@@ -31,41 +31,41 @@ describe("list order", () => {
   });
 });
 
-describe("grouped reasons", () => {
-  it("adds the suggested reasons into their groups and saves the groups", async () => {
+describe("reasons", () => {
+  it("adds the suggested reasons at the end and saves them", async () => {
     render(<ListsPanel />);
     fireEvent.click(screen.getByText(/إضافة الأسباب المقترحة/));
     const labels = screen
       .getAllByLabelText("اسم السبب")
       .map((el) => (el as HTMLInputElement).value);
-    // "طلب خاطئ" joins the order-problem group right after the built-in order reasons.
-    expect(labels.indexOf("طلب خاطئ")).toBe(labels.indexOf("طلب في فرع آخر") + 1);
+    expect(labels.slice(0, 2)).toEqual(["تأخر الطلب", "طلب ناقص"]);
+    expect(labels).toContain("طلب خاطئ");
     expect(screen.queryByText(/إضافة الأسباب المقترحة/)).toBeNull();
+    expect(screen.queryByPlaceholderText("المجموعة")).toBeNull();
     fireEvent.click(screen.getByText("حفظ القوائم"));
     await screen.findByRole("status");
-    const body = saved.body as { categories: { label: string; group: string; urgent: boolean }[] };
-    const foreign = body.categories.find((c) => c.label === "جسم غريب في الطعام")!;
-    expect(foreign).toMatchObject({ group: "جودة الطعام", urgent: true });
+    const body = saved.body as { categories: Record<string, unknown>[] };
+    const foreign = body.categories.find((c) => c["label"] === "جسم غريب في الطعام")!;
+    expect(foreign).toMatchObject({ urgent: true });
+    expect("group" in foreign).toBe(false);
   });
 
-  it("shows reasons under group headings in the form", () => {
+  it("lists reasons in the team's order, without group headings", () => {
     const { container } = render(
       <select>
         <ReasonOptions
           reasons={[
-            { id: "A", label: "تأخر الطلب", group: "مشكلة في الطلب" },
-            { id: "B", label: "جسم غريب", group: "جودة الطعام", urgent: true },
-            { id: "C", label: "أخرى", group: "" },
+            { id: "B", label: "جسم غريب", urgent: true },
+            { id: "A", label: "تأخر الطلب" },
           ]}
         />
       </select>,
     );
-    const groups = [...container.querySelectorAll("optgroup")].map((g) => g.label);
-    expect(groups).toEqual(["مشكلة في الطلب", "جودة الطعام"]);
-    expect(container.querySelector('optgroup[label="جودة الطعام"] option')?.textContent).toBe(
+    expect(container.querySelectorAll("optgroup")).toHaveLength(0);
+    expect([...container.querySelectorAll("option")].map((o) => o.textContent)).toEqual([
       "جسم غريب (عاجلة P1)",
-    );
-    expect(container.querySelector("select > option")?.textContent).toBe("أخرى");
+      "تأخر الطلب",
+    ]);
   });
 });
 
@@ -75,8 +75,8 @@ describe("other reason", () => {
       <form>
         <ReasonPicker
           reasons={[
-            { id: "DELAY", label: "تأخر الطلب", group: "مشكلة في الطلب" },
-            { id: "OTHER", label: "أخرى", group: "" },
+            { id: "DELAY", label: "تأخر الطلب" },
+            { id: "OTHER", label: "أخرى" },
           ]}
           label="سبب الشكوى"
           detailLabel="ما نوع المشكلة؟"

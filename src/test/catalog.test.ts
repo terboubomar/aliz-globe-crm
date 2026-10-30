@@ -4,7 +4,6 @@ import {
   DEFAULT_CATEGORIES,
   DEFAULT_PLATFORMS,
   categoryLabel,
-  grouped,
   asksDetail,
   SUGGESTED_CATEGORIES,
   newCategoryId,
@@ -32,7 +31,6 @@ describe("complaint reasons and order platforms", () => {
       label: "خطأ في الفاتورة",
       active: true,
       urgent: false,
-      group: "",
     });
     // Built-ins the team did not keep stay known, but switched off.
     const delay = c.categories.find((x) => x.id === "DELAY")!;
@@ -51,45 +49,19 @@ describe("complaint reasons and order platforms", () => {
   });
 });
 
-describe("reason groups", () => {
-  it("keeps each group together, in order of first appearance, ungrouped last", () => {
-    const items = [
-      { id: "A", group: "الطلب" },
-      { id: "X", group: "" },
-      { id: "B", group: "الجودة" },
-      { id: "C", group: "الطلب" },
-    ];
-    expect(grouped(items).map((g) => [g.group, g.items.map((i) => i.id)])).toEqual([
-      ["الطلب", ["A", "C"]],
-      ["الجودة", ["B"]],
-      ["", ["X"]],
-    ]);
-  });
-
-  it("gives the built-in reasons a group", () => {
-    const c = toCatalog(undefined, undefined);
-    expect(c.categories.find((x) => x.id === "DELAY")?.group).toBe("مشكلة في الطلب");
-    expect(c.categories.find((x) => x.id === "SAFETY")?.group).toBe("صحة وسلامة");
-    // Saved before groups existed: built-ins get their usual group, others none.
-    const old = toCatalog(
-      [
-        { id: "DELAY", label: "تأخر الطلب", active: true },
-        { id: "C_NEW001", label: "سبب جديد", active: true },
-      ],
-      [],
-    );
-    expect(old.categories.map((x) => x.group).slice(0, 2)).toEqual(["مشكلة في الطلب", ""]);
-  });
-});
-
 describe("other", () => {
   it("is the reason that asks for details, and suggestions no longer include اقتراح", () => {
     expect(asksDetail({ id: "OTHER", label: "أخرى" })).toBe(true);
     expect(asksDetail({ id: "C_X12345", label: "أخرى" })).toBe(true);
     expect(asksDetail({ id: "DELAY", label: "تأخر الطلب" })).toBe(false);
     expect(SUGGESTED_CATEGORIES.some((s) => s.label === "اقتراح")).toBe(false);
-    expect(toCatalog(undefined, undefined).categories.find((c) => c.id === "OTHER")?.group).toBe(
-      "",
-    );
+    // Saved lists that still carry a group from before are read without it.
+    const c = toCatalog([{ id: "DELAY", label: "تأخر الطلب", active: true, group: "x" }], []);
+    expect(c.categories[0]).toEqual({
+      id: "DELAY",
+      label: "تأخر الطلب",
+      active: true,
+      urgent: false,
+    });
   });
 });

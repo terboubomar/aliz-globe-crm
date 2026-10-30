@@ -2,7 +2,6 @@ import { useState, type FormEvent } from "react";
 import { GripVertical, ListChecks, Plus, Trash2 } from "lucide-react";
 import {
   SUGGESTED_CATEGORIES,
-  grouped,
   newCategoryId,
   type Catalog,
   type CategoryItem,
@@ -67,10 +66,6 @@ let uid = 0;
 type PlatformRow = PlatformItem & { key: number };
 const withKeys = (list: PlatformItem[]): PlatformRow[] => list.map((p) => ({ ...p, key: ++uid }));
 
-/** Same order as the form: each group together, groups in order of first appearance. */
-const groupTogether = <T extends { group: string }>(list: T[]) =>
-  grouped(list).flatMap((g) => g.items);
-
 /** Complaint reasons and order platforms, managed in Settings → Lists. */
 export function ListsPanel() {
   const [cats, setCats] = useState<(CategoryItem & { fresh?: boolean })[]>(() =>
@@ -78,7 +73,6 @@ export function ListsPanel() {
     ),
     [plats, setPlats] = useState<PlatformRow[]>(() => withKeys(lists.platforms)),
     [newCat, setNewCat] = useState(""),
-    [newCatGroup, setNewCatGroup] = useState(""),
     [newPlat, setNewPlat] = useState(""),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
@@ -96,13 +90,11 @@ export function ListsPanel() {
         label,
         active: true,
         urgent: false,
-        group: newCatGroup.trim(),
         fresh: true,
       },
     ]);
     setNewCat("");
   };
-  const groupNames = [...new Set(cats.map((c) => c.group.trim()).filter(Boolean))];
   const missingSuggestions = SUGGESTED_CATEGORIES.filter(
     (s) => !cats.some((c) => c.label.trim() === s.label),
   );
@@ -111,10 +103,9 @@ export function ListsPanel() {
     const added = missingSuggestions.map((s) => {
       const id = newCategoryId(taken);
       taken.push(id);
-      return { id, label: s.label, group: s.group, urgent: !!s.urgent, active: true, fresh: true };
+      return { id, label: s.label, urgent: !!s.urgent, active: true, fresh: true };
     });
-    // Keep each group together: put each new reason after the last one in its group.
-    setCats(groupTogether([...cats, ...added]));
+    setCats([...cats, ...added]);
     setNotice(`أُضيف ${n(added.length)} سبب مقترح. راجعها واحذف ما لا تحتاجه ثم احفظ.`);
   };
   const addPlat = () => {
@@ -130,13 +121,7 @@ export function ListsPanel() {
     setNotice("");
     try {
       const saved = await api<Catalog>("settings/lists", {
-        categories: cats.map(({ id, label, active, urgent, group }) => ({
-          id,
-          label,
-          active,
-          urgent,
-          group,
-        })),
+        categories: cats.map(({ id, label, active, urgent }) => ({ id, label, active, urgent })),
         platforms: plats.map(({ label, active }) => ({ label, active })),
       });
       setCats(saved.categories.map((c) => ({ ...c })));
@@ -166,10 +151,9 @@ export function ListsPanel() {
         </div>
         <div className="padded">
           <p className="hint">
-            تظهر الأسباب المفعّلة في نموذج الشكوى ونموذج QR تحت عنوان مجموعتها (مثل «مشكلة في الطلب»
-            أو «جودة الطعام»)، وبهذا الترتيب؛ الأول هو الاختيار الافتراضي. اسحب أي سطر من المقبض ⋮⋮
-            لتغيير ترتيبه. الأسباب المستخدمة لا تُحذف؛ أوقفها لإخفائها. السبب «العاجل» يجعل الشكوى
-            P1 تلقائياً.
+            تظهر الأسباب المفعّلة في نموذج الشكوى ونموذج QR بهذا الترتيب؛ الأول هو الاختيار
+            الافتراضي. اسحب أي سطر من المقبض ⋮⋮ لتغيير ترتيبه. الأسباب المستخدمة لا تُحذف؛ أوقفها
+            لإخفائها. السبب «العاجل» يجعل الشكوى P1 تلقائياً، واختيار «أخرى» يطلب كتابة نوع المشكلة.
           </p>
           <ul className="list-editor">
             {cats.map((c, i) => (
@@ -186,17 +170,6 @@ export function ListsPanel() {
                   minLength={2}
                   onChange={(e) =>
                     setCats(cats.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))
-                  }
-                />
-                <input
-                  className="list-group-input"
-                  aria-label={`مجموعة ${c.label}`}
-                  placeholder="المجموعة"
-                  list="reason-groups"
-                  value={c.group}
-                  maxLength={40}
-                  onChange={(e) =>
-                    setCats(cats.map((x, j) => (j === i ? { ...x, group: e.target.value } : x)))
                   }
                 />
                 <label className="checkbox">
@@ -238,11 +211,6 @@ export function ListsPanel() {
               </li>
             ))}
           </ul>
-          <datalist id="reason-groups">
-            {groupNames.map((g) => (
-              <option key={g} value={g} />
-            ))}
-          </datalist>
           <div className="list-editor-add">
             <input
               aria-label="سبب جديد"
@@ -252,29 +220,11 @@ export function ListsPanel() {
               onChange={(e) => setNewCat(e.target.value)}
               onKeyDown={onEnter(addCat)}
             />
-            <input
-              className="list-group-input"
-              aria-label="مجموعة السبب الجديد"
-              placeholder="المجموعة"
-              list="reason-groups"
-              value={newCatGroup}
-              maxLength={40}
-              onChange={(e) => setNewCatGroup(e.target.value)}
-              onKeyDown={onEnter(addCat)}
-            />
             <button type="button" className="secondary" onClick={addCat}>
               <Plus size={16} /> إضافة سبب
             </button>
           </div>
           <div className="table-tools list-editor-tools">
-            <button
-              type="button"
-              className="text-btn"
-              onClick={() => setCats(groupTogether(cats))}
-              disabled={!groupNames.length}
-            >
-              جمع كل مجموعة معاً
-            </button>
             {missingSuggestions.length > 0 && (
               <button type="button" className="text-btn" onClick={addSuggested}>
                 <Plus size={14} /> إضافة الأسباب المقترحة ({n(missingSuggestions.length)})

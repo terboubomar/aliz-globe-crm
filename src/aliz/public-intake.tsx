@@ -14,7 +14,7 @@ export default function PublicIntake({ code }: { code: string }) {
       demo: boolean;
       whatsappAvailable: boolean;
       emailAvailable?: boolean;
-      categories?: { id: string; label: string; group?: string }[];
+      categories?: { id: string; label: string }[];
       platforms?: string[];
     } | null>(null),
     [whatsappConsent, setWhatsAppConsent] = useState(false),
@@ -152,9 +152,10 @@ export default function PublicIntake({ code }: { code: string }) {
               <div className="form-grid">
                 <ReasonPicker
                   full
-                  reasons={(context.categories ?? activeCategories()).map(
-                    ({ id, label, group }) => ({ id, label, group }),
-                  )}
+                  reasons={(context.categories ?? activeCategories()).map(({ id, label }) => ({
+                    id,
+                    label,
+                  }))}
                   label="سبب البلاغ"
                   detailLabel="وش نوع المشكلة؟"
                   detailPlaceholder="اكتب نوع المشكلة بكلمات قليلة"
