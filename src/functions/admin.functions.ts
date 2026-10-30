@@ -544,6 +544,19 @@ export const telegramStatus = createServerFn({ method: "POST" })
     return (await tg()).adminStatus();
   });
 
+export const telegramSendSchedule = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ sunday: sundayDay }).parse(d))
+  .handler(async ({ data, context }) => {
+    const c = await core();
+    const a = await c.requireActor(context as never);
+    authorize(a, "schedule");
+    const r = await (await tg()).sendWeek(data.sunday, "manual");
+    const db = await c.admin();
+    await db.rpc("write_audit", { _actor: a.id, _action: "SCHEDULE_SENT_TELEGRAM", _entity: data.sunday });
+    return r;
+  });
+
 export const telegramTest = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {

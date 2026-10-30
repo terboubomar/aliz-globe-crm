@@ -1,6 +1,6 @@
 import { ScheduleTemplatePanel } from "./schedule-template-panel";
 import { useState, FormEvent } from "react";
-import { ChevronRight, ChevronLeft, Clock, Search } from "lucide-react";
+import { ChevronRight, ChevronLeft, Clock, Search, Send } from "lucide-react";
 import { Data, Shift, n, date, roleNames } from "./types";
 import { Modal, Field, Submit, Empty } from "./ui";
 import {
@@ -56,7 +56,8 @@ export function ScheduleWorkspace({
     [dayOff, setDayOff] = useState(false),
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
-    [cancelling, setCancelling] = useState<Shift | null>(null);
+    [cancelling, setCancelling] = useState<Shift | null>(null),
+    [sending, setSending] = useState(false);
   const manage = data.permissions.includes("schedule"),
     days = weekDays(week),
     from = riyadhISO(days[0]!),
@@ -72,6 +73,29 @@ export function ScheduleWorkspace({
   );
   const allLeaves = data.leave.filter((l) => manage || l.userId === data.me.id);
   const leaves = allLeaves.filter((l) => intersects(l.start, l.end, from, to));
+  const sendTelegram = async () => {
+    setSending(true);
+    setError("");
+    setNotice("");
+    try {
+      const r = (await mutate("schedule/telegram", { sunday: days[0] })) as {
+        sent: number;
+        scheduled: number;
+        notLinked: string[];
+      };
+      setNotice(
+        !r.scheduled
+          ? "لا توجد ورديات في هذا الأسبوع لإرسالها."
+          : `أُرسل الجدول إلى ${n(r.sent)} من ${n(r.scheduled)} موظفين على تيليجرام.` +
+              (r.notLinked.length ? ` لم يربطوا حساباتهم بعد: ${r.notLinked.join("، ")}.` : ""),
+      );
+    } catch (e) {
+      setNotice("");
+      setError((e as Error).message);
+    } finally {
+      setSending(false);
+    }
+  };
   const save = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
@@ -98,6 +122,11 @@ export function ScheduleWorkspace({
       {notice && (
         <p className="notice schedule-notice" role="status">
           {notice}
+        </p>
+      )}
+      {error && editing === undefined && (
+        <p className="error schedule-notice" role="alert">
+          {error}
         </p>
       )}
       <section className="panel staff-schedule">
@@ -130,6 +159,16 @@ export function ScheduleWorkspace({
               هذا الأسبوع
             </button>
           </div>
+          {manage && week >= 0 && (
+            <button
+              className="secondary schedule-telegram"
+              disabled={busy || sending}
+              title="يصل لكل موظف جدوله فقط، لمن ربط حسابه على تيليجرام"
+              onClick={() => void sendTelegram()}
+            >
+              <Send size={16} /> {sending ? "جارٍ الإرسال…" : "إرسال الجدول عبر تيليجرام"}
+            </button>
+          )}
           <span className="schedule-zone">
             <Clock size={15} /> توقيت الرياض
           </span>
@@ -297,11 +336,6 @@ export function ScheduleWorkspace({
             )
           }
         />
-      )}
-      {error && editing === undefined && (
-        <p className="error" role="alert">
-          {error}
-        </p>
       )}
       {editing !== undefined && (
         <Modal

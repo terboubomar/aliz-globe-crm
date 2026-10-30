@@ -5,7 +5,8 @@ Each staff member links their own Telegram account and then receives:
 | Who | Message | When |
 | --- | --- | --- |
 | Everyone linked | Reminder of today's shift (times, break, lead) and how many complaints they have open | Within the hour before the shift starts |
-| Everyone linked | Their schedule for next week | Saturday from 8 PM (Riyadh) |
+| Everyone in the schedule | Their own week ("جدول جديد", or "تم تحديث جدولك" when it changed) | When a schedule for this week or next week is generated or applied from the template, and whenever a manager presses **إرسال الجدول عبر تيليجرام** on the schedule page |
+| Everyone linked | Their schedule for next week | Saturday from 8 PM (Riyadh), unless the same schedule already went out that day |
 | Staff | "A complaint was assigned to you", with the acknowledgement deadline and two buttons: **✅ استلمتها — بدء العمل** (received, start work) and **فتح الشكوى** (open) | When a complaint is assigned (automatically, by a manager, or by escalation) |
 | Staff | "Deadline is close" | When a deadline (first action, acknowledgement, fix) reaches its warning time |
 | Staff + super admin | "Deadline missed", with who owns it | When the deadline passes and the step is still not done |

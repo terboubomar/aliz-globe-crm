@@ -544,17 +544,112 @@ export async function todayText(userId: string, now = new Date()) {
   if (!own.length) return `${title}\nلا توجد وردية مسجلة لك اليوم.`;
   return `${title}\n` + own.map(shiftText).join("\n");
 }
-export async function weekText(userId: string, offset = 0, now = new Date()) {
-  const days = weekDays(offset, now);
+const weekTitle = (sunday: string, now: Date) =>
+  sunday === weekDays(0, now)[0]
+    ? "لهذا الأسبوع"
+    : sunday === weekDays(1, now)[0]
+      ? "للأسبوع القادم"
+      : `لأسبوع ${dayName(sunday)}`;
+function weekBody(own: ShiftRow[], sunday: string, now: Date) {
   const today = riyadhDay(now);
-  const own = await shiftsFor([userId], riyadhISO(days[0]!), riyadhISO(addDays(days[6]!, 1)));
-  const lines = days.map((d) => {
+  const lines = Array.from({ length: 7 }, (_, i) => addDays(sunday, i)).map((d) => {
     const s = own.filter((x) => riyadhDay(x.start_at) === d);
     const mark = d === today ? "👉 " : "";
     return `${mark}${dayName(d)}: ${s.length ? s.map(shiftText).join("، ") : "—"}`;
   });
-  return `🗓 <b>جدولك ${offset ? "للأسبوع القادم" : "لهذا الأسبوع"}</b>\n\n` + lines.join("\n");
+  return `🗓 <b>جدولك ${weekTitle(sunday, now)}</b>\n\n` + lines.join("\n");
 }
+export async function weekText(userId: string, offset = 0, now = new Date()) {
+  const sunday = weekDays(offset, now)[0]!;
+  const own = await shiftsFor([userId], riyadhISO(sunday), riyadhISO(addDays(sunday, 7)));
+  return weekBody(own, sunday, now);
+}
+
+/**
+ * Sends a week's schedule to everyone who has shifts in it and a linked Telegram.
+ * - "manual": the schedule manager pressed the button; always sent.
+ * - "auto": a schedule was just generated; sent only if it changed since last sent.
+ * - "reminder": Saturday evening; once, and not if the same schedule went out in the last day.
+ */
+export async function sendWeek(
+  sunday: string,
+  mode: "manual" | "auto" | "reminder",
+  now = new Date(),
+) {
+  const result = { sent: 0, scheduled: 0, notLinked: [] as string[] };
+  if (!(await ready())) {
+    if (mode === "manual")
+      throw new DomainError("NOT_CONFIGURED", 409, "بوت تيليجرام غير مفعّل؛ فعّله من الإعدادات");
+    return result;
+  }
+  if (addDays(sunday, 7) <= riyadhDay(now)) {
+    if (mode === "manual")
+      throw new DomainError(
+        "PAST_WEEK",
+        400,
+        "هذا الأسبوع انتهى؛ اختر هذا الأسبوع أو أسبوعاً قادماً",
+      );
+    return result;
+  }
+  const db = await admin();
+  const { data: rows } = await db
+    .from("shifts")
+    .select("id,user_id,start_at,end_at,break_start,break_end,day_off,lead")
+    .is("cancelled_at", null)
+    .gte("start_at", riyadhISO(sunday))
+    .lt("start_at", riyadhISO(addDays(sunday, 7)))
+    .order("start_at");
+  const shifts = (rows ?? []) as ShiftRow[];
+  const ids = [...new Set(shifts.map((x) => x.user_id))];
+  if (!ids.length) return result;
+  const { data: staff } = await db
+    .from("user_roles")
+    .select("user_id,name,enabled")
+    .in("user_id", ids)
+    .eq("enabled", true);
+  for (const p of staff ?? []) {
+    result.scheduled++;
+    const chat = await chatOf(p.user_id);
+    if (!chat) {
+      result.notLinked.push(p.name);
+      continue;
+    }
+    const own = shifts
+      .filter((x) => x.user_id === p.user_id)
+      .sort((a, b) => Date.parse(a.start_at) - Date.parse(b.start_at));
+    const hash = (
+      await keyedHash(
+        "tgweek:" +
+          JSON.stringify(
+            own.map((x) => [x.start_at, x.end_at, x.break_start, x.break_end, x.day_off, x.lead]),
+          ),
+      )
+    ).slice(0, 32);
+    const key = `tgweek:${sunday}:${p.user_id}`;
+    const [prevHash, prevAt] = ((await getRow(key))?.status ?? "").split("|");
+    if (mode === "reminder") {
+      if (!(await once(`WEEK:${sunday}:${p.user_id}`, p.user_id))) continue;
+      if (prevHash === hash && +now - Date.parse(prevAt ?? "") < 24 * 3600_000) continue;
+    }
+    if (mode === "auto" && prevHash === hash) continue;
+    const updated = !!prevHash && prevHash !== hash;
+    const text =
+      (updated
+        ? "📝 <b>تم تحديث جدولك</b>\n"
+        : mode === "reminder"
+          ? ""
+          : "📣 <b>جدول جديد</b>\n") + weekBody(own, sunday, now);
+    const ok = await send(chat, text, {
+      inline_keyboard: [[{ text: "عرض الجدول في النظام ↗", url: `${origin()}/?view=schedule` }]],
+    });
+    if (ok) {
+      result.sent++;
+      await putRow(key, "TELEGRAM_WEEK", p.user_id, `${hash}|${now.toISOString()}`);
+    }
+  }
+  return result;
+}
+
 async function openCount(userId: string) {
   const db = await admin();
   const { count } = await db
@@ -950,19 +1045,9 @@ export async function runScheduled(now = new Date()) {
     }
   }
 
-  // Saturday from 20:00 Riyadh: next week's schedule.
-  if (riyadhWeekday(now) === 6 && riyadhHour(now) >= 20) {
-    const sunday = weekDays(1, now)[0]!;
-    for (const p of people) {
-      const chat = await chatOf(p.user_id);
-      if (
-        chat &&
-        (await once(`WEEK:${sunday}:${p.user_id}`, p.user_id)) &&
-        (await send(chat, await weekText(p.user_id, 1, now)))
-      )
-        sent++;
-    }
-  }
+  // Saturday from 20:00 Riyadh: next week's schedule (unless it just went out).
+  if (riyadhWeekday(now) === 6 && riyadhHour(now) >= 20)
+    sent += (await sendWeek(weekDays(1, now)[0]!, "reminder", now)).sent;
 
   // From 09:00 Riyadh: daily summary for super admins.
   if (riyadhHour(now) >= 9 && riyadhHour(now) < 12) {
