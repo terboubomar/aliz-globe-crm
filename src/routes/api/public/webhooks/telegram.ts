@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 // Telegram bot webhook. Disabled until TELEGRAM_WEBHOOK_SECRET is configured; checks the secret-token header.
+// Handles account linking (/start <code>) and staff commands (/today /week /cases, /summary /team).
 export const Route = createFileRoute("/api/public/webhooks/telegram")({
   server: {
     handlers: {
@@ -12,7 +13,22 @@ export const Route = createFileRoute("/api/public/webhooks/telegram")({
         let r = 0;
         for (let i = 0; i < secret.length; i++) r |= secret.charCodeAt(i) ^ given.charCodeAt(i);
         if (r !== 0) return new Response(null, { status: 401 });
-        // Staff linking/alerts are not yet ported; acknowledge without storing or echoing the update.
+        const raw = await request.text();
+        if (raw.length > 64_000) return new Response(null, { status: 413 });
+        try {
+          const { handleUpdate } = await import("@/functions/telegram.server");
+          const reply = await handleUpdate(JSON.parse(raw));
+          // Reply inside the webhook response, so no extra call to Telegram is needed.
+          if (reply)
+            return Response.json({
+              method: "sendMessage",
+              chat_id: reply.chatId,
+              text: reply.text,
+              protect_content: true,
+            });
+        } catch {
+          /* Malformed updates are acknowledged and ignored. */
+        }
         return new Response(null, { status: 200 });
       },
     },

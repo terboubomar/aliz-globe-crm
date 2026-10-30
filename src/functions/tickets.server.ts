@@ -101,7 +101,10 @@ export async function createTicketCore(
   rpcError(error);
   const out = data as { replay: boolean; id?: string; response_enc?: string };
   if (out.replay) return JSON.parse(await decrypt(out.response_enc!)) as typeof response & { emailStatus?: string };
-  await (await import("./assign.server")).autoAssign(out.id!);
+  const assignedTo = await (await import("./assign.server")).autoAssign(out.id!);
+  const tg = await import("./telegram.server");
+  if (assignedTo) await tg.notifyAssigned(out.id!, assignedTo);
+  await tg.notifyNewComplaint(out.id!);
   const { queueAndSend } = await import("./receipts.server");
   const sent = await queueAndSend(out.id!, {
     whatsapp: body.whatsappConsent ? phone : undefined,
@@ -245,5 +248,8 @@ export async function ticketActionCore(ctx: Ctx, a: Actor, id: string, action: s
     _id: id, _version: b.version, p: patch as never, _events: evts as never, _timers: timers as never, _actor: a.id,
   });
   rpcError(error);
+  const newOwner = patch["resolution_owner"];
+  if (typeof newOwner === "string" && newOwner !== t.resolution_owner)
+    await (await import("./telegram.server")).notifyAssigned(id, newOwner);
   return { ok: true };
 }

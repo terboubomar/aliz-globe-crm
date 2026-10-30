@@ -179,7 +179,23 @@ type Status = {
 };
 export function TelegramIntegration() {
   const [status, setStatus] = useState<Status | null>(null),
-    [error, setError] = useState("");
+    [error, setError] = useState(""),
+    [notice, setNotice] = useState(""),
+    [busy, setBusy] = useState(false);
+  async function run(path: string, body: unknown, done: string) {
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      await api(path, body);
+      setNotice(done);
+      await load();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
   const load = useCallback(async () => {
     try {
       setStatus(await api<Status>("integrations/telegram"));
@@ -221,8 +237,52 @@ export function TelegramIntegration() {
               <span className={"badge " + (status.ready ? "green" : "neutral")}>
                 {status.ready ? "مهيأ للإرسال" : "غير مفعّل"}
               </span>
-              <small>شكوى جديدة ← المسؤول الأعلى · إسناد ← الموظف</small>
+              <small>
+                شكوى جديدة وملخص يومي ← المسؤول الأعلى · إسناد الشكاوى وتذكير الورديات وجدول الأسبوع
+                ← الموظف
+              </small>
             </div>
+            <div className="telegram-actions">
+              {status.enabled ? (
+                <button
+                  className="secondary"
+                  disabled={busy}
+                  onClick={() =>
+                    void run("settings/telegram", { enabled: false }, "تم إيقاف البوت.")
+                  }
+                >
+                  إيقاف البوت
+                </button>
+              ) : (
+                <button
+                  className="primary"
+                  disabled={busy || status.missing.length > 0}
+                  onClick={() =>
+                    void run("settings/telegram", { enabled: true }, "تم تفعيل البوت.")
+                  }
+                >
+                  تفعيل البوت
+                </button>
+              )}
+              <button
+                className="secondary"
+                disabled={busy || status.missing.length > 0}
+                onClick={() =>
+                  void run(
+                    "integrations/telegram/webhook",
+                    {},
+                    "تم ربط البوت بالنظام. يمكن للموظفين الآن ربط حساباتهم.",
+                  )
+                }
+              >
+                ربط البوت بالنظام
+              </button>
+            </div>
+            {notice && (
+              <p className="notice" role="status">
+                {notice}
+              </p>
+            )}
             <div className="whatsapp-counts">
               {[
                 [
