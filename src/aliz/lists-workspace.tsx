@@ -1,7 +1,51 @@
 import { useState, type FormEvent } from "react";
-import { ListChecks, Plus, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ListChecks, Plus, Trash2 } from "lucide-react";
 import { newCategoryId, type Catalog, type CategoryItem, type PlatformItem } from "@/lib/catalog";
 import { api, lists, n } from "./types";
+
+const move = <T,>(list: T[], from: number, to: number) => {
+  const next = [...list];
+  const [item] = next.splice(from, 1);
+  next.splice(to, 0, item!);
+  return next;
+};
+
+/** Position number with up/down buttons; the order here is the order in every form. */
+function Order({
+  index,
+  count,
+  name,
+  onMove,
+}: {
+  index: number;
+  count: number;
+  name: string;
+  onMove: (to: number) => void;
+}) {
+  return (
+    <span className="list-order">
+      <b>{n(index + 1)}</b>
+      <button
+        type="button"
+        className="icon-btn"
+        aria-label={`رفع ${name}`}
+        disabled={index === 0}
+        onClick={() => onMove(index - 1)}
+      >
+        <ArrowUp size={15} />
+      </button>
+      <button
+        type="button"
+        className="icon-btn"
+        aria-label={`خفض ${name}`}
+        disabled={index === count - 1}
+        onClick={() => onMove(index + 1)}
+      >
+        <ArrowDown size={15} />
+      </button>
+    </span>
+  );
+}
 
 /** Complaint reasons and order platforms, managed in Settings → Lists. */
 export function ListsPanel() {
@@ -73,13 +117,19 @@ export function ListsPanel() {
         </div>
         <div className="padded">
           <p className="hint">
-            تظهر الأسباب المفعّلة في نموذج تسجيل الشكوى ونموذج QR للعملاء. الأسباب المستخدمة لا
-            تُحذف؛ أوقفها لإخفائها مع بقاء الشكاوى السابقة كما هي. السبب «العاجل» يجعل الشكوى P1
-            تلقائياً.
+            تظهر الأسباب المفعّلة بهذا الترتيب في نموذج تسجيل الشكوى ونموذج QR للعملاء، والأول هو
+            الاختيار الافتراضي. الأسباب المستخدمة لا تُحذف؛ أوقفها لإخفائها مع بقاء الشكاوى السابقة
+            كما هي. السبب «العاجل» يجعل الشكوى P1 تلقائياً.
           </p>
           <ul className="list-editor">
             {cats.map((c, i) => (
               <li key={c.id} className={c.active ? "" : "off"}>
+                <Order
+                  index={i}
+                  count={cats.length}
+                  name={c.label}
+                  onMove={(to) => setCats(move(cats, i, to))}
+                />
                 <input
                   aria-label="اسم السبب"
                   value={c.label}
@@ -160,6 +210,12 @@ export function ListsPanel() {
           <ul className="list-editor">
             {plats.map((p, i) => (
               <li key={i} className={p.active ? "" : "off"}>
+                <Order
+                  index={i}
+                  count={plats.length}
+                  name={p.label}
+                  onMove={(to) => setPlats(move(plats, i, to))}
+                />
                 <input
                   aria-label="اسم المنصة"
                   value={p.label}
