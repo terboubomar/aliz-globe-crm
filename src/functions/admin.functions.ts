@@ -663,7 +663,6 @@ export const saveCatalog = createServerFn({ method: "POST" })
               label: z.string().trim().min(2, "اكتب اسم السبب").max(60),
               active: z.boolean(),
               urgent: z.boolean(),
-              group: z.string().trim().max(40).default(""),
             }),
           )
           .min(1)
