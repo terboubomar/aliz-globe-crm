@@ -47,7 +47,7 @@ export const publicCreate = createServerFn({ method: "POST" })
       code, key: z.string().min(8).max(100),
       input: z.object({
         description: z.string(), category: z.string(), name: z.string().optional(), phone: z.string().optional(),
-        externalOrder: z.string().optional(), platform: z.string().optional(), consent: z.literal(true),
+        externalOrder: z.string().optional(), platform: z.string().optional(), consent: z.literal(true), otherDetail: z.string().optional(),
         email: z.string().optional(), whatsappConsent: z.boolean().optional(), emailConsent: z.boolean().optional(),
       }),
     }).parse(d),

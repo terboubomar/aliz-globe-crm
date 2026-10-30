@@ -59,7 +59,7 @@ import { agentInvolved } from "./workflow";
 import { ScheduleWorkspace } from "./schedule-workspace";
 import { TelegramAccount } from "./telegram-integration";
 import { SettingsWorkspace } from "./settings-workspace";
-import { ReasonOptions } from "./reason-options";
+import { ReasonPicker } from "./reason-options";
 import { ReportsWorkspace } from "./reports-workspace";
 import { RoleWorkspace } from "./role-workspace";
 import { EvidenceLink } from "./evidence";
@@ -1191,11 +1191,12 @@ function Intake({
               حالة مكررة.
             </div>
           )}
-          <Field label="سبب الشكوى">
-            <select name="category">
-              <ReasonOptions reasons={activeCategories()} />
-            </select>
-          </Field>
+          <ReasonPicker
+            reasons={activeCategories()}
+            label="سبب الشكوى"
+            detailLabel="ما نوع المشكلة؟"
+            detailPlaceholder="اكتب نوع المشكلة باختصار، مثل: مشكلة في الحجز"
+          />
           <Field label="الأولوية">
             <select name="priority" defaultValue="P3">
               <option value="P3">P3 — عادية</option>

@@ -5,6 +5,8 @@ import {
   DEFAULT_PLATFORMS,
   categoryLabel,
   grouped,
+  asksDetail,
+  SUGGESTED_CATEGORIES,
   newCategoryId,
   toCatalog,
 } from "@/lib/catalog";
@@ -77,5 +79,17 @@ describe("reason groups", () => {
       [],
     );
     expect(old.categories.map((x) => x.group).slice(0, 2)).toEqual(["مشكلة في الطلب", ""]);
+  });
+});
+
+describe("other", () => {
+  it("is the reason that asks for details, and suggestions no longer include اقتراح", () => {
+    expect(asksDetail({ id: "OTHER", label: "أخرى" })).toBe(true);
+    expect(asksDetail({ id: "C_X12345", label: "أخرى" })).toBe(true);
+    expect(asksDetail({ id: "DELAY", label: "تأخر الطلب" })).toBe(false);
+    expect(SUGGESTED_CATEGORIES.some((s) => s.label === "اقتراح")).toBe(false);
+    expect(toCatalog(undefined, undefined).categories.find((c) => c.id === "OTHER")?.group).toBe(
+      "",
+    );
   });
 });

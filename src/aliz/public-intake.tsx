@@ -3,7 +3,7 @@ import { ReceiptDetails, confirmationLabels, emailConfirmationLabels } from "./r
 import { useState, useEffect, FormEvent } from "react";
 import { ArrowLeft, CheckCircle2, ShieldCheck, Upload } from "lucide-react";
 import { api, activeCategories, activePlatforms } from "./types";
-import { ReasonOptions } from "./reason-options";
+import { ReasonPicker } from "./reason-options";
 import { Field, Submit } from "./ui";
 export default function PublicIntake({ code }: { code: string }) {
   const [requestKey] = useState(() => crypto.randomUUID());
@@ -150,15 +150,15 @@ export default function PublicIntake({ code }: { code: string }) {
             )}
             <form onSubmit={submit}>
               <div className="form-grid">
-                <Field label="سبب البلاغ" full>
-                  <select name="category" required>
-                    <ReasonOptions
-                      reasons={(context.categories ?? activeCategories()).map(
-                        ({ id, label, group }) => ({ id, label, group }),
-                      )}
-                    />
-                  </select>
-                </Field>
+                <ReasonPicker
+                  full
+                  reasons={(context.categories ?? activeCategories()).map(
+                    ({ id, label, group }) => ({ id, label, group }),
+                  )}
+                  label="سبب البلاغ"
+                  detailLabel="وش نوع المشكلة؟"
+                  detailPlaceholder="اكتب نوع المشكلة بكلمات قليلة"
+                />
                 <Field label="شاركنا تفاصيل المشكلة" full>
                   <textarea
                     name="description"

@@ -728,6 +728,7 @@ async function route(
           phone: (body["phone"] as string) || undefined,
           externalOrder: (body["externalOrder"] as string) || undefined,
           platform: (body["platform"] as string) || undefined,
+          otherDetail: (body["otherDetail"] as string) || undefined,
           consent: body["consent"] === true ? true : (undefined as never),
           email: (body["email"] as string) || undefined,
           whatsappConsent: body["whatsappConsent"] === true,

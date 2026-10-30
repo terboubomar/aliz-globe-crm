@@ -30,8 +30,16 @@ export const DEFAULT_CATEGORIES: CategoryItem[] = [
   { id: "QUALITY", label: "جودة الطعام", active: true, urgent: false, group: "جودة الطعام" },
   { id: "SAFETY", label: "سلامة الغذاء", active: true, urgent: true, group: "صحة وسلامة" },
   { id: "SERVICE", label: "تجربة الخدمة", active: true, urgent: false, group: "الخدمة والموظفين" },
-  { id: "OTHER", label: "أخرى", active: true, urgent: false, group: "أخرى" },
+  { id: "OTHER", label: "أخرى", active: true, urgent: false, group: "" },
 ];
+
+/** "Other": the person picking it is asked to say what the problem is. */
+export const asksDetail = (c: { id: string; label: string }) =>
+  c.id === "OTHER" || c.label.trim() === "أخرى";
+
+/** The first reason the form shows (groups first), so it starts selected. */
+export const firstReason = <T extends { id: string; group?: string | undefined }>(list: T[]) =>
+  grouped(list)[0]?.items[0];
 
 /** Suggested reasons for a restaurant group, offered in Settings → Lists. */
 export const SUGGESTED_CATEGORIES: { label: string; group: string; urgent?: boolean }[] = [
@@ -57,7 +65,6 @@ export const SUGGESTED_CATEGORIES: { label: string; group: string; urgent?: bool
   { label: "سلوك المندوب", group: "التوصيل" },
   { label: "المندوب لم يجد العنوان", group: "التوصيل" },
   { label: "مشكلة في التطبيق أو الطلب الإلكتروني", group: "التطبيق والموقع" },
-  { label: "اقتراح", group: "أخرى" },
 ];
 
 /**

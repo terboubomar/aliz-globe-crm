@@ -14,6 +14,8 @@ export const ticketInput = z.object({
   category: z.string().regex(/^[A-Z][A-Z0-9_]{1,39}$/, "اختر سبب الشكوى"),
   priority: z.enum(["P1", "P2", "P3"]),
   description: z.string().trim().min(10, "الوصف 10 أحرف على الأقل").max(4000),
+  // When the reason is "Other": what the problem is, in a few words.
+  otherDetail: z.string().trim().max(120).optional(),
   name: z.string().trim().max(100).optional(),
   phone: z.string().regex(saudiMobile, "أدخل رقم جوال سعودي صحيح").optional().or(z.literal("")),
   externalOrder: z.string().max(100).optional(),
@@ -68,6 +70,12 @@ export async function createTicketCore(
   const lists = await catalog();
   const reason = lists.categories.find((c) => c.id === body.category && c.active);
   if (!reason) throw new DomainError("INVALID_CATEGORY", 400, "سبب الشكوى غير متاح؛ اختر سبباً من القائمة");
+  const { asksDetail } = await import("@/lib/catalog");
+  const detail = asksDetail(reason) ? (body.otherDetail ?? "").replace(/\s+/g, " ").trim() : "";
+  if (asksDetail(reason) && detail.length < 3)
+    throw new DomainError("DETAIL_REQUIRED", 400, "اكتب نوع المشكلة عند اختيار «أخرى»");
+  const reasonLabel = detail ? `${reason.label}: ${detail}` : reason.label;
+  const description = detail ? `نوع المشكلة: ${detail}\n\n${body.description}` : body.description;
   if (body.platform && !lists.platforms.some((p) => p.active && p.label === body.platform))
     throw new DomainError("INVALID_PLATFORM", 400, "منصة الطلب غير متاحة؛ اختر منصة من القائمة");
   // Urgent reasons (such as food safety) are always P1.
@@ -81,8 +89,8 @@ export async function createTicketCore(
   const access = publicQr || (body.whatsappConsent && phone) || (body.emailConsent && email) ? randomToken() : null;
   const receipt: Receipt = {
     number, brand: brand.name, branch: branchRow?.data?.name ?? "غير محدد",
-    receivedAt: received.toISOString(), category: reason.label,
-    description: body.description, customerName: body.name ?? "", externalOrder: body.externalOrder ?? "",
+    receivedAt: received.toISOString(), category: reasonLabel,
+    description, customerName: body.name ?? "", externalOrder: body.externalOrder ?? "",
     platform: body.platform ?? "", source: publicQr ? "QR" : "الهاتف", trackingPath: access ? "/track/" + access : "",
   };
   const receiptEnc = await encrypt(JSON.stringify(receipt));
@@ -91,7 +99,7 @@ export async function createTicketCore(
     p: {
       idem_key: idemKey, request_hash: requestHash, sequence: seq, brand_id: brandId, branch_id: branchId,
       unknown_reason: branchId ? null : body.unknownReason, source: publicQr ? "PUBLIC_QR" : "PHONE_AGENT",
-      category: body.category, priority, description_enc: await encrypt(body.description),
+      category: body.category, priority, description_enc: await encrypt(description),
       receipt_enc: receiptEnc,
       customer_enc: body.name || phone || email ? await encrypt(JSON.stringify({ name: body.name ?? "", phone, ...(email ? { email } : {}) })) : null,
       phone_hash: phone ? await keyedHash("phone:" + phone) : null,
