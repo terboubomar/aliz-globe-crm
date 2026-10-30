@@ -78,9 +78,9 @@ export const searchComplaints = createServerFn({ method: "POST" })
       if (br?.length) ors.push(`branch_id.in.(${br.map((x) => x.id).join(",")})`);
       const { data: bd } = await context.supabase.from("brands").select("id").ilike("name", `%${safe}%`);
       if (bd?.length) ors.push(`brand_id.in.(${bd.map((x) => x.id).join(",")})`);
-      const num = /^AG-(\d{4})-(\d+)$/i.exec(b.q);
-      if (num && Number(num[2]) <= 2147483647) ors.push(`sequence.eq.${Number(num[2])}`);
-      else if (/^\d{1,9}$/.test(b.q)) ors.push(`sequence.eq.${Number(b.q)}`);
+      // The number on its own ("1024", "#1024"), or the old style printed on earlier receipts ("AG-2026-001024").
+      const num = /^(?:#|AG-\d{4}-)?(\d{1,9})$/i.exec(b.q.trim());
+      if (num) ors.push(`sequence.eq.${Number(num[1])}`);
       // Matching a customer's phone reveals who complained, so only roles with customer-data access may search by it.
       const phone = normalizePhone(b.q);
       if (can(a, "pii") && /^9665\d{8}$/.test(phone)) {

@@ -225,7 +225,7 @@ describe("commands", () => {
     await link(AGENT, 111);
     const now = new Date("2026-11-01T08:00:00Z");
     expect((await tg.handleUpdate(msg(111, "/today"), now))?.text).toContain("12:00–21:00");
-    expect((await tg.handleUpdate(msg(111, "/cases"), now))?.text).toContain("AG-2026-000007");
+    expect((await tg.handleUpdate(msg(111, "/cases"), now))?.text).toContain("<code>7</code>");
     expect((await tg.handleUpdate(msg(111, "/summary"), now))?.text).toContain("لمسؤول النظام فقط");
     await link(ADMIN, 999);
     expect((await tg.handleUpdate(msg(999, "/summary"), now))?.text).toContain("مفتوحة الآن: 1");
@@ -332,7 +332,7 @@ describe("menu and admin tools", () => {
     expect(keys).toContain("📋 شكاواي");
     expect(keys).not.toContain("بدون مسؤول");
     const cases = await tg.handleUpdate(msg(111, "📋 شكاواي"));
-    expect(cases?.text).toContain("AG-2026-000007");
+    expect(cases?.text).toContain("<code>7</code>");
     expect(cases?.text).toContain("&lt;b&gt;واقف");
     expect(JSON.stringify(cases?.["reply_markup"])).toContain(`ticket=${TICKET}`);
     expect(cases?.["parse_mode"]).toBe("HTML");
@@ -344,7 +344,7 @@ describe("menu and admin tools", () => {
     expect((await tg.handleUpdate(msg(111, "/unassigned")))?.text).toContain("لمسؤول النظام فقط");
     expect((await tg.handleUpdate(msg(999, "📥 بدون مسؤول")))?.text).toContain("لها مسؤول");
     db.tables["tickets"]![0]!["resolution_owner"] = null;
-    expect((await tg.handleUpdate(msg(999, "/unassigned")))?.text).toContain("AG-2026-000007");
+    expect((await tg.handleUpdate(msg(999, "/unassigned")))?.text).toContain("<code>7</code>");
     const help = await tg.handleUpdate(msg(999, "/help"));
     expect(JSON.stringify(help?.["reply_markup"])).toContain("بدون مسؤول");
     sent.length = 0;

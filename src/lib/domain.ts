@@ -259,8 +259,9 @@ export function assertRefundSeparation(
     throw new DomainError("DUAL_CONTROL", 403, "التنفيذ والتحقق يتطلبان مسؤولين مستقلين");
 }
 
-export function ticketNumber(sequence: number, createdAt: string | Date) {
-  return `AG-${new Date(createdAt).getUTCFullYear()}-${String(sequence).padStart(6, "0")}`;
+/** The complaint number customers and staff see: just the running number (e.g. 1024). */
+export function ticketNumber(sequence: number, _createdAt?: string | Date) {
+  return String(sequence);
 }
 export function refundNumber(sequence: number, createdAt: string | Date) {
   return `RF-${new Date(createdAt).getUTCFullYear()}-${String(sequence).padStart(6, "0")}`;

@@ -61,7 +61,7 @@ Add values there only, never in chat or in the repository.
 {{tracking_url}}
 ```
 
-Sample values for review: `AG-2026-000123`, `برقر واقف`, `فرع العليا`,
+Sample values for review: `123`, `برقر واقف`, `فرع العليا`,
 `28/10/2026 11:00`, `تأخير`, `غير محدد`, `وصل الطلب متأخراً`,
 `https://crm.yourdomain.com/track/sample`.
 
