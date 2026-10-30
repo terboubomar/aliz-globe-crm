@@ -1055,6 +1055,12 @@ function TicketTable({
     </div>
   );
 }
+/** The browser's local time now, as "YYYY-MM-DDTHH:MM" for a datetime-local input. */
+const nowLocal = () => {
+  const d = new Date();
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 16);
+};
 function Intake({
   data,
   initialBrand,
@@ -1082,7 +1088,6 @@ function Intake({
         {
           ...b,
           whatsappConsent: b["whatsappConsent"] === "on",
-          emailConsent: b["emailConsent"] === "on",
           branchId: unknown ? null : b["branchId"],
           receivedAt: b["receivedAt"] ? new Date(b["receivedAt"]).toISOString() : undefined,
         },
@@ -1142,12 +1147,13 @@ function Intake({
               <input name="unknownReason" required maxLength={300} />
             </Field>
           )}
-          <Field label="اسم العميل (اختياري)">
-            <input name="name" maxLength={100} autoComplete="off" />
+          <Field label="اسم العميل">
+            <input name="name" required minLength={2} maxLength={100} autoComplete="off" />
           </Field>
-          <Field label="رقم الجوال (اختياري)">
+          <Field label="رقم الجوال">
             <input
               name="phone"
+              required
               type="tel"
               dir="ltr"
               placeholder="05xxxxxxxx"
@@ -1173,17 +1179,6 @@ function Intake({
               <input name="whatsappConsent" type="checkbox" />
               إرسال تأكيد واتساب بموافقة العميل
             </label>
-          )}
-          {data.integrations?.email && (
-            <>
-              <Field label="البريد الإلكتروني (اختياري)">
-                <input name="email" type="email" dir="ltr" maxLength={200} autoComplete="off" />
-              </Field>
-              <label className="checkbox full">
-                <input name="emailConsent" type="checkbox" />
-                إرسال تأكيد بالبريد الإلكتروني بموافقة العميل
-              </label>
-            </>
           )}
           {duplicates.length > 0 && (
             <div className="notice full">
@@ -1214,12 +1209,14 @@ function Intake({
               placeholder="ما المشكلة؟ وما الإجراء المطلوب من الفرع؟"
             />
           </Field>
-          <Field label="رقم الطلب الخارجي (اختياري)">
-            <input name="externalOrder" maxLength={100} dir="ltr" />
+          <Field label="رقم الطلب الخارجي">
+            <input name="externalOrder" required maxLength={100} dir="ltr" />
           </Field>
-          <Field label="منصة الطلب (اختياري)">
-            <select name="platform" defaultValue="">
-              <option value="">غير محدد</option>
+          <Field label="منصة الطلب">
+            <select name="platform" defaultValue="" required>
+              <option value="" disabled>
+                اختر المنصة
+              </option>
               {activePlatforms().map((p) => (
                 <option key={p} value={p}>
                   {p}
@@ -1227,8 +1224,8 @@ function Intake({
               ))}
             </select>
           </Field>
-          <Field label="وقت استقبال الشكوى (اختياري)" full>
-            <input name="receivedAt" type="datetime-local" />
+          <Field label="وقت استقبال الشكوى" full>
+            <input name="receivedAt" type="datetime-local" required defaultValue={nowLocal()} />
           </Field>
         </div>
         {error && (

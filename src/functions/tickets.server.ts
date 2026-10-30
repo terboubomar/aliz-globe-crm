@@ -45,6 +45,18 @@ export async function createTicketCore(
     authorize(actor, "create", { brandId: body.brandId, branchId: body.branchId ?? null });
   }
   if (!key || key.length > 100) throw new DomainError("IDEMPOTENCY_REQUIRED", 400, "مفتاح الطلب مطلوب");
+  // Phone complaints: the agent fills in every field.
+  if (!publicQr) {
+    const missing = [
+      !body.name?.trim() && "اسم العميل",
+      !body.phone && "رقم الجوال",
+      !body.externalOrder?.trim() && "رقم الطلب الخارجي",
+      !body.platform && "منصة الطلب",
+      !body.receivedAt && "وقت استقبال الشكوى",
+    ].filter(Boolean);
+    if (missing.length)
+      throw new DomainError("FIELDS_REQUIRED", 400, `أكمل الحقول المطلوبة: ${missing.join("، ")}`);
+  }
   const db = await admin();
   const brandId = publicQr?.brandId ?? body.brandId;
   const branchId = publicQr?.branchId ?? body.branchId ?? null;
@@ -57,8 +69,10 @@ export async function createTicketCore(
   const phone = body.phone ? normalizePhone(body.phone) : "";
   if (body.whatsappConsent && !phone)
     throw new DomainError("PHONE_REQUIRED", 400, "أدخل رقم الجوال لاستلام تأكيد واتساب.");
-  const email = body.email ?? "";
-  if (body.emailConsent && !email)
+  // Email is asked only on the customer's QR form.
+  const email = publicQr ? (body.email ?? "") : "";
+  const emailConsent = !!publicQr && body.emailConsent;
+  if (emailConsent && !email)
     throw new DomainError("EMAIL_REQUIRED", 400, "أدخل البريد الإلكتروني لاستلام تأكيد الشكوى.");
   const [{ data: brand }, branchRow] = await Promise.all([
     db.from("brands").select("name,status").eq("id", brandId).maybeSingle(),
@@ -86,7 +100,7 @@ export async function createTicketCore(
   const { data: seq, error: seqErr } = await db.rpc("next_ticket_sequence");
   rpcError(seqErr);
   const number = ticketNumber(Number(seq), now);
-  const access = publicQr || (body.whatsappConsent && phone) || (body.emailConsent && email) ? randomToken() : null;
+  const access = publicQr || (body.whatsappConsent && phone) || (emailConsent && email) ? randomToken() : null;
   const receipt: Receipt = {
     number, brand: brand.name, branch: branchRow?.data?.name ?? "غير محدد",
     receivedAt: received.toISOString(), category: reasonLabel,
@@ -122,7 +136,7 @@ export async function createTicketCore(
   const { queueAndSend } = await import("./receipts.server");
   const sent = await queueAndSend(out.id!, {
     whatsapp: body.whatsappConsent ? phone : undefined,
-    email: body.emailConsent ? email : undefined,
+    email: emailConsent ? email : undefined,
   });
   return {
     ...response,
