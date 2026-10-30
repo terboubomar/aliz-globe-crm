@@ -207,19 +207,19 @@ export default function PublicIntake({ code }: { code: string }) {
                     أوافق على استلام تأكيد الشكوى وتفاصيلها عبر واتساب
                   </label>
                 )}
+                <Field label={emailConsent ? "بريدك الإلكتروني" : "بريدك الإلكتروني (اختياري)"}>
+                  <input
+                    name="email"
+                    type="email"
+                    dir="ltr"
+                    maxLength={200}
+                    required={emailConsent}
+                    placeholder="name@example.com"
+                    autoComplete="email"
+                  />
+                </Field>
                 {context.emailAvailable && (
                   <>
-                    <Field label={emailConsent ? "بريدك الإلكتروني" : "بريدك الإلكتروني (اختياري)"}>
-                      <input
-                        name="email"
-                        type="email"
-                        dir="ltr"
-                        maxLength={200}
-                        required={emailConsent}
-                        placeholder="name@example.com"
-                        autoComplete="email"
-                      />
-                    </Field>
                     <label className="checkbox full">
                       <input
                         type="checkbox"
