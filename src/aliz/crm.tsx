@@ -59,6 +59,7 @@ import { agentInvolved } from "./workflow";
 import { ScheduleWorkspace } from "./schedule-workspace";
 import { TelegramAccount } from "./telegram-integration";
 import { SettingsWorkspace } from "./settings-workspace";
+import { ReasonOptions } from "./reason-options";
 import { ReportsWorkspace } from "./reports-workspace";
 import { RoleWorkspace } from "./role-workspace";
 import { EvidenceLink } from "./evidence";
@@ -1192,12 +1193,7 @@ function Intake({
           )}
           <Field label="سبب الشكوى">
             <select name="category">
-              {activeCategories().map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.label}
-                  {c.urgent ? " (عاجلة P1)" : ""}
-                </option>
-              ))}
+              <ReasonOptions reasons={activeCategories()} />
             </select>
           </Field>
           <Field label="الأولوية">

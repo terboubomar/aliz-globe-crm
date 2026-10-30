@@ -10,6 +10,7 @@ vi.mock("@/aliz/adapter", () => ({
 }));
 
 import { ListsPanel } from "@/aliz/lists-workspace";
+import { ReasonOptions } from "@/aliz/reason-options";
 
 describe("list order", () => {
   it("reorders by dragging the handle (keyboard arrows on the handle) and saves the order", async () => {
@@ -27,5 +28,43 @@ describe("list order", () => {
     await screen.findByRole("status");
     const body = saved.body as { platforms: { label: string }[] };
     expect(body.platforms.slice(0, 2).map((p) => p.label)).toEqual(["جاهز", "هنقرستيشن"]);
+  });
+});
+
+describe("grouped reasons", () => {
+  it("adds the suggested reasons into their groups and saves the groups", async () => {
+    render(<ListsPanel />);
+    fireEvent.click(screen.getByText(/إضافة الأسباب المقترحة/));
+    const labels = screen
+      .getAllByLabelText("اسم السبب")
+      .map((el) => (el as HTMLInputElement).value);
+    // "طلب خاطئ" joins the order-problem group right after the built-in order reasons.
+    expect(labels.indexOf("طلب خاطئ")).toBe(labels.indexOf("طلب في فرع آخر") + 1);
+    expect(screen.queryByText(/إضافة الأسباب المقترحة/)).toBeNull();
+    fireEvent.click(screen.getByText("حفظ القوائم"));
+    await screen.findByRole("status");
+    const body = saved.body as { categories: { label: string; group: string; urgent: boolean }[] };
+    const foreign = body.categories.find((c) => c.label === "جسم غريب في الطعام")!;
+    expect(foreign).toMatchObject({ group: "جودة الطعام", urgent: true });
+  });
+
+  it("shows reasons under group headings in the form", () => {
+    const { container } = render(
+      <select>
+        <ReasonOptions
+          reasons={[
+            { id: "A", label: "تأخر الطلب", group: "مشكلة في الطلب" },
+            { id: "B", label: "جسم غريب", group: "جودة الطعام", urgent: true },
+            { id: "C", label: "أخرى", group: "" },
+          ]}
+        />
+      </select>,
+    );
+    const groups = [...container.querySelectorAll("optgroup")].map((g) => g.label);
+    expect(groups).toEqual(["مشكلة في الطلب", "جودة الطعام"]);
+    expect(container.querySelector('optgroup[label="جودة الطعام"] option')?.textContent).toBe(
+      "جسم غريب (عاجلة P1)",
+    );
+    expect(container.querySelector("select > option")?.textContent).toBe("أخرى");
   });
 });

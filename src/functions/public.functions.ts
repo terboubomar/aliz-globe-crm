@@ -33,7 +33,7 @@ export const publicQrInfo = createServerFn({ method: "POST" })
       return {
         ok: true as const, brandName: q.brandName, branchName: q.branchName, logo: q.logo, whatsappAvailable: live.whatsapp, emailAvailable: live.email,
         // Only what the form needs: active reasons and platforms.
-        categories: lists.categories.filter((c) => c.active).map((c) => ({ id: c.id, label: c.label })),
+        categories: lists.categories.filter((c) => c.active).map((c) => ({ id: c.id, label: c.label, group: c.group })),
         platforms: lists.platforms.filter((p) => p.active).map((p) => p.label),
       };
     } catch (e) {
