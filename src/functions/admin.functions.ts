@@ -6,6 +6,8 @@ import {
   categoryLabels,
 } from "@/lib/domain";
 
+import { MANAGE_ROLES, type ReplyTemplate } from "@/lib/reply-templates";
+import { WORD_KEYS, MAX_WORD_LENGTH } from "@/lib/telegram-words";
 const core = () => import("./core.server");
 
 /* ---------------- Directory: brands & pickup-only branches ---------------- */
@@ -575,4 +577,74 @@ export const telegramRegisterWebhook = createServerFn({ method: "POST" })
     const db = await c.admin();
     await db.rpc("write_audit", { _actor: a.id, _action: "TELEGRAM_WEBHOOK_REGISTERED", _entity: "telegram" });
     return r;
+  });
+
+/* ---------------- Templates: ready-made replies and Telegram wording ---------------- */
+const replyTemplateInput = z.object({
+  id: z.string().regex(/^[A-Za-z0-9_-]{6,40}$/),
+  title: z.string().trim().min(2, "اكتب عنواناً للقالب").max(80),
+  text: z.string().trim().min(3, "اكتب نص القالب").max(2000),
+  actions: z.array(z.enum(["comment", "resolve", "followup", "contact", "escalate", "assign", "close", "reopen"])).max(8),
+  categories: z.array(z.string().max(40)).max(30),
+  brandIds: z.array(z.string().max(80)).max(100),
+});
+
+async function readSetting(key: string) {
+  const db = await (await core()).admin();
+  const { data } = await db.from("app_settings").select("value").eq("key", key).maybeSingle();
+  return data?.value;
+}
+
+export const getReplyTemplates = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await (await core()).requireActor(context as never);
+    const value = await readSetting("reply_templates");
+    return { templates: Array.isArray(value) ? (value as ReplyTemplate[]) : [] };
+  });
+
+export const saveReplyTemplates = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ templates: z.array(replyTemplateInput).max(200, "الحد الأقصى 200 قالب") }).parse(d))
+  .handler(async ({ data, context }) => {
+    const c = await core();
+    const a = await c.requireActor(context as never);
+    if (!MANAGE_ROLES.includes(a.role))
+      throw new DomainError("FORBIDDEN", 403, "إدارة القوالب متاحة لمدير النظام ومدير خدمة العملاء وقائد الوردية");
+    if (new Set(data.templates.map((t) => t.id)).size !== data.templates.length)
+      throw new DomainError("DUPLICATE", 400, "يوجد قالب مكرر؛ حدّث الصفحة وأعد المحاولة");
+    const db = await c.admin();
+    const { error } = await db.from("app_settings").upsert({ key: "reply_templates", value: data.templates as never, updated_at: new Date().toISOString() });
+    c.rpcError(error);
+    await db.rpc("write_audit", { _actor: a.id, _action: "REPLY_TEMPLATES_SAVED", _entity: "reply_templates" });
+    return { ok: true, count: data.templates.length };
+  });
+
+export const getTelegramWords = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const a = await (await core()).requireActor(context as never);
+    if (a.role !== "SUPER_ADMIN") throw new DomainError("FORBIDDEN", 403, "متاح لمدير النظام فقط");
+    const value = await readSetting("telegram_templates");
+    return { words: value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, string>) : {} };
+  });
+
+export const saveTelegramWords = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => {
+    const shape = Object.fromEntries(WORD_KEYS.map((k) => [k, z.string().trim().max(MAX_WORD_LENGTH).optional()]));
+    return z.object({ words: z.object(shape).strict() }).parse(d);
+  })
+  .handler(async ({ data, context }) => {
+    const c = await core();
+    const a = await c.requireActor(context as never);
+    if (a.role !== "SUPER_ADMIN") throw new DomainError("FORBIDDEN", 403, "متاح لمدير النظام فقط");
+    // Only changed wording is stored; empty means the default.
+    const words = Object.fromEntries(Object.entries(data.words).filter(([, v]) => typeof v === "string" && v.trim()));
+    const db = await c.admin();
+    const { error } = await db.from("app_settings").upsert({ key: "telegram_templates", value: words as never, updated_at: new Date().toISOString() });
+    c.rpcError(error);
+    await db.rpc("write_audit", { _actor: a.id, _action: "TELEGRAM_TEMPLATES_SAVED", _entity: "telegram_templates" });
+    (await tg()).clearWordsCache();
+    return { ok: true };
   });

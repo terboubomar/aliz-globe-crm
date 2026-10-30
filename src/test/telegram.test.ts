@@ -439,3 +439,29 @@ describe("sending the weekly schedule", () => {
     expect(sent.filter((m) => m.text?.includes("جدولك"))).toHaveLength(0);
   });
 });
+
+describe("custom wording", () => {
+  it("uses the super admin's wording, escaped, with the extra line", async () => {
+    tg.clearWordsCache();
+    db.tables["app_settings"] = [
+      {
+        key: "telegram_templates",
+        value: {
+          assigned: "شكوى لك <عاجل>",
+          assignedUrgent: "عاجلة جداً",
+          assignedNote: "استلمها خلال 10 دقائق",
+        },
+      },
+    ];
+    await link(AGENT, 111);
+    sent.length = 0;
+    await tg.notifyAssigned(TICKET, AGENT.id);
+    expect(sent[0]!.text).toContain("<b>عاجلة جداً</b>");
+    expect(sent[0]!.text).toContain("استلمها خلال 10 دقائق");
+    db.tables["tickets"]![0]!["priority"] = "P3";
+    db.tables["tickets"]![0]!["state"] = "ACKNOWLEDGED";
+    await tg.notifyAssigned(TICKET, AGENT.id);
+    expect(sent[1]!.text).toContain("شكوى لك &lt;عاجل&gt;");
+    tg.clearWordsCache();
+  });
+});

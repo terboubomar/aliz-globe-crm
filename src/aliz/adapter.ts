@@ -35,6 +35,10 @@ import {
   telegramRegisterWebhook,
   telegramTest,
   telegramSendSchedule,
+  getReplyTemplates,
+  saveReplyTemplates,
+  getTelegramWords,
+  saveTelegramWords,
   getRotation,
   saveRotation,
   applyRotation,
@@ -768,6 +772,12 @@ async function route(
   if (is("integrations", "telegram", "disconnect")) return telegramDisconnect();
   if (is("integrations", "telegram", "webhook")) return telegramRegisterWebhook();
   if (is("integrations", "telegram", "test")) return telegramTest();
+  if (is("templates", "replies") && method === "GET") return getReplyTemplates();
+  if (is("templates", "replies"))
+    return saveReplyTemplates({ data: { templates: (body["templates"] ?? []) as never } });
+  if (is("templates", "telegram") && method === "GET") return getTelegramWords();
+  if (is("templates", "telegram"))
+    return saveTelegramWords({ data: { words: (body["words"] ?? {}) as never } });
   if (is("settings", "telegram"))
     return updateSetting({ data: { key: "telegram_enabled", value: !!body["enabled"] } });
   if (is("integrations", "whatsapp") || is("integrations", "email"))
