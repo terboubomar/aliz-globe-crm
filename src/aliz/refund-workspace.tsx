@@ -1,6 +1,6 @@
 import { useEffect, useState, FormEvent } from "react";
 import { Wallet, Plus, ArrowLeft, Clock, Upload, ShieldCheck, MapPin } from "lucide-react";
-import { Data, Refund, api, date, n, refundStates, eventNames } from "./types";
+import { Data, Refund, activePlatforms, api, date, n, refundStates, eventNames } from "./types";
 import { EvidenceLink } from "./evidence";
 import { Modal, Field, Submit, Empty } from "./ui";
 type Mutation = (path: string, body?: unknown) => Promise<unknown>;
@@ -294,13 +294,21 @@ function NewRefund({
             />
           </Field>
           <Field label="منصة الطلب">
-            <input
+            <select
               name="platform"
               key={"platform-" + ticketId}
               defaultValue={ticket?.platform ?? ""}
               required
-              maxLength={80}
-            />
+            >
+              <option value="">اختر المنصة</option>
+              {[
+                ...new Set([...(ticket?.platform ? [ticket.platform] : []), ...activePlatforms()]),
+              ].map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+            </select>
           </Field>
           <Field label="المبلغ المطلوب (ر.س، اختياري)">
             <input name="amount" type="number" min="0.01" max="100000" step="0.01" />

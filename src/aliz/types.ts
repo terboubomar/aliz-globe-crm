@@ -1,3 +1,4 @@
+import type { Catalog } from "@/lib/catalog";
 export type Brand = {
   id: string;
   name: string;
@@ -133,18 +134,17 @@ export type Data = {
   shifts: Shift[];
   leave: Leave[];
   permissions: string[];
+  catalog?: Catalog;
   integrations?: { whatsapp: boolean; email?: boolean };
   policy: { sla: string; finance: boolean; publicIntake: boolean; autoAssign?: boolean };
 };
-export const categories: Record<string, string> = {
-  DELAY: "تأخر الطلب",
-  MISSING: "طلب ناقص",
-  WRONG_BRANCH: "طلب في فرع آخر",
-  QUALITY: "جودة الطعام",
-  SAFETY: "سلامة الغذاء",
-  SERVICE: "تجربة الخدمة",
-  OTHER: "أخرى",
-};
+export {
+  categories,
+  lists,
+  applyCatalog,
+  activeCategories,
+  activePlatforms,
+} from "./catalog-state";
 export const states: Record<string, string> = {
   NEW: "استقبال الشكوى",
   TRIAGED: "استقبال الشكوى",

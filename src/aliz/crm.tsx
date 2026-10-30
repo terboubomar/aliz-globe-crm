@@ -35,6 +35,8 @@ import {
   Ticket,
   api,
   categories,
+  activeCategories,
+  activePlatforms,
   states,
   roleNames,
   eventNames,
@@ -1190,9 +1192,10 @@ function Intake({
           )}
           <Field label="سبب الشكوى">
             <select name="category">
-              {Object.entries(categories).map(([k, v]) => (
-                <option key={k} value={k}>
-                  {v}
+              {activeCategories().map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.label}
+                  {c.urgent ? " (عاجلة P1)" : ""}
                 </option>
               ))}
             </select>
@@ -1218,7 +1221,14 @@ function Intake({
             <input name="externalOrder" maxLength={100} dir="ltr" />
           </Field>
           <Field label="منصة الطلب (اختياري)">
-            <input name="platform" maxLength={80} />
+            <select name="platform" defaultValue="">
+              <option value="">غير محدد</option>
+              {activePlatforms().map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+            </select>
           </Field>
           <Field label="وقت استقبال الشكوى (اختياري)" full>
             <input name="receivedAt" type="datetime-local" />
@@ -1395,8 +1405,8 @@ function TicketDetail({
                   <b>{eventNames[e.type] ?? e.type.replaceAll("_", " ")}</b>
                   <small>
                     {data.users.find((u) => u.id === e.actor)?.name ??
-                      (e.actor === "SYSTEM" ? "النظام" : e.actor)} •{" "}
-                    {date(e.createdAt)}
+                      (e.actor === "SYSTEM" ? "النظام" : e.actor)}{" "}
+                    • {date(e.createdAt)}
                   </small>
                   {e.note && <p>{e.note}</p>}
                 </div>
@@ -1493,7 +1503,12 @@ function TicketDetail({
 }
 function CustomerLookup({ onOpen }: { onOpen: (id: string) => void }) {
   const [result, setResult] = useState<
-      | { id: string; number: string; state: string; customer: { name: string; phone: string } | null }[]
+      | {
+          id: string;
+          number: string;
+          state: string;
+          customer: { name: string; phone: string } | null;
+        }[]
       | null
     >(null),
     [error, setError] = useState("");

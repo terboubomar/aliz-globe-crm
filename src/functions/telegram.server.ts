@@ -1,6 +1,5 @@
 import {
   DomainError,
-  categoryLabels,
   roleLabels,
   stateLabels,
   ticketNumber,
@@ -390,10 +389,13 @@ async function ticketInfo(ticketId: string) {
       ? db.from("branches").select("name").eq("id", t.branch_id).maybeSingle()
       : Promise.resolve({ data: null }),
   ]);
+  const { catalog } = await import("./core.server");
+  const { categoryLabel } = await import("@/lib/catalog");
   return {
     t: t as TicketRow,
     brand: brand?.name ?? "",
     branch: (branch as { name: string } | null)?.name ?? "غير محدد",
+    category: categoryLabel(await catalog(), t.category),
   };
 }
 type Info = NonNullable<Awaited<ReturnType<typeof ticketInfo>>>;
@@ -403,7 +405,7 @@ function ticketLines(info: Info) {
   return [
     `<code>${ticketNumber(t.sequence, t.created_at)}</code>`,
     `🏷 ${esc(info.brand)} · 📍 ${esc(info.branch)}`,
-    `📂 ${categoryLabels[t.category] ?? esc(t.category)} · ${urgent(t) ? "🔴" : "⚪️"} ${esc(t.priority)} · ${t.source === "PUBLIC_QR" ? "QR" : "الهاتف"}`,
+    `📂 ${esc(info.category)} · ${urgent(t) ? "🔴" : "⚪️"} ${esc(t.priority)} · ${t.source === "PUBLIC_QR" ? "QR" : "الهاتف"}`,
     `🕒 استُقبلت ${clock(t.received_at)}`,
   ];
 }

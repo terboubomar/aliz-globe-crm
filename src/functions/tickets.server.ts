@@ -1,23 +1,23 @@
 import { z } from "zod";
 import {
-  type Actor, DomainError, authorize, can, canWorkComplaint, categories, categoryLabels, inScope,
+  type Actor, DomainError, authorize, can, canWorkComplaint, inScope,
   isComplaintParticipant, normalizePhone, saudiMobile, slaMilestones, supportRoles, escalationRoles,
   ticketNumber, transition, briefHasPersonalData,
 } from "@/lib/domain";
-import { admin, rpcError, settings, type Ctx } from "./core.server";
+import { admin, catalog, rpcError, settings, type Ctx } from "./core.server";
 import { decrypt, encrypt, keyedHash, randomToken, sha256 } from "./crypto.server";
 
 export const ticketInput = z.object({
   brandId: z.string().min(1),
   branchId: z.string().uuid().nullable().optional(),
   unknownReason: z.string().max(300).optional(),
-  category: z.enum(categories),
+  category: z.string().regex(/^[A-Z][A-Z0-9_]{1,39}$/, "اختر سبب الشكوى"),
   priority: z.enum(["P1", "P2", "P3"]),
   description: z.string().trim().min(10, "الوصف 10 أحرف على الأقل").max(4000),
   name: z.string().trim().max(100).optional(),
   phone: z.string().regex(saudiMobile, "أدخل رقم جوال سعودي صحيح").optional().or(z.literal("")),
   externalOrder: z.string().max(100).optional(),
-  platform: z.string().max(80).optional(),
+  platform: z.string().trim().max(80).optional(),
   receivedAt: z.string().datetime().optional(),
   whatsappConsent: z.boolean().default(false),
   email: z.string().trim().toLowerCase().email("أدخل بريداً إلكترونياً صحيحاً").max(200).optional().or(z.literal("")),
@@ -65,7 +65,13 @@ export async function createTicketCore(
   if (!brand) throw new DomainError("BRAND_INACTIVE", 400, "العلامة غير مفعلة");
   const s = await settings();
   const policy = s.sla;
-  const priority = body.category === "SAFETY" ? "P1" : body.priority;
+  const lists = await catalog();
+  const reason = lists.categories.find((c) => c.id === body.category && c.active);
+  if (!reason) throw new DomainError("INVALID_CATEGORY", 400, "سبب الشكوى غير متاح؛ اختر سبباً من القائمة");
+  if (body.platform && !lists.platforms.some((p) => p.active && p.label === body.platform))
+    throw new DomainError("INVALID_PLATFORM", 400, "منصة الطلب غير متاحة؛ اختر منصة من القائمة");
+  // Urgent reasons (such as food safety) are always P1.
+  const priority = reason.urgent ? "P1" : body.priority;
   const idemKey = `${actorId}:${key}`;
   const requestHash = await sha256(JSON.stringify(body));
 
@@ -75,7 +81,7 @@ export async function createTicketCore(
   const access = publicQr || (body.whatsappConsent && phone) || (body.emailConsent && email) ? randomToken() : null;
   const receipt: Receipt = {
     number, brand: brand.name, branch: branchRow?.data?.name ?? "غير محدد",
-    receivedAt: received.toISOString(), category: categoryLabels[body.category] ?? body.category,
+    receivedAt: received.toISOString(), category: reason.label,
     description: body.description, customerName: body.name ?? "", externalOrder: body.externalOrder ?? "",
     platform: body.platform ?? "", source: publicQr ? "QR" : "الهاتف", trackingPath: access ? "/track/" + access : "",
   };

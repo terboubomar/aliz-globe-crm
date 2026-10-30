@@ -22,6 +22,7 @@ export const getBootstrap = createServerFn({ method: "POST" })
       c.staffDirectory(a.role === "SUPER_ADMIN" ? ["waqf", "kabab", "batatisyon", "mazmuzil", "shawarman", ...a.brandIds] : a.brandIds),
       c.settings(),
     ]);
+    const lists = await c.catalog();
     const live = await (await import("./receipts.server")).liveChannels();
     return {
       status: "OK" as const,
@@ -31,6 +32,7 @@ export const getBootstrap = createServerFn({ method: "POST" })
       brands: brands ?? [],
       branches: branches ?? [],
       staff,
+      catalog: lists,
       flags: {
         publicIntake: s.publicIntake,
         autoAssign: s.autoAssign,

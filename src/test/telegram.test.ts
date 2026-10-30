@@ -74,6 +74,7 @@ vi.mock("@/functions/core.server", () => {
   return {
     admin: async () => ({ from: query, rpc: async () => ({ error: null }) }),
     settings: async () => ({ telegram: db.enabled }),
+    catalog: async () => (await import("@/lib/catalog")).toCatalog(undefined, undefined),
     rpcError: (e: { message?: string } | null) => {
       if (e) throw new Error(e.message);
     },

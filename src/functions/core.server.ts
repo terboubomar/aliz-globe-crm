@@ -106,3 +106,22 @@ export async function staffDirectory(brandIds: string[]) {
     financeDuty: u.finance_duty,
   }));
 }
+
+/** Complaint reasons and order platforms the team manages (cached briefly). */
+let catalogCache: { at: number; value: import("@/lib/catalog").Catalog } | null = null;
+export function clearCatalogCache() {
+  catalogCache = null;
+}
+export async function catalog() {
+  if (catalogCache && Date.now() - catalogCache.at < 30_000) return catalogCache.value;
+  const { toCatalog } = await import("@/lib/catalog");
+  const db = await admin();
+  const { data } = await db
+    .from("app_settings")
+    .select("key,value")
+    .in("key", ["complaint_categories", "order_platforms"]);
+  const get = (k: string) => data?.find((r) => r.key === k)?.value;
+  const value = toCatalog(get("complaint_categories"), get("order_platforms"));
+  catalogCache = { at: Date.now(), value };
+  return value;
+}
