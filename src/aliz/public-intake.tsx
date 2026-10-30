@@ -3,6 +3,7 @@ import { ReceiptDetails, confirmationLabels, emailConfirmationLabels } from "./r
 import { useState, useEffect, FormEvent } from "react";
 import { ArrowLeft, CheckCircle2, ShieldCheck, Upload } from "lucide-react";
 import { api, activeCategories, activePlatforms } from "./types";
+import { ReasonOptions } from "./reason-options";
 import { Field, Submit } from "./ui";
 export default function PublicIntake({ code }: { code: string }) {
   const [requestKey] = useState(() => crypto.randomUUID());
@@ -13,7 +14,7 @@ export default function PublicIntake({ code }: { code: string }) {
       demo: boolean;
       whatsappAvailable: boolean;
       emailAvailable?: boolean;
-      categories?: { id: string; label: string }[];
+      categories?: { id: string; label: string; group?: string }[];
       platforms?: string[];
     } | null>(null),
     [whatsappConsent, setWhatsAppConsent] = useState(false),
@@ -151,11 +152,11 @@ export default function PublicIntake({ code }: { code: string }) {
               <div className="form-grid">
                 <Field label="سبب البلاغ" full>
                   <select name="category" required>
-                    {(context.categories ?? activeCategories()).map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.label}
-                      </option>
-                    ))}
+                    <ReasonOptions
+                      reasons={(context.categories ?? activeCategories()).map(
+                        ({ id, label, group }) => ({ id, label, group }),
+                      )}
+                    />
                   </select>
                 </Field>
                 <Field label="شاركنا تفاصيل المشكلة" full>

@@ -5882,3 +5882,17 @@ th {
     flex-basis: calc(100% - 110px);
   }
 }
+.list-editor li > input.list-group-input,
+.list-editor-add input.list-group-input {
+  flex: 0 0 160px;
+  min-width: 0;
+}
+.list-editor-tools {
+  margin-top: 10px;
+  gap: 16px;
+}
+@media (max-width: 560px) {
+  .list-editor li > input.list-group-input {
+    flex-basis: calc(100% - 110px);
+  }
+}

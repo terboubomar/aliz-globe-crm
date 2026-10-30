@@ -7,19 +7,74 @@
  * Stored in app_settings under "complaint_categories" and "order_platforms".
  */
 
-export type CategoryItem = { id: string; label: string; active: boolean; urgent: boolean };
+export type CategoryItem = {
+  id: string;
+  label: string;
+  active: boolean;
+  urgent: boolean;
+  group: string; // heading in the complaint form; "" = no group
+};
 export type PlatformItem = { label: string; active: boolean };
 export type Catalog = { categories: CategoryItem[]; platforms: PlatformItem[] };
 
 export const DEFAULT_CATEGORIES: CategoryItem[] = [
-  { id: "DELAY", label: "تأخر الطلب", active: true, urgent: false },
-  { id: "MISSING", label: "طلب ناقص", active: true, urgent: false },
-  { id: "WRONG_BRANCH", label: "طلب في فرع آخر", active: true, urgent: false },
-  { id: "QUALITY", label: "جودة الطعام", active: true, urgent: false },
-  { id: "SAFETY", label: "سلامة الغذاء", active: true, urgent: true },
-  { id: "SERVICE", label: "تجربة الخدمة", active: true, urgent: false },
-  { id: "OTHER", label: "أخرى", active: true, urgent: false },
+  { id: "DELAY", label: "تأخر الطلب", active: true, urgent: false, group: "مشكلة في الطلب" },
+  { id: "MISSING", label: "طلب ناقص", active: true, urgent: false, group: "مشكلة في الطلب" },
+  {
+    id: "WRONG_BRANCH",
+    label: "طلب في فرع آخر",
+    active: true,
+    urgent: false,
+    group: "مشكلة في الطلب",
+  },
+  { id: "QUALITY", label: "جودة الطعام", active: true, urgent: false, group: "جودة الطعام" },
+  { id: "SAFETY", label: "سلامة الغذاء", active: true, urgent: true, group: "صحة وسلامة" },
+  { id: "SERVICE", label: "تجربة الخدمة", active: true, urgent: false, group: "الخدمة والموظفين" },
+  { id: "OTHER", label: "أخرى", active: true, urgent: false, group: "أخرى" },
 ];
+
+/** Suggested reasons for a restaurant group, offered in Settings → Lists. */
+export const SUGGESTED_CATEGORIES: { label: string; group: string; urgent?: boolean }[] = [
+  { label: "طلب خاطئ", group: "مشكلة في الطلب" },
+  { label: "عدم الالتزام بملاحظات الطلب", group: "مشكلة في الطلب" },
+  { label: "الطلب لم يصل", group: "مشكلة في الطلب" },
+  { label: "إلغاء الطلب دون إبلاغ العميل", group: "مشكلة في الطلب" },
+  { label: "تغليف سيء أو انسكاب", group: "مشكلة في الطلب" },
+  { label: "الطعام بارد", group: "جودة الطعام" },
+  { label: "طعام غير مطهو جيداً", group: "جودة الطعام", urgent: true },
+  { label: "طعم أو رائحة غير طبيعية", group: "جودة الطعام", urgent: true },
+  { label: "جسم غريب في الطعام", group: "جودة الطعام", urgent: true },
+  { label: "الكمية أقل من المعتاد", group: "جودة الطعام" },
+  { label: "تسمم غذائي أو أعراض بعد الأكل", group: "صحة وسلامة", urgent: true },
+  { label: "حساسية غذائية", group: "صحة وسلامة", urgent: true },
+  { label: "نظافة الفرع أو العاملين", group: "صحة وسلامة" },
+  { label: "خطأ في الفاتورة أو السعر", group: "السعر والدفع" },
+  { label: "خصم أو عرض لم يُطبّق", group: "السعر والدفع" },
+  { label: "مبلغ مخصوم مرتين", group: "السعر والدفع" },
+  { label: "سوء تعامل الموظف", group: "الخدمة والموظفين" },
+  { label: "انتظار طويل في الفرع", group: "الخدمة والموظفين" },
+  { label: "الفرع مغلق في وقت العمل", group: "الخدمة والموظفين" },
+  { label: "سلوك المندوب", group: "التوصيل" },
+  { label: "المندوب لم يجد العنوان", group: "التوصيل" },
+  { label: "مشكلة في التطبيق أو الطلب الإلكتروني", group: "التطبيق والموقع" },
+  { label: "اقتراح", group: "أخرى" },
+];
+
+/**
+ * Reasons under their group headings, for the form's dropdown. Groups appear in
+ * the order of their first reason; reasons keep the team's order inside a group;
+ * reasons without a group come last.
+ */
+export function grouped<T extends { group?: string | undefined }>(items: T[]) {
+  const groups: { group: string; items: T[] }[] = [];
+  for (const item of items) {
+    const g = (item.group ?? "").trim();
+    const hit = groups.find((x) => x.group === g);
+    if (hit) hit.items.push(item);
+    else groups.push({ group: g, items: [item] });
+  }
+  return [...groups.filter((g) => g.group), ...groups.filter((g) => !g.group)];
+}
 export const DEFAULT_PLATFORMS: PlatformItem[] = [
   "هنقرستيشن",
   "جاهز",
@@ -49,6 +104,11 @@ export function toCatalog(categories: unknown, platforms: unknown): Catalog {
           label: clean(c.label, 60),
           active: c.active !== false,
           urgent: c.urgent === true,
+          // Lists saved before groups existed: built-in reasons get their usual group.
+          group:
+            c.group === undefined
+              ? (DEFAULT_CATEGORIES.find((d) => d.id === c.id)?.group ?? "")
+              : clean(c.group, 40),
         }))
     : [];
   const cats = saved.length ? saved : DEFAULT_CATEGORIES.map((c) => ({ ...c }));
