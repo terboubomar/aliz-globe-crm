@@ -5821,21 +5821,41 @@ th {
   width: 36px;
   flex-shrink: 0;
 }
-.list-order {
+.drag-handle {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  justify-content: center;
+  width: 28px;
+  height: 32px;
   flex-shrink: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: grab;
+  touch-action: none;
 }
-.list-order b {
-  min-width: 22px;
+.drag-handle:hover,
+.drag-handle:focus-visible {
+  background: var(--cream);
+  color: var(--ink);
+}
+.list-editor li.dragging {
+  background: var(--cream);
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.08);
+  border-radius: 8px;
+  position: relative;
+  z-index: 1;
+}
+.list-editor li.dragging .drag-handle {
+  cursor: grabbing;
+}
+.list-position {
+  min-width: 20px;
   text-align: center;
   color: var(--muted);
   font-size: 13px;
-}
-.list-order .icon-btn:disabled {
-  opacity: 0.3;
-  cursor: default;
+  flex-shrink: 0;
 }
 .list-editor li.off input:not([type="checkbox"]) {
   color: var(--muted);
