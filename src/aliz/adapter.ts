@@ -27,6 +27,12 @@ import {
   setBranchActive,
   updateBrand,
   updateSetting,
+  telegramAccount,
+  telegramLink,
+  telegramConfirm,
+  telegramDisconnect,
+  telegramStatus,
+  telegramRegisterWebhook,
   getRotation,
   saveRotation,
   applyRotation,
@@ -751,13 +757,17 @@ async function route(
     };
   }
 
-  // Not built on this backend yet.
-  if (is("integrations", "telegram", "account"))
-    return { available: false, linked: false, label: null, pending: null, expiresAt: null };
+  if (is("integrations", "telegram", "account")) return telegramAccount();
+  if (is("integrations", "telegram", "link")) return telegramLink();
+  if (is("integrations", "telegram", "confirm"))
+    return telegramConfirm({ data: { fingerprint: String(body["fingerprint"] ?? "") } });
+  if (is("integrations", "telegram", "disconnect")) return telegramDisconnect();
+  if (is("integrations", "telegram", "webhook")) return telegramRegisterWebhook();
+  if (is("settings", "telegram"))
+    return updateSetting({ data: { key: "telegram_enabled", value: !!body["enabled"] } });
   if (is("integrations", "whatsapp") || is("integrations", "email"))
     return receiptChannelStatus({ data: { channel: at(1) as "whatsapp" | "email" } });
-  if (is("integrations", "telegram"))
-    return { ready: false, enabled: false, missing: [], statuses: {}, users: [] };
+  if (is("integrations", "telegram")) return telegramStatus();
   throw new Error(NOT_YET);
 }
 

@@ -429,7 +429,7 @@ export const runReport = createServerFn({ method: "POST" })
 /* ---------------- Activation settings (SUPER_ADMIN) ---------------- */
 export const updateSetting = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({ key: z.enum(["public_intake_enabled", "require_mfa", "whatsapp_enabled", "email_receipts_enabled", "auto_assign_enabled"]), value: z.boolean() }).parse(d))
+  .inputValidator((d: unknown) => z.object({ key: z.enum(["public_intake_enabled", "require_mfa", "whatsapp_enabled", "email_receipts_enabled", "auto_assign_enabled", "telegram_enabled"]), value: z.boolean() }).parse(d))
   .handler(async ({ data, context }) => {
     const c = await core();
     const a = await c.requireActor(context as never);
@@ -440,6 +440,11 @@ export const updateSetting = createServerFn({ method: "POST" })
       const { missingConfig } = await import("./receipts.server");
       if (data.value && missingConfig(data.key === "whatsapp_enabled" ? "whatsapp" : "email").length)
         throw new DomainError("NOT_CONFIGURED", 409, "أكمل إعدادات القناة قبل تفعيل الإرسال");
+    }
+    if (data.key === "telegram_enabled" && data.value) {
+      if (a.role !== "SUPER_ADMIN") throw new DomainError("FORBIDDEN", 403, "متاح لمدير النظام فقط");
+      if ((await import("./telegram.server")).missingConfig().length)
+        throw new DomainError("NOT_CONFIGURED", 409, "أكمل إعدادات البوت قبل التفعيل");
     }
     const db = await c.admin();
     const { error } = await db.from("app_settings").upsert({ key: data.key, value: data.value, updated_at: new Date().toISOString() });
@@ -508,4 +513,45 @@ export const receiptChannelStatus = createServerFn({ method: "POST" })
     const a = await c.requireActor(context as never);
     if (a.role !== "SUPER_ADMIN") throw new DomainError("FORBIDDEN", 403, "متاح لمدير النظام فقط");
     return (await import("./receipts.server")).channelStatus(data.channel);
+  });
+
+/* ---------------- Telegram bot ---------------- */
+const tg = () => import("./telegram.server");
+export const telegramAccount = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => (await tg()).accountState(await (await core()).requireActor(context as never)));
+
+export const telegramLink = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => (await tg()).beginLink(await (await core()).requireActor(context as never)));
+
+export const telegramConfirm = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ fingerprint: z.string().regex(/^[a-f0-9]{64}$/) }).parse(d))
+  .handler(async ({ data, context }) =>
+    (await tg()).confirmLink(await (await core()).requireActor(context as never), data.fingerprint),
+  );
+
+export const telegramDisconnect = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => (await tg()).disconnect(await (await core()).requireActor(context as never)));
+
+export const telegramStatus = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const a = await (await core()).requireActor(context as never);
+    if (a.role !== "SUPER_ADMIN") throw new DomainError("FORBIDDEN", 403, "متاح لمدير النظام فقط");
+    return (await tg()).adminStatus();
+  });
+
+export const telegramRegisterWebhook = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const c = await core();
+    const a = await c.requireActor(context as never);
+    if (a.role !== "SUPER_ADMIN") throw new DomainError("FORBIDDEN", 403, "متاح لمدير النظام فقط");
+    const r = await (await tg()).registerWebhook();
+    const db = await c.admin();
+    await db.rpc("write_audit", { _actor: a.id, _action: "TELEGRAM_WEBHOOK_REGISTERED", _entity: "telegram" });
+    return r;
   });

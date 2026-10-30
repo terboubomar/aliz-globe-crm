@@ -14,6 +14,7 @@ import { Route as QCodeRouteImport } from './routes/q.$code'
 import { Route as TrackTokenRouteImport } from './routes/track.$token'
 import { Route as ApiPublicCronReceiptsRouteImport } from './routes/api/public/cron/receipts'
 import { Route as ApiPublicCronScheduleRouteImport } from './routes/api/public/cron/schedule'
+import { Route as ApiPublicCronTelegramRouteImport } from './routes/api/public/cron/telegram'
 import { Route as ApiPublicWebhooksTelegramRouteImport } from './routes/api/public/webhooks/telegram'
 import { Route as ApiPublicWebhooksWhatsappRouteImport } from './routes/api/public/webhooks/whatsapp'
 
@@ -42,6 +43,11 @@ const ApiPublicCronScheduleRoute = ApiPublicCronScheduleRouteImport.update({
   path: '/api/public/cron/schedule',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicCronTelegramRoute = ApiPublicCronTelegramRouteImport.update({
+  id: '/api/public/cron/telegram',
+  path: '/api/public/cron/telegram',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicWebhooksTelegramRoute =
   ApiPublicWebhooksTelegramRouteImport.update({
     id: '/api/public/webhooks/telegram',
@@ -61,6 +67,7 @@ export interface FileRoutesByFullPath {
   '/track/$token': typeof TrackTokenRoute
   '/api/public/cron/receipts': typeof ApiPublicCronReceiptsRoute
   '/api/public/cron/schedule': typeof ApiPublicCronScheduleRoute
+  '/api/public/cron/telegram': typeof ApiPublicCronTelegramRoute
   '/api/public/webhooks/telegram': typeof ApiPublicWebhooksTelegramRoute
   '/api/public/webhooks/whatsapp': typeof ApiPublicWebhooksWhatsappRoute
 }
@@ -70,6 +77,7 @@ export interface FileRoutesByTo {
   '/track/$token': typeof TrackTokenRoute
   '/api/public/cron/receipts': typeof ApiPublicCronReceiptsRoute
   '/api/public/cron/schedule': typeof ApiPublicCronScheduleRoute
+  '/api/public/cron/telegram': typeof ApiPublicCronTelegramRoute
   '/api/public/webhooks/telegram': typeof ApiPublicWebhooksTelegramRoute
   '/api/public/webhooks/whatsapp': typeof ApiPublicWebhooksWhatsappRoute
 }
@@ -80,6 +88,7 @@ export interface FileRoutesById {
   '/track/$token': typeof TrackTokenRoute
   '/api/public/cron/receipts': typeof ApiPublicCronReceiptsRoute
   '/api/public/cron/schedule': typeof ApiPublicCronScheduleRoute
+  '/api/public/cron/telegram': typeof ApiPublicCronTelegramRoute
   '/api/public/webhooks/telegram': typeof ApiPublicWebhooksTelegramRoute
   '/api/public/webhooks/whatsapp': typeof ApiPublicWebhooksWhatsappRoute
 }
@@ -91,6 +100,7 @@ export interface FileRouteTypes {
     | '/track/$token'
     | '/api/public/cron/receipts'
     | '/api/public/cron/schedule'
+    | '/api/public/cron/telegram'
     | '/api/public/webhooks/telegram'
     | '/api/public/webhooks/whatsapp'
   fileRoutesByTo: FileRoutesByTo
@@ -100,6 +110,7 @@ export interface FileRouteTypes {
     | '/track/$token'
     | '/api/public/cron/receipts'
     | '/api/public/cron/schedule'
+    | '/api/public/cron/telegram'
     | '/api/public/webhooks/telegram'
     | '/api/public/webhooks/whatsapp'
   id:
@@ -109,6 +120,7 @@ export interface FileRouteTypes {
     | '/track/$token'
     | '/api/public/cron/receipts'
     | '/api/public/cron/schedule'
+    | '/api/public/cron/telegram'
     | '/api/public/webhooks/telegram'
     | '/api/public/webhooks/whatsapp'
   fileRoutesById: FileRoutesById
@@ -119,6 +131,7 @@ export interface RootRouteChildren {
   TrackTokenRoute: typeof TrackTokenRoute
   ApiPublicCronReceiptsRoute: typeof ApiPublicCronReceiptsRoute
   ApiPublicCronScheduleRoute: typeof ApiPublicCronScheduleRoute
+  ApiPublicCronTelegramRoute: typeof ApiPublicCronTelegramRoute
   ApiPublicWebhooksTelegramRoute: typeof ApiPublicWebhooksTelegramRoute
   ApiPublicWebhooksWhatsappRoute: typeof ApiPublicWebhooksWhatsappRoute
 }
@@ -160,6 +173,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicCronScheduleRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/cron/telegram': {
+      id: '/api/public/cron/telegram'
+      path: '/api/public/cron/telegram'
+      fullPath: '/api/public/cron/telegram'
+      preLoaderRoute: typeof ApiPublicCronTelegramRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/webhooks/telegram': {
       id: '/api/public/webhooks/telegram'
       path: '/api/public/webhooks/telegram'
@@ -183,6 +203,7 @@ const rootRouteChildren: RootRouteChildren = {
   TrackTokenRoute: TrackTokenRoute,
   ApiPublicCronReceiptsRoute: ApiPublicCronReceiptsRoute,
   ApiPublicCronScheduleRoute: ApiPublicCronScheduleRoute,
+  ApiPublicCronTelegramRoute: ApiPublicCronTelegramRoute,
   ApiPublicWebhooksTelegramRoute: ApiPublicWebhooksTelegramRoute,
   ApiPublicWebhooksWhatsappRoute: ApiPublicWebhooksWhatsappRoute,
 }
