@@ -544,6 +544,14 @@ export const telegramStatus = createServerFn({ method: "POST" })
     return (await tg()).adminStatus();
   });
 
+export const telegramTest = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const a = await (await core()).requireActor(context as never);
+    if (a.role !== "SUPER_ADMIN") throw new DomainError("FORBIDDEN", 403, "متاح لمدير النظام فقط");
+    return (await tg()).testMessage(a);
+  });
+
 export const telegramRegisterWebhook = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {

@@ -5284,6 +5284,34 @@ th {
   font-size: 12px;
   margin-top: 16px;
 }
+.telegram-health {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+}
+.telegram-health li {
+  padding-inline-start: 18px;
+  position: relative;
+}
+.telegram-health li::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: 0;
+  top: 0.5em;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+.telegram-health li.ok::before {
+  background: var(--green);
+}
+.telegram-health li.warn::before {
+  background: var(--amber);
+}
 .telegram-team ul {
   list-style: none;
   margin: 14px 0 0;
