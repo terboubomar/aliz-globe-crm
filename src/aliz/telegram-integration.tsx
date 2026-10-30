@@ -175,6 +175,12 @@ type Status = {
   enabled: boolean;
   missing: string[];
   statuses: Record<string, number>;
+  webhook: {
+    connected: boolean;
+    pending: number;
+    lastError: string | null;
+    buttons: boolean;
+  } | null;
   users: { id: string; name: string; role: string; linked: boolean }[];
 };
 export function TelegramIntegration() {
@@ -238,8 +244,8 @@ export function TelegramIntegration() {
                 {status.ready ? "مهيأ للإرسال" : "غير مفعّل"}
               </span>
               <small>
-                شكوى جديدة وملخص يومي ← المسؤول الأعلى · إسناد الشكاوى وتذكير الورديات وجدول الأسبوع
-                ← الموظف
+                المسؤول الأعلى: الشكاوى الجديدة، المتأخرة عن المهلة، والملخص اليومي · الموظف:
+                الشكاوى المسندة مع زر «استلمتها»، تنبيه قبل المهلة، تذكير الوردية وجدول الأسبوع
               </small>
             </div>
             <div className="telegram-actions">
@@ -275,9 +281,44 @@ export function TelegramIntegration() {
                   )
                 }
               >
-                ربط البوت بالنظام
+                {status.webhook?.connected ? "إعادة ربط البوت بالنظام" : "ربط البوت بالنظام"}
+              </button>
+              <button
+                className="secondary"
+                disabled={busy || !status.ready}
+                onClick={() =>
+                  void run(
+                    "integrations/telegram/test",
+                    {},
+                    "تم إرسال رسالة تجريبية إلى حسابك على تيليجرام.",
+                  )
+                }
+              >
+                <Send size={15} /> إرسال رسالة تجريبية لي
               </button>
             </div>
+            {status.webhook && (
+              <ul className="telegram-health">
+                <li className={status.webhook.connected ? "ok" : "warn"}>
+                  {status.webhook.connected
+                    ? "تيليجرام متصل بالنظام"
+                    : "تيليجرام غير متصل بهذا النظام — اضغط «ربط البوت بالنظام»"}
+                </li>
+                {status.webhook.connected && !status.webhook.buttons && (
+                  <li className="warn">
+                    زر «استلمتها» في التنبيهات يحتاج إعادة ربط البوت بالنظام مرة واحدة
+                  </li>
+                )}
+                {status.webhook.lastError && (
+                  <li className="warn">
+                    آخر خطأ من تيليجرام: <span dir="ltr">{status.webhook.lastError}</span>
+                  </li>
+                )}
+                {status.webhook.pending > 0 && (
+                  <li className="warn">{n(status.webhook.pending)} رسائل بانتظار المعالجة</li>
+                )}
+              </ul>
+            )}
             {notice && (
               <p className="notice" role="status">
                 {notice}
@@ -285,18 +326,9 @@ export function TelegramIntegration() {
             )}
             <div className="whatsapp-counts">
               {[
-                [
-                  "في الانتظار",
-                  (status.statuses["QUEUED"] ?? 0) + (status.statuses["SENDING"] ?? 0),
-                ],
-                ["تم الإرسال", status.statuses["SENT"] ?? 0],
-                [
-                  "تحتاج مراجعة",
-                  (status.statuses["FAILED"] ?? 0) +
-                    (status.statuses["UNKNOWN"] ?? 0) +
-                    (status.statuses["EXPIRED"] ?? 0),
-                ],
+                ["رسائل مرسلة", status.statuses["SENT"] ?? 0],
                 ["حسابات مرتبطة", status.users.filter((u) => u.linked).length],
+                ["لم يربطوا بعد", status.users.filter((u) => !u.linked).length],
               ].map(([label, count]) => (
                 <span key={label}>
                   <b>{n(Number(count))}</b>
@@ -316,7 +348,10 @@ export function TelegramIntegration() {
               </details>
             )}
             <details className="telegram-team">
-              <summary>حالة ربط الفريق</summary>
+              <summary>
+                حالة ربط الفريق ({n(status.users.filter((u) => u.linked).length)}/
+                {n(status.users.length)})
+              </summary>
               <ul>
                 {status.users.map((u) => (
                   <li key={u.id}>

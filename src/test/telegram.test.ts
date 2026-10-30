@@ -80,6 +80,14 @@ vi.mock("@/functions/core.server", () => {
   };
 });
 
+const actions = vi.hoisted(() => ({ calls: [] as unknown[][] }));
+vi.mock("@/functions/tickets.server", () => ({
+  ticketActionCore: async (...args: unknown[]) => {
+    actions.calls.push(args);
+    return { ok: true };
+  },
+}));
+
 import * as tg from "@/functions/telegram.server";
 
 const AGENT = {
@@ -97,7 +105,13 @@ const ADMIN = {
   branchIds: [],
 };
 const TICKET = "00000000-0000-4000-8000-0000000000c1";
-const sent: { chat_id: string; text: string; reply_markup?: unknown }[] = [];
+const sent: {
+  chat_id: string;
+  text: string;
+  reply_markup?: unknown;
+  message_id?: number;
+  method: string;
+}[] = [];
 const msg = (chat: number, text: string, from: Partial<{ username: string }> = {}) => ({
   message: {
     text,
@@ -115,6 +129,7 @@ async function link(actor: typeof AGENT, chat: number) {
 
 beforeEach(() => {
   sent.length = 0;
+  actions.calls.length = 0;
   db.enabled = true;
   Object.assign(process.env, {
     TELEGRAM_BOT_TOKEN: "123456:" + "A".repeat(30),
@@ -124,8 +139,8 @@ beforeEach(() => {
   });
   vi.stubGlobal(
     "fetch",
-    vi.fn(async (_url: string, init: { body: string }) => {
-      sent.push(JSON.parse(init.body));
+    vi.fn(async (url: string, init: { body: string }) => {
+      sent.push({ ...JSON.parse(init.body), method: url.split("/").pop() });
       return new Response("{}", { status: 200 });
     }),
   );
@@ -152,6 +167,8 @@ beforeEach(() => {
         source: "PUBLIC_QR",
         resolution_owner: AGENT.id,
         received_at: "2026-11-01T09:00:00Z",
+        acknowledged_at: null,
+        version: 3,
       },
     ],
     shifts: [
@@ -251,16 +268,124 @@ describe("alerts", () => {
     expect(sent[0]!.text).toContain("أُسندت تلقائياً إلى: Enas");
   });
 
-  it("sends a shift reminder about an hour before, once, and the 09:00 summary to admins only", async () => {
+  it("sends the 09:00 summary to admins only, and a shift reminder within the hour before, once", async () => {
     await link(AGENT, 111);
     await link(ADMIN, 999);
+    sent.length = 0;
+    await tg.runScheduled(new Date("2026-11-01T06:10:00Z")); // 09:10 Riyadh
+    expect(sent.filter((m) => m.text.includes("ملخص")).map((m) => m.chat_id)).toEqual(["999"]);
+    expect(sent.filter((m) => m.text.includes("تذكير"))).toHaveLength(0);
     sent.length = 0;
     const before = new Date("2026-11-01T08:00:00Z"); // 11:00 Riyadh, shift at 12:00
     await tg.runScheduled(before);
     await tg.runScheduled(before);
     expect(sent.filter((m) => m.text.includes("تذكير"))).toHaveLength(1);
+    expect(sent.filter((m) => m.text.includes("ملخص"))).toHaveLength(0);
+  });
+});
+
+const press = (chat: number, data: string) => ({
+  callback_query: {
+    id: "cb1",
+    data,
+    from: { id: chat, is_bot: false },
+    message: { message_id: 42, chat: { id: chat, type: "private" } },
+  },
+});
+
+describe("received button", () => {
+  it("starts work on the owner's own complaint, as that person", async () => {
+    await link(AGENT, 111);
+    await tg.notifyAssigned(TICKET, AGENT.id);
+    expect(JSON.stringify(sent.at(-1)!.reply_markup)).toContain(`ack:${TICKET}`);
     sent.length = 0;
-    await tg.runScheduled(new Date("2026-11-01T06:10:00Z")); // 09:10 Riyadh
-    expect(sent.filter((m) => m.text.includes("ملخص")).map((m) => m.chat_id)).toEqual(["999"]);
+    const r = await tg.handleUpdate(press(111, "ack:" + TICKET));
+    expect(r?.method).toBe("answerCallbackQuery");
+    expect(r?.text).toContain("تم الاستلام");
+    expect(actions.calls).toHaveLength(1);
+    const [, actor, id, action, body] = actions.calls[0]!;
+    expect((actor as { id: string }).id).toBe(AGENT.id);
+    expect([id, action, (body as { version: number }).version]).toEqual([TICKET, "start", 3]);
+    // The button is removed, the open link stays.
+    const edit = sent.find((m) => m.method === "editMessageReplyMarkup")!;
+    expect(edit.message_id).toBe(42);
+    expect(JSON.stringify(edit.reply_markup)).not.toContain("ack:");
+  });
+
+  it("refuses anyone who is not the owner, unlinked chats and unknown buttons", async () => {
+    await link(ADMIN, 999);
+    expect((await tg.handleUpdate(press(999, "ack:" + TICKET)))?.text).toContain(
+      "لم تعد مسندة إليك",
+    );
+    expect((await tg.handleUpdate(press(555, "ack:" + TICKET)))?.text).toContain("غير مرتبط");
+    expect((await tg.handleUpdate(press(999, "close:" + TICKET)))?.text).toBe("");
+    expect(actions.calls).toHaveLength(0);
+  });
+});
+
+describe("menu and admin tools", () => {
+  it("shows menu buttons, answers them like commands, and escapes names", async () => {
+    db.tables["brands"] = [{ id: "waqf", name: "<b>واقف</b>" }];
+    await link(AGENT, 111);
+    const help = await tg.handleUpdate(msg(111, "/help"));
+    const keys = JSON.stringify(help?.["reply_markup"]);
+    expect(keys).toContain("📋 شكاواي");
+    expect(keys).not.toContain("بدون مسؤول");
+    const cases = await tg.handleUpdate(msg(111, "📋 شكاواي"));
+    expect(cases?.text).toContain("AG-2026-000007");
+    expect(cases?.text).toContain("&lt;b&gt;واقف");
+    expect(JSON.stringify(cases?.["reply_markup"])).toContain(`ticket=${TICKET}`);
+    expect(cases?.["parse_mode"]).toBe("HTML");
+  });
+
+  it("lists unassigned complaints and sends a test message for super admins only", async () => {
+    await link(AGENT, 111);
+    await link(ADMIN, 999);
+    expect((await tg.handleUpdate(msg(111, "/unassigned")))?.text).toContain("لمسؤول النظام فقط");
+    expect((await tg.handleUpdate(msg(999, "📥 بدون مسؤول")))?.text).toContain("لها مسؤول");
+    db.tables["tickets"]![0]!["resolution_owner"] = null;
+    expect((await tg.handleUpdate(msg(999, "/unassigned")))?.text).toContain("AG-2026-000007");
+    const help = await tg.handleUpdate(msg(999, "/help"));
+    expect(JSON.stringify(help?.["reply_markup"])).toContain("بدون مسؤول");
+    sent.length = 0;
+    await tg.testMessage(ADMIN as never);
+    expect(sent[0]!.chat_id).toBe("999");
+    expect(sent[0]!.text).toContain("رسالة تجريبية");
+    await tg.disconnect(ADMIN as never);
+    await expect(tg.testMessage(ADMIN as never)).rejects.toThrow("اربط حسابك");
+  });
+});
+
+describe("deadlines", () => {
+  it("warns the owner before the deadline, then the owner and admins once it is missed", async () => {
+    await link(AGENT, 111);
+    await link(ADMIN, 999);
+    db.tables["ticket_timers"] = [
+      {
+        ticket_id: TICKET,
+        milestone: "ACKNOWLEDGMENT",
+        warning_at: "2026-11-01T09:12:00Z",
+        due_at: "2026-11-01T09:15:00Z",
+        completed_at: null,
+      },
+    ];
+    sent.length = 0;
+    const warn = new Date("2026-11-01T09:13:00Z");
+    await tg.runScheduled(warn);
+    await tg.runScheduled(warn);
+    const warned = sent.filter((m) => m.text?.includes("اقتربت مهلة"));
+    expect(warned.map((m) => m.chat_id)).toEqual(["111"]);
+    sent.length = 0;
+    await tg.runScheduled(new Date("2026-11-01T09:20:00Z"));
+    await tg.runScheduled(new Date("2026-11-01T09:30:00Z"));
+    const late = sent.filter((m) => m.text?.includes("تجاوزت"));
+    expect(late.map((m) => m.chat_id).sort()).toEqual(["111", "999"]);
+    expect(late.find((m) => m.chat_id === "999")!.text).toContain("المسؤول: Enas");
+    // Once the deadline is met, nothing more is sent.
+    db.tables["ticket_timers"]![0]!["completed_at"] = "2026-11-01T09:40:00Z";
+    db.tables["ticket_timers"]![0]!["due_at"] = "2026-11-01T09:45:00Z";
+    sent.length = 0;
+    await tg.runScheduled(new Date("2026-11-01T09:50:00Z"));
+    expect(sent.filter((m) => m.text?.includes("مهلة"))).toHaveLength(0);
   });
 });

@@ -102,23 +102,19 @@ export async function queueAndSend(
           .gte("created_at", new Date(Date.now() - HOUR).toISOString());
         if ((count ?? 0) >= PER_RECIPIENT_PER_HOUR) status = "RATE_LIMITED";
         else
-          await db
-            .from("outbox")
-            .insert({
-              key: `limit:${channel}:${who}:${ticketId}`,
-              type: "RECEIPT_LIMIT_REF",
-              ticket_id: ticketId,
-              status: "REF",
-            });
+          await db.from("outbox").insert({
+            key: `limit:${channel}:${who}:${ticketId}`,
+            type: "RECEIPT_LIMIT_REF",
+            ticket_id: ticketId,
+            status: "REF",
+          });
       }
-      await db
-        .from("outbox")
-        .insert({
-          key: `receipt:${channel}:${ticketId}`,
-          type: TYPE[channel],
-          ticket_id: ticketId,
-          status,
-        });
+      await db.from("outbox").insert({
+        key: `receipt:${channel}:${ticketId}`,
+        type: TYPE[channel],
+        ticket_id: ticketId,
+        status,
+      });
       out[channel] = status === HELD ? "NOT_CONFIGURED" : status;
       if (status === "QUEUED") out[channel] = await deliver(channel, ticketId, fetcher);
     }
@@ -178,14 +174,12 @@ export async function deliver(
         : await sendEmail(ticketId, customer.email ?? "", receipt, fetcher);
     if (result.ok) {
       if (result.messageId)
-        await db
-          .from("outbox")
-          .insert({
-            key: "wamid:" + (await sha256(result.messageId)),
-            type: "WHATSAPP_MESSAGE_REF",
-            ticket_id: ticketId,
-            status: "REF",
-          });
+        await db.from("outbox").insert({
+          key: "wamid:" + (await sha256(result.messageId)),
+          type: "WHATSAPP_MESSAGE_REF",
+          ticket_id: ticketId,
+          status: "REF",
+        });
       await set("ACCEPTED");
       return "ACCEPTED";
     }

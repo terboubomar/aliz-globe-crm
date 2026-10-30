@@ -3,7 +3,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { DomainError, type Actor, type SlaPolicy } from "@/lib/domain";
 
-export type Ctx = { supabase: SupabaseClient<Database>; userId: string; claims: Record<string, unknown> };
+export type Ctx = {
+  supabase: SupabaseClient<Database>;
+  userId: string;
+  claims: Record<string, unknown>;
+};
 
 export async function admin() {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -14,12 +18,18 @@ export async function settings() {
   const db = await admin();
   const { data, error } = await db.from("app_settings").select("key,value");
   if (error) throw error;
-  const map = Object.fromEntries((data ?? []).map((r) => [r.key, r.value])) as Record<string, unknown>;
+  const map = Object.fromEntries((data ?? []).map((r) => [r.key, r.value])) as Record<
+    string,
+    unknown
+  >;
   return {
     requireMfa: map["require_mfa"] !== false,
     publicIntake: map["public_intake_enabled"] === true,
     financeApproved: map["finance_policy_approved"] === true,
-    financeLimitMinor: typeof map["finance_approval_limit_minor"] === "number" ? (map["finance_approval_limit_minor"] as number) : null,
+    financeLimitMinor:
+      typeof map["finance_approval_limit_minor"] === "number"
+        ? (map["finance_approval_limit_minor"] as number)
+        : null,
     sla: map["sla_policy"] as SlaPolicy & { approved?: boolean },
     whatsapp: map["whatsapp_enabled"] === true,
     emailReceipts: map["email_receipts_enabled"] === true,
@@ -63,7 +73,8 @@ export async function accessState(ctx: Ctx): Promise<AccessState> {
 export async function requireActor(ctx: Ctx) {
   const s = await accessState(ctx);
   if (s.status === "OK") return s.actor;
-  if (s.status === "MFA_REQUIRED") throw new DomainError("MFA_REQUIRED", 401, "يلزم التحقق بخطوتين");
+  if (s.status === "MFA_REQUIRED")
+    throw new DomainError("MFA_REQUIRED", 401, "يلزم التحقق بخطوتين");
   if (s.status === "DISABLED") throw new DomainError("DISABLED", 403, "الحساب موقوف");
   throw new DomainError("NO_ACCESS", 403, "لا توجد صلاحية مسندة لهذا الحساب");
 }

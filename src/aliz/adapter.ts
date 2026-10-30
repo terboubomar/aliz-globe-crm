@@ -33,6 +33,7 @@ import {
   telegramDisconnect,
   telegramStatus,
   telegramRegisterWebhook,
+  telegramTest,
   getRotation,
   saveRotation,
   applyRotation,
@@ -763,6 +764,7 @@ async function route(
     return telegramConfirm({ data: { fingerprint: String(body["fingerprint"] ?? "") } });
   if (is("integrations", "telegram", "disconnect")) return telegramDisconnect();
   if (is("integrations", "telegram", "webhook")) return telegramRegisterWebhook();
+  if (is("integrations", "telegram", "test")) return telegramTest();
   if (is("settings", "telegram"))
     return updateSetting({ data: { key: "telegram_enabled", value: !!body["enabled"] } });
   if (is("integrations", "whatsapp") || is("integrations", "email"))
