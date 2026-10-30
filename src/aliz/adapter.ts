@@ -39,6 +39,7 @@ import {
   saveReplyTemplates,
   getTelegramWords,
   saveTelegramWords,
+  saveCatalog,
   getRotation,
   saveRotation,
   applyRotation,
@@ -55,6 +56,7 @@ import {
 import { prepareImage } from "./prepare-image";
 import { aggregateReport, previousReportPeriod, summarize } from "./report-aggregate";
 import type { Brand, Branch, Data, Refund, Shift, Ticket, User } from "./types";
+import { applyCatalog } from "./catalog-state";
 
 /** Thrown when the account needs two-factor, has no role yet, or is disabled. */
 export class AccessError extends Error {
@@ -225,6 +227,7 @@ async function bootstrap(): Promise<Data> {
   if (boot.status !== "OK") throw new AccessError("NO_ACCESS", "لا توجد صلاحية مسندة لهذا الحساب");
   const b = boot as BootstrapOk;
   directory = toDirectory(b.brands as Row[], b.branches as Row[]);
+  applyCatalog(b.catalog);
   const from = new Date(Date.now() - 14 * 86400000).toISOString(),
     to = new Date(Date.now() + 56 * 86400000).toISOString();
   const [{ tickets, total }, refunds, shifts] = await Promise.all([
@@ -256,6 +259,7 @@ async function bootstrap(): Promise<Data> {
     shifts: (shifts as Row[]).map(toShift),
     leave: [],
     permissions: b.permissions,
+    catalog: b.catalog,
     integrations: { whatsapp: b.flags.whatsapp, email: b.flags.email },
     policy: {
       sla: b.flags.slaVersion,
@@ -705,6 +709,8 @@ async function route(
       demo: false,
       whatsappAvailable: info.whatsappAvailable,
       emailAvailable: info.emailAvailable,
+      categories: info.categories,
+      platforms: info.platforms,
     };
   }
   if (is("public", "q", "*")) {
@@ -772,6 +778,11 @@ async function route(
   if (is("integrations", "telegram", "disconnect")) return telegramDisconnect();
   if (is("integrations", "telegram", "webhook")) return telegramRegisterWebhook();
   if (is("integrations", "telegram", "test")) return telegramTest();
+  if (is("settings", "lists")) {
+    const saved = await saveCatalog({ data: body as never });
+    applyCatalog(saved);
+    return saved;
+  }
   if (is("templates", "replies") && method === "GET") return getReplyTemplates();
   if (is("templates", "replies"))
     return saveReplyTemplates({ data: { templates: (body["templates"] ?? []) as never } });

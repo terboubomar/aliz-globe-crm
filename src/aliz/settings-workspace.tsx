@@ -14,7 +14,10 @@ import {
   Search,
   Mail,
   FileText,
+  ListChecks,
 } from "lucide-react";
+import { CATALOG_ROLES } from "@/lib/catalog";
+import { ListsPanel } from "./lists-workspace";
 import { MANAGE_ROLES } from "@/lib/reply-templates";
 import { ReplyTemplatesPanel, TelegramWordsPanel } from "./templates-workspace";
 import { api, date, eventNames, n, roleNames, type Data } from "./types";
@@ -23,7 +26,7 @@ import { canOpenView } from "./access";
 import { EmailIntegration, WhatsAppIntegration } from "./whatsapp-integration";
 import { TelegramIntegration } from "./telegram-integration";
 
-type Section = "general" | "templates" | "integrations" | "audit";
+type Section = "general" | "lists" | "templates" | "integrations" | "audit";
 export function SettingsWorkspace({
   data,
   onRole,
@@ -39,6 +42,9 @@ export function SettingsWorkspace({
     [channel, setChannel] = useState<"whatsapp" | "email" | "telegram">("whatsapp");
   const sections = [
     { id: "general" as const, label: "عام", icon: Building2 },
+    ...(CATALOG_ROLES.includes(data.me.role)
+      ? [{ id: "lists" as const, label: "القوائم", icon: ListChecks }]
+      : []),
     ...(MANAGE_ROLES.includes(data.me.role)
       ? [{ id: "templates" as const, label: "القوالب", icon: FileText }]
       : []),
@@ -96,6 +102,7 @@ export function SettingsWorkspace({
         tabIndex={0}
         className="settings-content"
       >
+        {section === "lists" && <ListsPanel />}
         {section === "templates" && (
           <div className="templates-workspace">
             <ReplyTemplatesPanel data={data} />

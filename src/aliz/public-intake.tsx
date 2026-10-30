@@ -2,7 +2,7 @@ import type { ComplaintReceipt } from "./complaint-receipt";
 import { ReceiptDetails, confirmationLabels, emailConfirmationLabels } from "./receipt-details";
 import { useState, useEffect, FormEvent } from "react";
 import { ArrowLeft, CheckCircle2, ShieldCheck, Upload } from "lucide-react";
-import { api, categories } from "./types";
+import { api, activeCategories, activePlatforms } from "./types";
 import { Field, Submit } from "./ui";
 export default function PublicIntake({ code }: { code: string }) {
   const [requestKey] = useState(() => crypto.randomUUID());
@@ -13,6 +13,8 @@ export default function PublicIntake({ code }: { code: string }) {
       demo: boolean;
       whatsappAvailable: boolean;
       emailAvailable?: boolean;
+      categories?: { id: string; label: string }[];
+      platforms?: string[];
     } | null>(null),
     [whatsappConsent, setWhatsAppConsent] = useState(false),
     [emailConsent, setEmailConsent] = useState(false),
@@ -149,9 +151,9 @@ export default function PublicIntake({ code }: { code: string }) {
               <div className="form-grid">
                 <Field label="سبب البلاغ" full>
                   <select name="category" required>
-                    {Object.entries(categories).map(([k, v]) => (
-                      <option key={k} value={k}>
-                        {v}
+                    {(context.categories ?? activeCategories()).map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.label}
                       </option>
                     ))}
                   </select>
@@ -184,7 +186,14 @@ export default function PublicIntake({ code }: { code: string }) {
                   <input name="externalOrder" dir="ltr" maxLength={100} />
                 </Field>
                 <Field label="منصة الطلب (اختياري)">
-                  <input name="platform" maxLength={80} />
+                  <select name="platform" defaultValue="">
+                    <option value="">اختر المنصة</option>
+                    {(context.platforms ?? activePlatforms()).map((p) => (
+                      <option key={p} value={p}>
+                        {p}
+                      </option>
+                    ))}
+                  </select>
                 </Field>
                 {context.whatsappAvailable && (
                   <label className="checkbox full">

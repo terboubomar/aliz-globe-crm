@@ -3,7 +3,6 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import {
   DomainError, assignableRoles, authorize, can, financeDuties, inScope, overlaps, safeCell, stateLabels, ticketNumber,
-  categoryLabels,
 } from "@/lib/domain";
 
 import { MANAGE_ROLES, type ReplyTemplate } from "@/lib/reply-templates";
@@ -411,8 +410,10 @@ export const runReport = createServerFn({ method: "POST" })
     const db = await c.admin();
     if (q.csv) {
       await db.rpc("write_audit", { _actor: a.id, _action: "MASKED_CSV_EXPORTED", _entity: q.brandId ?? "SCOPED" });
+      const lists = await c.catalog();
+      const reasonOf = (id: string) => lists.categories.find((x) => x.id === id)?.label ?? id;
       const header = ["رقم البلاغ", "العلامة", "الفرع", "الحالة", "الأولوية", "المصدر", "التصنيف", "وقت الاستقبال (UTC)"];
-      const csv = "\uFEFF" + [header, ...rows.map((r) => [ticketNumber(r.sequence, r.created_at), r.brand_id, r.branch_id ?? "غير معروف", stateLabels[r.state] ?? r.state, r.priority, r.source, categoryLabels[r.category] ?? r.category, r.received_at])].map((row) => row.map(safeCell).join(",")).join("\r\n");
+      const csv = "\uFEFF" + [header, ...rows.map((r) => [ticketNumber(r.sequence, r.created_at), r.brand_id, r.branch_id ?? "غير معروف", stateLabels[r.state] ?? r.state, r.priority, r.source, reasonOf(String(r.category)), r.received_at])].map((row) => row.map(safeCell).join(",")).join("\r\n");
       return { csv };
     }
     const count = <K extends keyof Row>(k: K) => rows.reduce<Record<string, number>>((m, r) => ((m[String(r[k] ?? "—")] = (m[String(r[k] ?? "—")] ?? 0) + 1), m), {});
@@ -647,4 +648,54 @@ export const saveTelegramWords = createServerFn({ method: "POST" })
     await db.rpc("write_audit", { _actor: a.id, _action: "TELEGRAM_TEMPLATES_SAVED", _entity: "telegram_templates" });
     (await tg()).clearWordsCache();
     return { ok: true };
+  });
+
+/* ---------------- Lists: complaint reasons and order platforms ---------------- */
+export const saveCatalog = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        categories: z
+          .array(
+            z.object({
+              id: z.string().regex(/^[A-Z][A-Z0-9_]{1,39}$/),
+              label: z.string().trim().min(2, "اكتب اسم السبب").max(60),
+              active: z.boolean(),
+              urgent: z.boolean(),
+            }),
+          )
+          .min(1)
+          .max(100),
+        platforms: z
+          .array(z.object({ label: z.string().trim().min(2, "اكتب اسم المنصة").max(60), active: z.boolean() }))
+          .max(100),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const c = await core();
+    const a = await c.requireActor(context as never);
+    const { CATALOG_ROLES } = await import("@/lib/catalog");
+    if (!CATALOG_ROLES.includes(a.role))
+      throw new DomainError("FORBIDDEN", 403, "تعديل القوائم متاح لمدير النظام ومدير خدمة العملاء");
+    const ids = data.categories.map((x) => x.id);
+    if (new Set(ids).size !== ids.length) throw new DomainError("DUPLICATE", 400, "يوجد سبب مكرر");
+    const names = (list: { label: string }[]) => list.map((x) => x.label.replace(/\s+/g, " ").toLowerCase());
+    if (new Set(names(data.categories)).size !== data.categories.length)
+      throw new DomainError("DUPLICATE", 400, "يوجد سببان بنفس الاسم");
+    if (new Set(names(data.platforms)).size !== data.platforms.length)
+      throw new DomainError("DUPLICATE", 400, "توجد منصتان بنفس الاسم");
+    if (!data.categories.some((x) => x.active))
+      throw new DomainError("NO_ACTIVE", 400, "اترك سبباً واحداً مفعلاً على الأقل");
+    const db = await c.admin();
+    const now = new Date().toISOString();
+    const { error } = await db.from("app_settings").upsert([
+      { key: "complaint_categories", value: data.categories as never, updated_at: now },
+      { key: "order_platforms", value: data.platforms as never, updated_at: now },
+    ]);
+    c.rpcError(error);
+    await db.rpc("write_audit", { _actor: a.id, _action: "LISTS_SAVED", _entity: "catalog" });
+    c.clearCatalogCache();
+    return c.catalog();
   });

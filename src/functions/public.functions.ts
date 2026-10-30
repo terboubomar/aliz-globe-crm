@@ -29,7 +29,13 @@ export const publicQrInfo = createServerFn({ method: "POST" })
     try {
       const q = await resolveQr(data.code, true);
       const live = await (await import("./receipts.server")).liveChannels();
-      return { ok: true as const, brandName: q.brandName, branchName: q.branchName, logo: q.logo, whatsappAvailable: live.whatsapp, emailAvailable: live.email };
+      const lists = await (await import("./core.server")).catalog();
+      return {
+        ok: true as const, brandName: q.brandName, branchName: q.branchName, logo: q.logo, whatsappAvailable: live.whatsapp, emailAvailable: live.email,
+        // Only what the form needs: active reasons and platforms.
+        categories: lists.categories.filter((c) => c.active).map((c) => ({ id: c.id, label: c.label })),
+        platforms: lists.platforms.filter((p) => p.active).map((p) => p.label),
+      };
     } catch (e) {
       return { ok: false as const, message: e instanceof DomainError ? e.message : "الرابط غير متاح" };
     }
@@ -52,7 +58,7 @@ export const publicCreate = createServerFn({ method: "POST" })
     const { consent: _c, ...rest } = data.input;
     const res = await t.createTicketCore(
       `QR:${q.qrId}`,
-      { ...rest, whatsappConsent: !!rest.whatsappConsent, emailConsent: !!rest.emailConsent, brandId: q.brandId, branchId: q.branchId, priority: rest.category === "SAFETY" ? "P1" : "P3" },
+      { ...rest, whatsappConsent: !!rest.whatsappConsent, emailConsent: !!rest.emailConsent, brandId: q.brandId, branchId: q.branchId, priority: "P3" },
       data.key,
       { brandId: q.brandId, branchId: q.branchId, qrId: q.qrId },
     );
