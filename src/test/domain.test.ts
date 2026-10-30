@@ -99,3 +99,11 @@ describe("privacy helpers", () => {
     expect(safeCell("=HYPERLINK()")).toBe(`"'=HYPERLINK()"`);
   });
 });
+
+describe("complaint number", () => {
+  it("is just the running number", async () => {
+    const { ticketNumber } = await import("@/lib/domain");
+    expect(ticketNumber(7, "2026-11-01T09:00:00Z")).toBe("7");
+    expect(ticketNumber(1024)).toBe("1024");
+  });
+});

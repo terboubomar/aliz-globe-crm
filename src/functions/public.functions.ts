@@ -65,12 +65,12 @@ export const trackStatus = createServerFn({ method: "POST" })
     const core = await import("./core.server");
     const { keyedHash, decrypt } = await import("./crypto.server");
     const db = await core.admin();
-    const { data: acc } = await db.from("tracking_access").select("expires_at, tickets!inner(state,receipt_enc)").eq("hash", await keyedHash("track:" + data.token)).maybeSingle();
+    const { data: acc } = await db.from("tracking_access").select("expires_at, tickets!inner(state,receipt_enc,sequence)").eq("hash", await keyedHash("track:" + data.token)).maybeSingle();
     if (!acc || new Date(acc.expires_at) < new Date()) return { ok: false as const, message: "رابط المتابعة غير صالح أو منتهي" };
-    const t = acc.tickets as unknown as { state: string; receipt_enc: string | null };
+    const t = acc.tickets as unknown as { state: string; receipt_enc: string | null; sequence: number };
     const r = t.receipt_enc ? JSON.parse(await decrypt(t.receipt_enc)) : null;
     // Only the customer's own receipt fields; never staff, notes or other cases.
-    return { ok: true as const, state: t.state, number: r?.number as string, brand: r?.brand as string, branch: r?.branch as string, receivedAt: r?.receivedAt as string, category: r?.category as string };
+    return { ok: true as const, state: t.state, number: String(t.sequence), brand: r?.brand as string, branch: r?.branch as string, receivedAt: r?.receivedAt as string, category: r?.category as string };
   });
 
 /**
