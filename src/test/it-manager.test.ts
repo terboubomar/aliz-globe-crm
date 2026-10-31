@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { permissionsForRole } from "@/lib/domain";
 import { canOpenView } from "@/aliz/access";
 import {
+  bankFromIban,
   destinationHint,
   methodLabel,
   methodsForPlatform,
@@ -51,5 +52,13 @@ describe("refund methods per platform", () => {
     expect(methodLabel("APP_BANK")).toContain("لوحة تحكم تطبيق واقف");
     expect(destinationHint({ method: "APP_BANK" })).toContain("برقم الطلب");
     expect(methodLabel("BANK", "طلب هاتف")).toBe("تحويل بنكي لحساب العميل");
+  });
+});
+
+describe("Saudi banks", () => {
+  it("picks the bank from the IBAN's bank code", () => {
+    expect(bankFromIban("SA03 8000 0000 6080 1016 7519")).toBe("مصرف الراجحي");
+    expect(bankFromIban("SA4410000000000000000000")).toBe("البنك الأهلي السعودي");
+    expect(bankFromIban("SA0399")).toBeUndefined();
   });
 });

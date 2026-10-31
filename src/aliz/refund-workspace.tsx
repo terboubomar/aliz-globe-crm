@@ -11,6 +11,8 @@ import {
 } from "lucide-react";
 import {
   REFUND_PLATFORMS,
+  SAUDI_BANKS,
+  bankFromIban,
   methodLabel,
   methodsForPlatform,
   type RefundDestination,
@@ -226,6 +228,8 @@ export function NewRefund({
   const [brandId, setBrand] = useState(brand === "all" ? data.brands[0]?.id : brand),
     [platform, setPlatform] = useState(""),
     [chosen, setChosen] = useState<RefundDestination["method"] | null>(null),
+    [bank, setBank] = useState(""),
+    [bankPicked, setBankPicked] = useState(false),
     [error, setError] = useState("");
   // Each platform offers the wallet and a bank transfer; its usual one is picked first.
   const methods = platform ? methodsForPlatform(platform) : [];
@@ -246,7 +250,7 @@ export function NewRefund({
               amountMinor: Math.round(Number(b["amount"]) * 100),
               destination:
                 method === "BANK"
-                  ? { method, holder: b["holder"], iban: b["iban"] }
+                  ? { method, bank: b["bank"], holder: b["holder"], iban: b["iban"] }
                   : method === "APP_BANK"
                     ? { method, phone: b["appPhone"] || undefined }
                     : { method, phone: b["walletPhone"] },
@@ -339,6 +343,26 @@ export function NewRefund({
             )}
             {method === "BANK" && (
               <div className="form-grid">
+                <Field label="البنك">
+                  <select
+                    name="bank"
+                    required
+                    value={bank}
+                    onChange={(e) => {
+                      setBank(e.target.value);
+                      setBankPicked(true);
+                    }}
+                  >
+                    <option value="" disabled>
+                      اختر البنك
+                    </option>
+                    {SAUDI_BANKS.map((b) => (
+                      <option key={b.name} value={b.name}>
+                        {b.name}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
                 <Field label="اسم صاحب الحساب">
                   <input name="holder" required minLength={3} maxLength={100} autoComplete="off" />
                 </Field>
@@ -352,7 +376,13 @@ export function NewRefund({
                     title="يبدأ بـ SA ويتكون من 24 خانة"
                     maxLength={34}
                     autoComplete="off"
+                    onChange={(e) => {
+                      // Picks the bank from the IBAN unless someone already chose one.
+                      const found = bankFromIban(e.target.value);
+                      if (found && !bankPicked) setBank(found);
+                    }}
                   />
+                  <small>يُختار البنك تلقائياً من رقم الآيبان، ويمكن تغييره.</small>
                 </Field>
               </div>
             )}
@@ -521,6 +551,7 @@ function RefundDetail({
             <b>{methodLabel(r.destination.method, r.platform)}</b>
             {r.destination.method === "BANK" && (
               <span>
+                {r.destination.bank ? `${r.destination.bank} — ` : ""}
                 {r.destination.holder} — <bdi dir="ltr">{r.destination.iban}</bdi>
               </span>
             )}
