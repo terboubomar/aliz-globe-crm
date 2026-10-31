@@ -62,6 +62,7 @@ import { AgentWorkspace } from "./agent-workspace";
 import { agentInvolved } from "./workflow";
 import { ScheduleWorkspace } from "./schedule-workspace";
 import { TelegramAccount } from "./telegram-integration";
+import { TwoStepAccount } from "./two-step-account";
 import { SettingsWorkspace } from "./settings-workspace";
 import { ReasonPicker } from "./reason-options";
 import { ReportsWorkspace } from "./reports-workspace";
@@ -524,6 +525,16 @@ export default function CRM() {
               >
                 <Send size={17} />
                 تنبيهات تيليجرام
+              </button>
+              <button
+                className="text-btn"
+                onClick={(event) => {
+                  setModal("two-step");
+                  event.currentTarget.closest<HTMLElement>("[popover]")?.hidePopover();
+                }}
+              >
+                <ShieldCheck size={17} />
+                التحقق بخطوتين
               </button>
               <button
                 className="text-btn profile-logout"
@@ -1071,6 +1082,11 @@ export default function CRM() {
           brand={data.brands.find((b) => b.branches.some((x) => x.id === selected))!}
           onClose={() => setModal(null)}
         />
+      )}
+      {modal === "two-step" && (
+        <Modal title="التحقق بخطوتين" onClose={() => setModal(null)}>
+          <TwoStepAccount required={!!data.policy.requireMfa} />
+        </Modal>
       )}
       {modal === "telegram" && (
         <Modal title="حسابي على تيليجرام" onClose={() => setModal(null)}>

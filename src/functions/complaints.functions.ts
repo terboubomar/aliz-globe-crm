@@ -36,6 +36,7 @@ export const getBootstrap = createServerFn({ method: "POST" })
       flags: {
         publicIntake: s.publicIntake,
         autoAssign: s.autoAssign,
+        requireMfa: s.requireMfa,
         financeApproved: s.financeApproved,
         financeLimitMinor: s.financeLimitMinor,
         slaVersion: s.sla?.version ?? "PENDING",
