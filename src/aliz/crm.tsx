@@ -101,6 +101,7 @@ export default function CRM() {
     [filter, setFilter] = useState("all"),
     [menu, setMenu] = useState(false),
     [rail, setRail] = useState(true),
+    [railReady, setRailReady] = useState(false),
     [modal, setModal] = useState<string | null>(null),
     [selected, setSelected] = useState<string | null>(null),
     [toast, setToast] = useState(""),
@@ -203,6 +204,22 @@ export default function CRM() {
     } catch {
       /* storage unavailable: keep the rail open */
     }
+    // Animate only later toggles, not the restored state on load.
+    const frame = requestAnimationFrame(() => setRailReady(true));
+    return () => cancelAnimationFrame(frame);
+  }, []);
+  // Ctrl+B / ⌘B switches between the full sidebar and the icon rail.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || event.altKey || event.key.toLowerCase() !== "b")
+        return;
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("input, textarea, select, [contenteditable='true']")) return;
+      event.preventDefault();
+      setRail((open) => !open);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, []);
   useEffect(() => {
     try {
@@ -230,7 +247,9 @@ export default function CRM() {
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setMenu(false);
-        document.querySelector<HTMLButtonElement>('.mobile-only[aria-controls="crm-sidebar"]')?.focus();
+        document
+          .querySelector<HTMLButtonElement>('.mobile-only[aria-controls="crm-sidebar"]')
+          ?.focus();
       }
     };
     window.addEventListener("keydown", closeOnEscape);
@@ -317,7 +336,9 @@ export default function CRM() {
     }
   };
   return (
-    <div className={"app-shell " + (rail ? "" : "rail-hidden")}>
+    <div
+      className={"app-shell" + (rail ? "" : " rail-compact") + (railReady ? " rail-animate" : "")}
+    >
       <aside
         id="crm-sidebar"
         aria-label="القائمة الجانبية"
@@ -379,6 +400,7 @@ export default function CRM() {
                         type="button"
                         className={active ? "active" : ""}
                         aria-current={active ? "page" : undefined}
+                        title={rail ? undefined : viewLabel(item.id, data.me.role, item.label)}
                         onClick={() => go(item.id)}
                       >
                         <span className="sidebar-nav-icon">
@@ -413,7 +435,7 @@ export default function CRM() {
           })}
         </nav>
         <div className="sidebar-bottom">
-          <div className="profile">
+          <div className="profile" title={rail ? undefined : data.me.name}>
             <span className="avatar">{data.me.name.slice(0, 1)}</span>
             <div>
               <b>{data.me.name}</b>
@@ -435,8 +457,8 @@ export default function CRM() {
             <button
               type="button"
               className="icon-btn sidebar-toggle"
-              aria-label={rail ? "إخفاء القائمة الجانبية" : "إظهار القائمة الجانبية"}
-              title={rail ? "إخفاء القائمة الجانبية" : "إظهار القائمة الجانبية"}
+              aria-label={rail ? "تصغير القائمة الجانبية" : "توسيع القائمة الجانبية"}
+              title={(rail ? "تصغير القائمة الجانبية" : "توسيع القائمة الجانبية") + " (Ctrl+B)"}
               aria-expanded={rail}
               aria-controls="crm-sidebar"
               onClick={() => setRail(!rail)}
