@@ -1,73 +1,164 @@
 import type { ComplaintReceipt } from "./complaint-receipt";
 import { ReceiptDetails, confirmationLabels, emailConfirmationLabels } from "./receipt-details";
-import { useState, useEffect, FormEvent } from "react";
-import { ArrowLeft, CheckCircle2, ShieldCheck, Upload } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import {
+  ArrowLeft,
+  Camera,
+  Check,
+  CheckCircle2,
+  Copy,
+  Mail,
+  MessageCircle,
+  Phone,
+  ShieldCheck,
+  X,
+} from "lucide-react";
+import { asksDetail } from "@/lib/catalog";
 import { api, activeCategories, activePlatforms } from "./types";
-import { ReasonPicker } from "./reason-options";
-import { Field, Submit } from "./ui";
+import { PlatformTiles, ReasonCards } from "./public-pickers";
+import { orderHint, platformKind } from "@/lib/public-form";
+
+type Context = {
+  brand: string;
+  branch: string;
+  logo: string;
+  demo: boolean;
+  whatsappAvailable: boolean;
+  emailAvailable?: boolean;
+  categories?: { id: string; label: string }[];
+  platforms?: string[];
+};
+type Result = {
+  id: string;
+  number: string;
+  trackingToken: string;
+  receipt?: ComplaintReceipt;
+  confirmationStatus?: string;
+  emailStatus?: string;
+};
+type Contact = "whatsapp" | "call" | "email";
+
+const STEPS = ["وش صار؟", "تفاصيل الطلب", "التواصل والإرسال"] as const;
+const PHONE = /^(\+?966|0)?5\d{8}$/;
+const MAX_PHOTOS = 3;
+const MAX_BYTES = 5 * 1024 * 1024;
+
+/**
+ * The customer complaint form behind a branch QR code, in three short steps:
+ * what happened (reason, details, photos), the order (source, number) and how
+ * to reply (WhatsApp, a call or email), then a confirmation with the number.
+ */
 export default function PublicIntake({ code }: { code: string }) {
   const [requestKey] = useState(() => crypto.randomUUID());
-  const [context, setContext] = useState<{
-      brand: string;
-      branch: string;
-      logo: string;
-      demo: boolean;
-      whatsappAvailable: boolean;
-      emailAvailable?: boolean;
-      categories?: { id: string; label: string }[];
-      platforms?: string[];
-    } | null>(null),
-    [whatsappConsent, setWhatsAppConsent] = useState(false),
-    [emailConsent, setEmailConsent] = useState(false),
+  const [context, setContext] = useState<Context | null>(null),
+    [step, setStep] = useState(0),
+    [category, setCategory] = useState(""),
+    [otherDetail, setOtherDetail] = useState(""),
+    [description, setDescription] = useState(""),
+    [files, setFiles] = useState<File[]>([]),
+    [platform, setPlatform] = useState(""),
+    [externalOrder, setExternalOrder] = useState(""),
+    [name, setName] = useState(""),
+    [contact, setContact] = useState<Contact>("call"),
+    [phone, setPhone] = useState(""),
+    [email, setEmail] = useState(""),
+    [consent, setConsent] = useState(false),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
-    [receipt, setReceipt] = useState<{
-      id: string;
-      number: string;
-      trackingToken: string;
-      receipt?: ComplaintReceipt;
-      confirmationStatus?: string;
-      emailStatus?: string;
-    } | null>(null),
-    [files, setFiles] = useState<File[]>([]),
-    [uploadError, setUploadError] = useState("");
+    [receipt, setReceipt] = useState<Result | null>(null),
+    [uploadError, setUploadError] = useState(""),
+    [copied, setCopied] = useState(false);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const top = useRef<HTMLElement>(null);
+
   useEffect(() => {
-    api<typeof context>("public/q/" + code)
-      .then(setContext)
+    api<Context>("public/q/" + code)
+      .then((c) => {
+        setContext(c);
+        setContact(c.whatsappAvailable ? "whatsapp" : "call");
+      })
       .catch((e) => setError(e.message));
   }, [code]);
+
+  const reasons = useMemo(
+    () => (context?.categories ?? activeCategories()).map(({ id, label }) => ({ id, label })),
+    [context],
+  );
+  const platforms = context?.platforms ?? activePlatforms();
+  const picked = reasons.find((r) => r.id === category);
+  const contacts: Contact[] = [
+    ...(context?.whatsappAvailable ? (["whatsapp"] as const) : []),
+    "call",
+    ...(context?.emailAvailable ? (["email"] as const) : []),
+  ];
+  const previews = useMemo(() => files.map((f) => URL.createObjectURL(f)), [files]);
+  useEffect(() => () => previews.forEach((u) => URL.revokeObjectURL(u)), [previews]);
+
+  function go(next: number) {
+    setError("");
+    setStep(next);
+    top.current?.scrollIntoView({ block: "start", behavior: "smooth" });
+  }
+  function checkStep(): string {
+    if (step === 0) {
+      if (!picked) return "اختر سبب البلاغ";
+      if (asksDetail(picked) && otherDetail.trim().length < 3) return "اكتب نوع المشكلة";
+      if (description.trim().length < 10) return "اكتب تفاصيل المشكلة (10 أحرف على الأقل)";
+    }
+    if (step === 2) {
+      if (contact === "email" && !/^\S+@\S+\.\S+$/.test(email.trim()))
+        return "اكتب بريداً إلكترونياً صحيحاً";
+      if (contact !== "email" && !PHONE.test(phone.replace(/[\s-]/g, "")))
+        return "اكتب رقم جوال سعودي صحيح، مثل 0512345678";
+      if (!consent) return "وافق على إشعار الخصوصية لإرسال البلاغ";
+    }
+    return "";
+  }
+  function addPhotos(list: FileList | null) {
+    const chosen = Array.from(list ?? []);
+    if (fileInput.current) fileInput.current.value = "";
+    if (chosen.some((f) => f.size > MAX_BYTES))
+      return setError("حجم الصورة يجب ألا يزيد عن 5 ميغابايت");
+    if (files.length + chosen.length > MAX_PHOTOS)
+      setError(`يمكن إرفاق ${MAX_PHOTOS} صور كحد أقصى`);
+    else setError("");
+    setFiles([...files, ...chosen].slice(0, MAX_PHOTOS));
+  }
+
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    const problem = checkStep();
+    if (problem) return setError(problem);
+    if (step < 2) return go(step + 1);
     setError("");
     setBusy(true);
-    const b = Object.fromEntries(new FormData(e.currentTarget).entries());
     try {
-      const result = await api<{
-        id: string;
-        number: string;
-        trackingToken: string;
-        receipt?: ComplaintReceipt;
-        confirmationStatus?: string;
-        emailStatus?: string;
-      }>(
+      const result = await api<Result>(
         "public/q/" + code,
         {
-          ...b,
-          consent: b["consent"] === "on",
-          whatsappConsent: !!context?.whatsappAvailable && whatsappConsent,
-          emailConsent: !!context?.emailAvailable && emailConsent,
+          category,
+          otherDetail: picked && asksDetail(picked) ? otherDetail.trim() : "",
+          description: description.trim(),
+          platform,
+          externalOrder: externalOrder.trim(),
+          name: name.trim(),
+          phone: contact === "email" ? "" : phone.replace(/[\s-]/g, ""),
+          email: contact === "email" ? email.trim() : "",
+          consent: true,
+          whatsappConsent: contact === "whatsapp",
+          emailConsent: contact === "email",
         },
         { headers: { "Idempotency-Key": requestKey } },
       );
       setReceipt(result);
+      window.scrollTo({ top: 0 });
       await attach(result);
-      (e.target as HTMLFormElement).reset();
     } catch (e) {
       setError((e as Error).message);
     }
     setBusy(false);
   }
-  async function attach(result: NonNullable<typeof receipt>) {
+  async function attach(result: Result) {
     if (!files.length) return;
     const body = new FormData();
     files.forEach((f) => body.append("files", f));
@@ -83,217 +174,372 @@ export default function PublicIntake({ code }: { code: string }) {
       setUploadError("تم حفظ البلاغ، لكن تعذر رفع الصور: " + (e as Error).message);
     }
   }
+  async function copyLink(token: string) {
+    try {
+      await navigator.clipboard.writeText(new URL("/track/" + token, location.href).href);
+      setCopied(true);
+    } catch {
+      setCopied(false);
+    }
+  }
+
+  const sentBy =
+    contact === "whatsapp"
+      ? "أرسلنا رقم البلاغ على واتساب. احتفظ فيه للمتابعة."
+      : contact === "email"
+        ? "أرسلنا رقم البلاغ إلى بريدك الإلكتروني."
+        : "بنتصل عليك قريباً. احتفظ برقم البلاغ للمتابعة.";
+
   return (
-    <main className="public-shell">
+    <main className="public-shell qf" ref={top}>
       <div className="public-top">
         <img src="/logos/aliz.webp" alt="أليز غلوب" />
         <span>نهتم بتجربتك</span>
       </div>
-      <section className="public-card">
-        {!context ? (
-          <div className="padded">
-            <h1>{error ? "الرابط غير متاح" : "جارٍ تحميل بيانات الفرع…"}</h1>
+      {!context ? (
+        <section className="public-card padded">
+          <h1>{error ? "الرابط غير متاح" : "جارٍ تحميل بيانات الفرع…"}</h1>
+          {error && (
+            <p className="error" role="alert">
+              {error}
+            </p>
+          )}
+        </section>
+      ) : receipt ? (
+        <section className="qf-done">
+          <span className="qf-done-tick" aria-hidden="true">
+            <CheckCircle2 size={42} strokeWidth={2} />
+          </span>
+          <h1>وصلنا بلاغك، شكراً لك</h1>
+          <small>رقم البلاغ</small>
+          <div className="qf-number" dir="ltr">
+            {receipt.number}
+          </div>
+          <p className="qf-lead">{sentBy}</p>
+          <a className="primary qf-wide" href={"/track/" + receipt.trackingToken}>
+            متابعة حالة البلاغ <ArrowLeft size={18} />
+          </a>
+          <button
+            type="button"
+            className="text-btn qf-copy"
+            onClick={() => copyLink(receipt.trackingToken)}
+          >
+            {copied ? <Check size={16} /> : <Copy size={16} />}
+            {copied ? "تم نسخ الرابط" : "نسخ رابط المتابعة"}
+          </button>
+          {receipt.confirmationStatus && confirmationLabels[receipt.confirmationStatus] && (
+            <p role="status" className="notice">
+              {confirmationLabels[receipt.confirmationStatus]}
+            </p>
+          )}
+          {receipt.emailStatus && emailConfirmationLabels[receipt.emailStatus] && (
+            <p role="status" className="notice">
+              {emailConfirmationLabels[receipt.emailStatus]}
+            </p>
+          )}
+          {uploadError && (
+            <div role="alert">
+              <p className="error">{uploadError}</p>
+              <button className="secondary" onClick={() => attach(receipt)}>
+                إعادة رفع الصور
+              </button>
+            </div>
+          )}
+          <div className="qf-card qf-next">
+            <b>وش يصير بعدها؟</b>
+            <ol>
+              <li>
+                <b>نراجع بلاغك</b> — يستلمه فريق خدمة العملاء خلال دقائق.
+              </li>
+              <li>
+                <b>نتواصل معك</b> — بالطريقة اللي اخترتها.
+              </li>
+              <li>
+                <b>نحل المشكلة</b> — وتتابع كل خطوة من رابط المتابعة.
+              </li>
+            </ol>
+          </div>
+          {receipt.receipt && <ReceiptDetails receipt={receipt.receipt} />}
+          <p className="hint">الرابط خاص بك ويعرض تفاصيل بلاغك وحالته، احفظه في مكان آمن.</p>
+        </section>
+      ) : (
+        <>
+          <div className="qf-brand">
+            <img src={"/logos/" + context.logo} alt="" />
+            <div>
+              <b>{context.brand}</b>
+              <small>{context.demo ? "فرع تجريبي • لا تدخل بيانات حقيقية" : context.branch}</small>
+            </div>
+          </div>
+          <div className="qf-progress" aria-hidden="true">
+            {STEPS.map((s, i) => (
+              <i key={s} className={i <= step ? "on" : ""} />
+            ))}
+          </div>
+          <div className="qf-step-meta">
+            <span>{STEPS[step]}</span>
+            <span>
+              الخطوة {step + 1} من {STEPS.length}
+            </span>
+          </div>
+          {context.demo && (
+            <div className="notice">نموذج تجريبي محلي. البيانات المُدخلة تُحفظ للتجربة فقط.</div>
+          )}
+          <form onSubmit={submit} onChange={() => error && setError("")} noValidate>
+            <section hidden={step !== 0} aria-label={STEPS[0]}>
+              <h1>كيف نقدر نساعدك؟</h1>
+              <p className="qf-lead">اختر سبب البلاغ واكتب لنا وش صار، ونتواصل معك بأسرع وقت.</p>
+              <div className="qf-card">
+                <span className="qf-label">سبب البلاغ</span>
+                <ReasonCards reasons={reasons} value={category} onChange={setCategory} />
+                {picked && asksDetail(picked) && (
+                  <input
+                    className="qf-reveal"
+                    aria-label="نوع المشكلة"
+                    value={otherDetail}
+                    onChange={(e) => setOtherDetail(e.target.value)}
+                    maxLength={120}
+                    autoFocus
+                    placeholder="اكتب نوع المشكلة بكلمات قليلة"
+                  />
+                )}
+              </div>
+              <div className="qf-card">
+                <label className="qf-label" htmlFor="qf-desc">
+                  تفاصيل المشكلة
+                </label>
+                <textarea
+                  id="qf-desc"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  maxLength={4000}
+                  rows={5}
+                  placeholder="مثال: وصل الطلب بعد ساعة وكان البرقر بارد وناقص البطاطس."
+                />
+                <div className="qf-counter">
+                  <span>10 أحرف على الأقل</span>
+                  <span dir="ltr">{description.length} / 4000</span>
+                </div>
+              </div>
+              <div className="qf-card">
+                <span className="qf-label">
+                  صور الطلب <small>اختياري • حتى {MAX_PHOTOS} صور</small>
+                </span>
+                <div className="qf-photos">
+                  {previews.map((src, i) => (
+                    <div className="qf-photo filled" key={src}>
+                      <img src={src} alt={`الصورة ${i + 1}`} />
+                      <button
+                        type="button"
+                        aria-label={`حذف الصورة ${i + 1}`}
+                        onClick={() => setFiles(files.filter((_, j) => j !== i))}
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ))}
+                  {files.length < MAX_PHOTOS && (
+                    <button
+                      type="button"
+                      className="qf-photo"
+                      onClick={() => fileInput.current?.click()}
+                    >
+                      <Camera size={24} />
+                      أضف صورة
+                    </button>
+                  )}
+                </div>
+                <input
+                  ref={fileInput}
+                  className="upload-input"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  multiple
+                  tabIndex={-1}
+                  aria-hidden="true"
+                  onChange={(e) => addPhotos(e.target.files)}
+                />
+                <p className="hint">
+                  الصور تساعدنا نحل المشكلة أسرع. لا ترفق بطاقات أو بيانات دفع.
+                </p>
+              </div>
+            </section>
+
+            <section hidden={step !== 1} aria-label={STEPS[1]}>
+              <h1>من وين طلبت؟</h1>
+              <p className="qf-lead">هذي المعلومات تساعدنا نلقى طلبك بسرعة. تقدر تتخطاها.</p>
+              <div className="qf-card">
+                <span className="qf-label">منصة الطلب</span>
+                <PlatformTiles
+                  platforms={platforms}
+                  brand={context.brand}
+                  logo={context.logo}
+                  value={platform}
+                  onChange={setPlatform}
+                />
+              </div>
+              <div className="qf-card">
+                <label className="qf-label" htmlFor="qf-order">
+                  {platform && platformKind(platform, context.brand) === "branch"
+                    ? "رقم الفاتورة"
+                    : "رقم الطلب"}{" "}
+                  <small>اختياري</small>
+                </label>
+                <input
+                  id="qf-order"
+                  dir="ltr"
+                  inputMode="numeric"
+                  maxLength={100}
+                  value={externalOrder}
+                  onChange={(e) => setExternalOrder(e.target.value)}
+                  placeholder="مثال: 482915"
+                />
+                <p className="hint">
+                  {orderHint(platform, platform ? platformKind(platform, context.brand) : null)}
+                </p>
+              </div>
+            </section>
+
+            <section hidden={step !== 2} aria-label={STEPS[2]}>
+              <h1>كيف نرد عليك؟</h1>
+              <p className="qf-lead">اختر الطريقة اللي تناسبك ونرسل لك رقم البلاغ وأي تحديث.</p>
+              <div className="qf-card">
+                <label className="qf-label" htmlFor="qf-name">
+                  اسمك <small>اختياري</small>
+                </label>
+                <input
+                  id="qf-name"
+                  autoComplete="name"
+                  maxLength={100}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="الاسم"
+                />
+                {contacts.length > 1 && (
+                  <>
+                    <span className="qf-label qf-gap">طريقة التواصل</span>
+                    <div className="qf-contacts" role="radiogroup" aria-label="طريقة التواصل">
+                      {contacts.map((c) => {
+                        const Icon = c === "whatsapp" ? MessageCircle : c === "call" ? Phone : Mail;
+                        return (
+                          <label key={c} className={"qf-contact" + (contact === c ? " on" : "")}>
+                            <input
+                              type="radio"
+                              name="contact"
+                              checked={contact === c}
+                              onChange={() => setContact(c)}
+                            />
+                            <Icon size={21} strokeWidth={1.8} aria-hidden="true" />
+                            {c === "whatsapp" ? "واتساب" : c === "call" ? "اتصال" : "بريد إلكتروني"}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+                {contact === "email" ? (
+                  <>
+                    <label className="qf-label qf-gap" htmlFor="qf-email">
+                      البريد الإلكتروني
+                    </label>
+                    <input
+                      id="qf-email"
+                      type="email"
+                      dir="ltr"
+                      maxLength={200}
+                      autoComplete="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="name@example.com"
+                    />
+                  </>
+                ) : (
+                  <>
+                    <label className="qf-label qf-gap" htmlFor="qf-phone">
+                      {contact === "whatsapp" ? "رقم الواتساب" : "رقم الجوال"}
+                    </label>
+                    <input
+                      id="qf-phone"
+                      type="tel"
+                      dir="ltr"
+                      inputMode="tel"
+                      autoComplete="tel"
+                      maxLength={16}
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="05xxxxxxxx"
+                    />
+                  </>
+                )}
+              </div>
+              <div className="qf-card">
+                <div className="qf-summary-head">
+                  <span className="qf-label">ملخص البلاغ</span>
+                  <button type="button" className="text-btn" onClick={() => go(0)}>
+                    تعديل
+                  </button>
+                </div>
+                <dl className="qf-summary">
+                  {[
+                    [
+                      "السبب",
+                      picked && asksDetail(picked) && otherDetail.trim()
+                        ? otherDetail.trim()
+                        : (picked?.label ?? "—"),
+                    ],
+                    ["التفاصيل", description.trim() || "—"],
+                    ["المنصة", platform || "—"],
+                    ["رقم الطلب", externalOrder.trim() || "—"],
+                    ["الصور", files.length ? `${files.length} صورة` : "لا يوجد"],
+                  ].map(([k, v]) => (
+                    <div key={k}>
+                      <dt>{k}</dt>
+                      <dd>{v}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+              <div className="public-privacy">
+                <ShieldCheck size={19} />
+                <p>
+                  نستخدم معلوماتك فقط لمعالجة البلاغ والتواصل معك بخصوصه. لا ترفق بيانات دفع أو
+                  مستندات شخصية.
+                </p>
+              </div>
+              <label className="checkbox qf-consent">
+                <input
+                  type="checkbox"
+                  checked={consent}
+                  onChange={(e) => setConsent(e.target.checked)}
+                />
+                اطلعت على إشعار الخصوصية وأوافق على تسجيل البلاغ.
+              </label>
+            </section>
+
             {error && (
-              <p className="error" role="alert">
+              <p className="error qf-error" role="alert">
                 {error}
               </p>
             )}
-          </div>
-        ) : receipt ? (
-          <div className="public-success">
-            <CheckCircle2 size={54} />
-            <h1>تم استلام بلاغك</h1>
-
-            <div className="receipt-number" dir="ltr">
-              {receipt.number}
-            </div>
-            <a className="primary" href={"/track/" + receipt.trackingToken}>
-              متابعة حالة البلاغ <ArrowLeft size={17} />
-            </a>
-            {receipt.confirmationStatus && confirmationLabels[receipt.confirmationStatus] && (
-              <p role="status" className="notice">
-                {confirmationLabels[receipt.confirmationStatus]}
-              </p>
-            )}
-            {receipt.emailStatus && emailConfirmationLabels[receipt.emailStatus] && (
-              <p role="status" className="notice">
-                {emailConfirmationLabels[receipt.emailStatus]}
-              </p>
-            )}
-            {receipt.receipt && <ReceiptDetails receipt={receipt.receipt} />}
-            <p className="hint">
-              احفظ رابط المتابعة في مكان آمن. الرابط خاص بك ويعرض تفاصيل شكواك وحالتها.
-            </p>
-            {uploadError && (
-              <div role="alert">
-                <p className="error">{uploadError}</p>
-                <button className="secondary" onClick={() => attach(receipt)}>
-                  إعادة رفع الصور
+            <div className="qf-actions">
+              <div>
+                {step > 0 && (
+                  <button type="button" className="secondary" onClick={() => go(step - 1)}>
+                    رجوع
+                  </button>
+                )}
+                <button className="primary" type="submit" disabled={busy}>
+                  {busy ? "جارٍ الإرسال…" : step < 2 ? "التالي" : "إرسال البلاغ"}
+                  {!busy && <ArrowLeft size={18} />}
                 </button>
               </div>
-            )}
-          </div>
-        ) : (
-          <>
-            <div className="public-brand">
-              <img src={"/logos/" + context.logo} alt={context.brand} />
-              <BadgeText
-                text={context.demo ? "فرع تجريبي • لا تدخل بيانات حقيقية" : context.branch}
-              />
-              <h1>كيف نقدر نساعدك؟</h1>
-              <p>
-                شاركنا تجربتك مع {context.brand} — {context.branch}
-              </p>
             </div>
-            {context.demo && (
-              <div className="notice">نموذج تجريبي محلي. البيانات المُدخلة تُحفظ للتجربة فقط.</div>
-            )}
-            <form onSubmit={submit}>
-              <div className="form-grid">
-                <ReasonPicker
-                  full
-                  reasons={(context.categories ?? activeCategories()).map(({ id, label }) => ({
-                    id,
-                    label,
-                  }))}
-                  label="سبب البلاغ"
-                  detailLabel="وش نوع المشكلة؟"
-                  detailPlaceholder="اكتب نوع المشكلة بكلمات قليلة"
-                />
-                <Field label="شاركنا تفاصيل المشكلة" full>
-                  <textarea
-                    name="description"
-                    minLength={10}
-                    maxLength={4000}
-                    rows={5}
-                    required
-                    placeholder="وش صار؟ وكيف نقدر نساعدك؟"
-                  />
-                </Field>
-                <Field label="اسمك (اختياري)">
-                  <input name="name" autoComplete="name" maxLength={100} />
-                </Field>
-                <Field label={whatsappConsent ? "جوال واتساب" : "جوالك للتواصل (اختياري)"}>
-                  <input
-                    name="phone"
-                    required={whatsappConsent}
-                    type="tel"
-                    dir="ltr"
-                    pattern="(\+?966|0)?5[0-9]{8}"
-                    placeholder="05xxxxxxxx"
-                    autoComplete="tel"
-                  />
-                </Field>
-                <Field label="رقم الطلب (اختياري)">
-                  <input name="externalOrder" dir="ltr" maxLength={100} />
-                </Field>
-                <Field label="منصة الطلب (اختياري)">
-                  <select name="platform" defaultValue="">
-                    <option value="">اختر المنصة</option>
-                    {(context.platforms ?? activePlatforms()).map((p) => (
-                      <option key={p} value={p}>
-                        {p}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-                {context.whatsappAvailable && (
-                  <label className="checkbox full">
-                    <input
-                      type="checkbox"
-                      checked={whatsappConsent}
-                      onChange={(e) => setWhatsAppConsent(e.target.checked)}
-                    />
-                    أوافق على استلام تأكيد الشكوى وتفاصيلها عبر واتساب
-                  </label>
-                )}
-                <Field label={emailConsent ? "بريدك الإلكتروني" : "بريدك الإلكتروني (اختياري)"}>
-                  <input
-                    name="email"
-                    type="email"
-                    dir="ltr"
-                    maxLength={200}
-                    required={emailConsent}
-                    placeholder="name@example.com"
-                    autoComplete="email"
-                  />
-                </Field>
-                {context.emailAvailable && (
-                  <>
-                    <label className="checkbox full">
-                      <input
-                        type="checkbox"
-                        checked={emailConsent}
-                        onChange={(e) => setEmailConsent(e.target.checked)}
-                      />
-                      أوافق على استلام تأكيد الشكوى وتفاصيلها بالبريد الإلكتروني
-                    </label>
-                  </>
-                )}
-                <label className="public-upload full">
-                  <Upload size={24} />
-                  <b>أرفق صورة للطلب (اختياري)</b>
-                  <small>حتى 3 صور • 5 ميغابايت لكل صورة • JPG، PNG، WebP</small>
-                  <input
-                    className="upload-input"
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    multiple
-                    onChange={(e) => {
-                      const f = Array.from(e.target.files ?? []);
-                      if (f.length > 3 || f.some((x) => x.size > 5 * 1024 * 1024)) {
-                        setError("اختر حتى 3 صور، لا يزيد حجم كل منها عن 5 ميغابايت");
-                        e.target.value = "";
-                        setFiles([]);
-                      } else {
-                        setFiles(f);
-                        setError("");
-                      }
-                    }}
-                  />
-                  {/* The browser's own picker text follows the phone's language, so the
-                      native control is visually hidden and this Arabic button stands in. */}
-                  <span className="upload-button" aria-hidden="true">
-                    اختر الصور
-                  </span>
-                  <span className="upload-files" aria-live="polite">
-                    {files.length ? files.map((f) => f.name).join("، ") : "لم تُختر صور بعد"}
-                  </span>
-                </label>
-                <div className="public-privacy full">
-                  <ShieldCheck size={19} />
-                  <p>
-                    نستخدم المعلومات التي تشاركها لمعالجة البلاغ والتواصل بشأنه. لا ترفق بيانات دفع
-                    أو مستندات شخصية.{" "}
-                    {context.demo ? "نص الخصوصية النهائي وسياسة الاحتفاظ بانتظار الاعتماد." : ""}
-                  </p>
-                </div>
-                <label className="checkbox full">
-                  <input name="consent" type="checkbox" required />
-                  اطلعت على إشعار الخصوصية وأوافق على تسجيل البلاغ.
-                </label>
-              </div>
-              {error && (
-                <p className="error" role="alert">
-                  {error}
-                </p>
-              )}
-              <Submit busy={busy}>
-                إرسال البلاغ <ArrowLeft size={18} />
-              </Submit>
-              <p className="hint">
-                سيتم التواصل حسب المعلومات التي قدمتها. لا نضمن وقت معالجة أو استرجاع غير معتمد.
-              </p>
-            </form>
-          </>
-        )}
-      </section>
+          </form>
+        </>
+      )}
       <div className="public-footer">
         <ShieldCheck size={15} /> متابعة آمنة • أليز غلوب
       </div>
     </main>
   );
-}
-function BadgeText({ text }: { text: string }) {
-  return <span className="public-badge">{text}</span>;
 }
