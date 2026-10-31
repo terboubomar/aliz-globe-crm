@@ -17,6 +17,7 @@ import cairo800 from "@fontsource/cairo/800.css?url";
 import alizCss from "../aliz/style.css?url";
 import alizExtraCss from "../aliz/lovable.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { installStaleModuleReload } from "../lib/stale-reload";
 import { supabase } from "@/integrations/supabase/client";
 
 function NotFoundComponent() {
@@ -102,6 +103,7 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const router = useRouter();
+  useEffect(() => installStaleModuleReload(), []);
   useEffect(() => {
     const { data } = supabase.auth.onAuthStateChange((event) => {
       if (
