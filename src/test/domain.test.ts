@@ -7,8 +7,8 @@ import {
 const actor = (role: string, extra: Partial<Actor> = {}): Actor => ({ id: role.toLowerCase(), name: role, role, brandIds: ["waqf"], branchIds: [], ...extra });
 
 describe("roles", () => {
-  it("exposes exactly the seven assignable roles", () => {
-    expect([...assignableRoles]).toEqual(["SUPER_ADMIN", "MARKETING_MANAGER", "SHIFT_LEAD", "AGENT", "OPERATIONS_MANAGER", "CEO", "OWNER"]);
+  it("exposes exactly the eight assignable roles", () => {
+    expect([...assignableRoles]).toEqual(["SUPER_ADMIN", "MARKETING_MANAGER", "SHIFT_LEAD", "AGENT", "OPERATIONS_MANAGER", "CEO", "OWNER", "IT_MANAGER"]);
   });
   it("unknown or legacy roles get no permissions", () => {
     expect(permissionsForRole("FINANCE_APPROVER")).toEqual([]);

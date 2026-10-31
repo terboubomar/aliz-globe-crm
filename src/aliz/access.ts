@@ -1,7 +1,7 @@
 const viewPermissions: Record<string, string[]> = {
   overview: ["read", "report"],
   tickets: ["read"],
-  refunds: ["read", "refund.request", "refund.decide", "refund.execute"],
+  refunds: ["read", "refund.view", "refund.request", "refund.decide", "refund.execute"],
   branches: ["read", "brands.manage", "branches.manage"],
   qr: ["configure"],
   customers: ["pii"],
@@ -78,6 +78,12 @@ export const roleWorkspaces: Record<
     views: ["overview", "reports", "tickets", "refunds", "branches"],
     labels: { overview: "النظرة التنفيذية", tickets: "سجل الشكاوى", refunds: "متابعة الاسترجاع" },
   },
+  IT_MANAGER: {
+    title: "طلبات الاسترجاع",
+    description: "استلم طلبات الاسترجاع ونفّذها ووثّق التنفيذ وأبلغ العميل.",
+    views: ["refunds"],
+    labels: { refunds: "طلبات الاسترجاع" },
+  },
   OWNER: {
     title: "أداء علاماتي",
     description: "تابع تجربة العملاء والحالات المفتوحة والطلبات المالية لعلاماتك.",
@@ -114,6 +120,7 @@ export const permissionLabels: Record<string, string> = {
   triage: "استقبال الشكاوى",
   close: "إغلاق الشكوى",
   "refund.request": "تسجيل طلب استرجاع",
+  "refund.view": "عرض طلبات الاسترجاع وبيانات التحويل",
   "refund.decide": "الموافقة المالية",
   "refund.verify": "التحقق المالي",
   "refund.execute": "توثيق التنفيذ الخارجي",
@@ -141,6 +148,8 @@ export const roleDescriptions: Record<string, string> = {
   CEO: "عرض الشكاوى والتقارير وطلبات الاسترجاع ضمن العلامات المحددة؛ دون تعديل المعالجة أو بيانات العميل الشخصية.",
   OWNER:
     "عرض الشكاوى والتقارير وطلبات الاسترجاع ضمن العلامات المحددة؛ دون تعديل المعالجة أو بيانات العميل الشخصية.",
+  IT_MANAGER:
+    "طلبات الاسترجاع فقط: يستلم كل طلب جديد على تيليجرام، ويرى بيانات التحويل (حساب بنكي أو محفظة)، ويوثّق التنفيذ ويبلغ العميل؛ دون الوصول إلى الشكاوى.",
   AGENT:
     "عرض جميع الشكاوى ضمن النطاق، وتسجيل الشكاوى ومعالجتها والتواصل مع العميل وطلب الاسترجاع أو الإلغاء ومتابعة طلباته.",
   SHIFT_LEAD: "إسناد الشكاوى لفريق خدمة العملاء ومتابعة العمل والتصعيد والإغلاق.",

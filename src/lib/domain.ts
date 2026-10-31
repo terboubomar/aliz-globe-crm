@@ -9,6 +9,7 @@ export const assignableRoles = [
   "OPERATIONS_MANAGER",
   "CEO",
   "OWNER",
+  "IT_MANAGER",
 ] as const;
 export type AssignableRole = (typeof assignableRoles)[number];
 
@@ -20,6 +21,7 @@ export const roleLabels: Record<string, string> = {
   OPERATIONS_MANAGER: "مدير العمليات",
   CEO: "الرئيس التنفيذي",
   OWNER: "المالك",
+  IT_MANAGER: "مدير تقنية المعلومات",
 };
 
 export const financeDuties = ["NONE", "APPROVER", "PROCESSOR", "VERIFIER"] as const;
@@ -66,6 +68,8 @@ rights["MARKETING_MANAGER"] = [...(rights["CUSTOMER_SERVICE_MANAGER"] ?? []), "q
 rights["OPERATIONS_MANAGER"] = ["read", "comment", "report", "investigate", "resolve", "escalate"];
 rights["CEO"] = ["read", "report"];
 rights["OWNER"] = ["read", "report"];
+// Refunds only: sees and handles refund requests, nothing about complaints.
+rights["IT_MANAGER"] = ["refund.view", "refund.execute", "refund.notify", "evidence.view", "evidence.attach"];
 rights["SUPER_ADMIN"] = [...new Set([...Object.values(rights).flat(), "users.manage", "directory.activate", "evidence.view"])];
 
 export function permissionsForRole(role: string, financeDuty?: string): string[] {

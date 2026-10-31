@@ -11,6 +11,7 @@ Each staff member links their own Telegram account and then receives:
 | Staff | "Deadline is close" | When a deadline (first action, acknowledgement, fix) reaches its warning time |
 | Staff + super admin | "Deadline missed", with who owns it | When the deadline passes and the step is still not done |
 | Super admin | Every new complaint and who it was assigned to (P1 marked urgent) | When the complaint is filed |
+| IT manager | Every new refund request in their brands: number, brand, branch, amount, platform, order number, and where the money goes (bank account or wallet, last 4 digits only) | When the refund is requested |
 | Super admin | Daily summary: new today, open, unassigned, P1, past deadline, and a line per brand | 9 AM to noon (Riyadh), once a day |
 
 Every message is sent once, however often the scheduled run fires.
