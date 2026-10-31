@@ -4,7 +4,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import {
   DomainError, assertRefundSeparation, authorize, can, normalizePhone, refundNext, refundNumber, refundPermission, saudiMobile,
 } from "@/lib/domain";
-import { REFUND_PLATFORMS, normalizeIban, validIban, type RefundDestination } from "@/lib/refund-request";
+import { REFUND_PLATFORMS, methodForPlatform, normalizeIban, validIban, type RefundDestination } from "@/lib/refund-request";
 
 const core = () => import("./core.server");
 
@@ -73,6 +73,9 @@ const requestInput = z.object({
   reason: z.string().trim().min(5, "السبب 5 أحرف على الأقل").max(1000),
   amountMinor: z.number({ message: "أدخل المبلغ المطلوب" }).int().positive("أدخل المبلغ المطلوب").max(10000000),
   destination: destinationInput,
+}).refine((b) => methodForPlatform(b.platform) === b.destination.method, {
+  message: "طلبات تطبيق واقف تُعاد لمحفظة العميل، وطلبات الهاتف والفرع بتحويل بنكي",
+  path: ["destination"],
 });
 
 export const requestRefund = createServerFn({ method: "POST" })
