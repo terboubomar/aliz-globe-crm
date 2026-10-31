@@ -6038,3 +6038,264 @@ th {
     justify-content: center;
   }
 }
+
+/* Phone quick bar: fixed bottom menu for staff, phones only. */
+.quick-bar {
+  display: none;
+}
+@media (max-width: 760px) {
+  .quick-bar {
+    position: fixed;
+    inset-inline: 0;
+    bottom: 0;
+    z-index: 25;
+    display: flex;
+    align-items: stretch;
+    justify-content: space-around;
+    gap: 2px;
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+    background: color-mix(in srgb, var(--paper) 94%, transparent);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-top: 1px solid var(--border);
+    box-shadow: 0 -6px 24px #42291d0f;
+  }
+  .quick-bar button {
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 52px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 4px 2px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--muted);
+    font: inherit;
+    font-size: 11px;
+    line-height: 1.2;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .quick-bar button.active {
+    color: var(--burgundy);
+    font-weight: 600;
+  }
+  .quick-bar button:focus-visible {
+    outline: 2px solid var(--burgundy);
+    outline-offset: -2px;
+  }
+  .quick-bar button:active .quick-bar-icon {
+    transform: scale(0.92);
+  }
+  .quick-bar-icon {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 26px;
+    transition: transform 0.12s;
+  }
+  .quick-bar-icon small {
+    position: absolute;
+    top: -5px;
+    /* Sits on the icon's upper corner (left in RTL), not over it. */
+    right: calc(100% - 9px);
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 9px;
+    border: 2px solid var(--paper);
+    background: var(--burgundy);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 14px;
+    text-align: center;
+  }
+  .quick-bar-label {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .quick-bar .quick-bar-primary {
+    color: var(--burgundy);
+    font-weight: 600;
+  }
+  .quick-bar .quick-bar-primary .quick-bar-icon {
+    width: 46px;
+    height: 46px;
+    margin-top: -20px;
+    border-radius: 50%;
+    background: var(--burgundy);
+    color: #fff;
+    box-shadow:
+      0 0 0 4px var(--paper),
+      0 6px 16px #b62e3044;
+  }
+  .quick-bar .quick-bar-primary:active .quick-bar-icon {
+    background: var(--burgundy-dark);
+  }
+  /* Room for the bar under the page, the toast above it. */
+  .main-shell {
+    padding-bottom: calc(72px + env(safe-area-inset-bottom));
+  }
+  .toast {
+    bottom: calc(80px + env(safe-area-inset-bottom));
+  }
+  /* The new-complaint button in the heading moves to the bar on phones. */
+  .heading-create {
+    display: none;
+  }
+  .quick-bar-extra,
+  .quick-bar-full {
+    display: none !important;
+  }
+}
+
+/* Tablets and iPads (portrait and landscape): a floating dock centred under
+   the page, next to the sidebar. Icons and full labels side by side. */
+@media (min-width: 761px) and (max-width: 1180px),
+  (min-width: 761px) and (max-width: 1400px) and (pointer: coarse) {
+  .quick-bar {
+    position: fixed;
+    bottom: calc(16px + env(safe-area-inset-bottom));
+    left: 16px;
+    right: calc(var(--sidebar) + 16px);
+    z-index: 25;
+    width: max-content;
+    max-width: calc(100% - var(--sidebar) - 32px);
+    margin-inline: auto;
+    /* Safety net for long role labels: scroll rather than clip. */
+    overflow-x: auto;
+    overflow-y: visible;
+    scrollbar-width: none;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px;
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    background: color-mix(in srgb, var(--paper) 92%, transparent);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    box-shadow:
+      0 10px 30px #42291d1f,
+      0 1px 3px #42291d14;
+  }
+  .app-shell.rail-animate .quick-bar {
+    transition: right 0.2s ease;
+  }
+  .quick-bar button {
+    min-height: 48px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: 13px;
+    background: transparent;
+    color: var(--muted);
+    font: inherit;
+    font-size: 13px;
+    white-space: nowrap;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .quick-bar button:hover {
+    background: #f3ece6;
+    color: var(--ink);
+  }
+  .quick-bar button.active {
+    background: #b62e3014;
+    color: var(--burgundy);
+    font-weight: 600;
+  }
+  .quick-bar button:focus-visible {
+    outline: 2px solid var(--burgundy);
+    outline-offset: 1px;
+  }
+  .quick-bar-icon {
+    position: relative;
+    display: grid;
+    place-items: center;
+  }
+  .quick-bar-icon small {
+    position: absolute;
+    top: -9px;
+    /* Upper-right corner, away from the label beside the icon. */
+    left: calc(100% - 7px);
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 9px;
+    border: 2px solid var(--paper);
+    background: var(--burgundy);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 14px;
+    text-align: center;
+  }
+  .quick-bar-short,
+  .quick-bar-more {
+    display: none !important;
+  }
+  /* The new complaint is the dock's main action, at its end. */
+  .quick-bar .quick-bar-primary {
+    order: 10;
+    margin-inline-start: 4px;
+    padding-inline: 16px 18px;
+    background: var(--burgundy);
+    color: #fff;
+    font-weight: 600;
+    box-shadow: 0 4px 12px #b62e3033;
+  }
+  .quick-bar .quick-bar-primary:hover {
+    background: var(--burgundy-dark);
+    color: #fff;
+  }
+  .quick-bar .quick-bar-primary:active {
+    transform: scale(0.97);
+  }
+  .heading-create {
+    display: none;
+  }
+  .main-shell {
+    padding-bottom: calc(88px + env(safe-area-inset-bottom));
+  }
+  .toast {
+    bottom: calc(92px + env(safe-area-inset-bottom));
+  }
+}
+/* iPad portrait and narrower tablets: icon over a short label, so the
+   whole dock fits beside the sidebar. */
+@media (min-width: 761px) and (max-width: 1099px) {
+  .quick-bar button {
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+    min-height: 54px;
+    padding: 4px 12px;
+    font-size: 11px;
+  }
+  .quick-bar .quick-bar-primary {
+    padding-inline: 14px;
+  }
+  .quick-bar-full {
+    display: none !important;
+  }
+  .quick-bar-short {
+    display: inline !important;
+  }
+}
+@media (max-width: 1400px) and (prefers-reduced-motion: reduce) {
+  .quick-bar-icon,
+  .app-shell.rail-animate .quick-bar {
+    transition: none;
+  }
+}
