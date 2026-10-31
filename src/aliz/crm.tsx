@@ -337,11 +337,12 @@ export default function CRM() {
       if (epoch === authEpoch.current) setError((e as Error).message);
     }
   };
-  // Phone quick bar: the two main views this role can open, a new phone
-  // complaint (when allowed), alerts and "more" (the full menu).
+  // Quick bar for phones and tablets: the main views this role can open (two
+  // on phones, four on tablets), a new phone complaint (when allowed), alerts
+  // and, on phones, "more" (the full menu; tablets keep the sidebar).
   const quickViews = ["overview", "tickets", "refunds", "tasks", "schedule"]
     .filter((id) => canOpenView(id, data.permissions, data.me.role))
-    .slice(0, 2)
+    .slice(0, 4)
     .map((id) => navigation.find((item) => item.id === id)!);
   const exactOpenCount = summaryFor(data.ticketSummary, "all")?.active;
   const quickOpen =
@@ -964,14 +965,18 @@ export default function CRM() {
         </main>
       </div>
       <nav className="quick-bar" aria-label="إجراءات سريعة">
-        {quickViews.map((item) => {
+        {quickViews.map((item, index) => {
           const Icon = item.id === "overview" ? Home : item.icon;
           const active = view === item.id && !menu;
+          const label =
+            item.id === "overview" ? "الرئيسية" : viewLabel(item.id, data.me.role, item.label);
           return (
             <button
               key={item.id}
               type="button"
-              className={active ? "active" : ""}
+              className={[active ? "active" : "", index > 1 ? "quick-bar-extra" : ""]
+                .join(" ")
+                .trim()}
               aria-current={active ? "page" : undefined}
               onClick={() => {
                 go(item.id);
@@ -986,11 +991,8 @@ export default function CRM() {
                   </small>
                 )}
               </span>
-              <span className="quick-bar-label">
-                {item.id === "overview"
-                  ? "الرئيسية"
-                  : viewLabel(item.id, data.me.role, item.label).split(" ")[0]}
-              </span>
+              <span className="quick-bar-label quick-bar-short">{label.split(" ")[0]}</span>
+              <span className="quick-bar-label quick-bar-full">{label}</span>
             </button>
           );
         })}
@@ -1034,7 +1036,7 @@ export default function CRM() {
         )}
         <button
           type="button"
-          className={menu ? "active" : ""}
+          className={"quick-bar-more" + (menu ? " active" : "")}
           aria-expanded={menu}
           aria-controls="crm-sidebar"
           onClick={() => setMenu(!menu)}
