@@ -16,3 +16,16 @@ describe("customer form order source", () => {
     expect(orderHint("", null)).toContain("تطبيق التوصيل");
   });
 });
+
+describe("order source logos", () => {
+  it("finds the logo by Arabic or English name", async () => {
+    const { platformLogo } = await import("@/lib/public-form");
+    expect(platformLogo("هنقرستيشن")).toBe("/platforms/hungerstation.webp");
+    expect(platformLogo("Talabat")).toBe("/platforms/talabat.webp");
+    expect(platformLogo("Locate")).toBe("/platforms/locate.webp");
+    expect(platformLogo("ذا شفز")).toBe("/platforms/thechefz.webp");
+    expect(platformLogo("تطبيق واقف")).toBe("/platforms/waqf-app.webp");
+    expect(platformLogo("الفرع مباشرة")).toBeUndefined();
+    expect(platformLogo("طلب هاتف")).toBeUndefined();
+  });
+});

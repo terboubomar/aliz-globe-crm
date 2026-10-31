@@ -28,3 +28,25 @@ export function orderHint(label: string, kind: PlatformKind | null) {
       return "تجده في تطبيق التوصيل أو على الفاتورة.";
   }
 }
+
+/** Logo files in /platforms for the order sources we know, by Arabic or English name. */
+const PLATFORM_LOGOS: [RegExp, string][] = [
+  [/هنقر|hunger/i, "hungerstation"],
+  [/كيتا|keeta/i, "keeta"],
+  [/جاهز|jahez/i, "jahez"],
+  [/لوكيت|locate/i, "locate"],
+  [/نينجا|ninja/i, "ninja"],
+  [/مرسول|mrsool/i, "mrsool"],
+  [/شفز|chefz/i, "thechefz"],
+  [/تويو|to\s?you/i, "toyou"],
+  [/كوينز|koinz/i, "koinz"],
+  [/طلبات|talabat/i, "talabat"],
+  [/أهلا|اهلا|ahlan/i, "ahlan"],
+  [/تطبيق واقف|waqf/i, "waqf-app"],
+];
+
+/** The logo path for an order source, or undefined to show its icon or first letter. */
+export function platformLogo(label: string) {
+  const hit = PLATFORM_LOGOS.find(([re]) => re.test(label));
+  return hit ? `/platforms/${hit[1]}.webp` : undefined;
+}

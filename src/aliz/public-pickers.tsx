@@ -20,7 +20,7 @@ import {
   UtensilsCrossed,
   type LucideIcon,
 } from "lucide-react";
-import { platformKind } from "@/lib/public-form";
+import { platformKind, platformLogo } from "@/lib/public-form";
 
 /*
  * The two pickers of the customer (QR) complaint form: the complaint reason as
@@ -117,6 +117,7 @@ export function PlatformTiles({
       {platforms.map((p) => {
         const kind = platformKind(p, brand);
         const on = value === p;
+        const mark = platformLogo(p);
         return (
           <label key={p} className={"qf-platform" + (on ? " on" : "")}>
             <input
@@ -128,8 +129,10 @@ export function PlatformTiles({
               onClick={() => on && onChange("")}
               onChange={() => onChange(p)}
             />
-            <span className={"qf-platform-mark " + kind} aria-hidden="true">
-              {kind === "brand-app" ? (
+            <span className={"qf-platform-mark " + kind + (mark ? " logo" : "")} aria-hidden="true">
+              {mark ? (
+                <img src={mark} alt="" loading="lazy" />
+              ) : kind === "brand-app" ? (
                 <img src={"/logos/" + logo} alt="" />
               ) : kind === "branch" ? (
                 <Store size={20} strokeWidth={1.8} />
