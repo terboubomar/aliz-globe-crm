@@ -426,10 +426,6 @@ export default function CRM() {
             <b>{title}</b>
           </div>
           <div className="top-tools">
-            <span className="demo-pill">
-              <span />
-              بيئة تجريبية
-            </span>
             <button
               className="icon-btn notification-btn"
               aria-label="التنبيهات"
