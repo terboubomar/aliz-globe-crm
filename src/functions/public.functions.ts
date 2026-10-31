@@ -54,6 +54,7 @@ export const publicCreate = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const q = await resolveQr(data.code, false);
+    const limit = await intakeLimit(q.qrId);
     const t = await import("./tickets.server");
     const { consent: _c, ...rest } = data.input;
     const res = await t.createTicketCore(
@@ -62,8 +63,39 @@ export const publicCreate = createServerFn({ method: "POST" })
       data.key,
       { brandId: q.brandId, branchId: q.branchId, qrId: q.qrId },
     );
+    if ("id" in res && res.id) await limit.record(res.id);
     return { number: res.number, trackingToken: res.trackingToken, confirmationStatus: res.confirmationStatus, emailStatus: res.emailStatus ?? "NOT_REQUESTED" };
   });
+
+/**
+ * Flood protection for the public QR form: at most 5 complaints from one
+ * device (IP) in 15 minutes, and 40 per QR code in an hour. The IP is kept
+ * only as a keyed hash, inside markers in the outbox table.
+ */
+const PER_DEVICE = 5, DEVICE_WINDOW = 15 * 60_000, PER_QR = 40, QR_WINDOW = 60 * 60_000;
+async function intakeLimit(qrId: string) {
+  const { getRequest } = await import("@tanstack/react-start/server");
+  const { keyedHash } = await import("./crypto.server");
+  const db = await (await import("./core.server")).admin();
+  const headers = getRequest().headers;
+  const ip = headers.get("cf-connecting-ip") ?? headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "";
+  const device = ip ? await keyedHash("intake-ip:" + ip) : null;
+  const since = (ms: number) => new Date(Date.now() - ms).toISOString();
+  const recent = async (prefix: string, ms: number) => {
+    const { count } = await db.from("outbox").select("id", { count: "exact", head: true }).like("key", prefix + "%").gte("created_at", since(ms));
+    return count ?? 0;
+  };
+  const busy = "وصلتنا عدة بلاغات خلال وقت قصير. حاول مرة أخرى بعد قليل، أو اتصل بنا على 920031754.";
+  if (device && (await recent(`intake-ip:${device}:`, DEVICE_WINDOW)) >= PER_DEVICE) throw new DomainError("RATE_LIMITED", 429, busy);
+  if ((await recent(`intake-qr:${qrId}:`, QR_WINDOW)) >= PER_QR) throw new DomainError("RATE_LIMITED", 429, busy);
+  return {
+    async record(ticketId: string) {
+      const rows = [{ key: `intake-qr:${qrId}:${ticketId}`, type: "INTAKE_LIMIT_REF", ticket_id: ticketId, status: "REF" }];
+      if (device) rows.push({ key: `intake-ip:${device}:${ticketId}`, type: "INTAKE_LIMIT_REF", ticket_id: ticketId, status: "REF" });
+      await db.from("outbox").insert(rows);
+    },
+  };
+}
 
 export const trackStatus = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ token: code }).parse(d))

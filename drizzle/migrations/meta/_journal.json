@@ -15,6 +15,13 @@
       "when": 1793404800000,
       "tag": "0001_it_manager_role",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793491200000,
+      "tag": "0002_harden_grants",
+      "breakpoints": true
     }
   ]
 }

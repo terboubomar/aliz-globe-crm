@@ -44,18 +44,48 @@ function isH3SwallowedErrorBody(body: string): boolean {
   }
 }
 
+// Browser security headers on every response. The frame rule only lets the
+// Lovable editor show the app in its preview; any other site embedding it
+// (to trick staff into clicking) is refused.
+const SECURITY_HEADERS: Record<string, string> = {
+  "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+  "X-Content-Type-Options": "nosniff",
+  "Referrer-Policy": "strict-origin-when-cross-origin",
+  "Permissions-Policy": "camera=(self), microphone=(), geolocation=(), payment=(), usb=()",
+  "Content-Security-Policy":
+    "frame-ancestors 'self' https://lovable.dev https://*.lovable.dev https://*.lovable.app https://*.lovableproject.com; base-uri 'self'; object-src 'none'; form-action 'self'",
+};
+
+function withSecurityHeaders(response: Response): Response {
+  try {
+    for (const [name, value] of Object.entries(SECURITY_HEADERS))
+      if (!response.headers.has(name)) response.headers.set(name, value);
+    return response;
+  } catch {
+    // Some responses have read-only headers: copy them into a new response.
+    const copy = new Response(response.body, response);
+    for (const [name, value] of Object.entries(SECURITY_HEADERS))
+      if (!copy.headers.has(name)) copy.headers.set(name, value);
+    return copy;
+  }
+}
+
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
-    try {
-      const handler = await getServerEntry();
-      const response = await handler.fetch(request, env, ctx);
-      return await normalizeCatastrophicSsrResponse(response);
-    } catch (error) {
-      console.error(error);
-      return new Response(renderErrorPage(), {
-        status: 500,
-        headers: { "content-type": "text/html; charset=utf-8" },
-      });
-    }
+    return withSecurityHeaders(await handle(request, env, ctx));
   },
 };
+
+async function handle(request: Request, env: unknown, ctx: unknown): Promise<Response> {
+  try {
+    const handler = await getServerEntry();
+    const response = await handler.fetch(request, env, ctx);
+    return await normalizeCatastrophicSsrResponse(response);
+  } catch (error) {
+    console.error(error);
+    return new Response(renderErrorPage(), {
+      status: 500,
+      headers: { "content-type": "text/html; charset=utf-8" },
+    });
+  }
+}
