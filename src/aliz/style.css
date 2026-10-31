@@ -7533,3 +7533,35 @@ th {
     justify-content: center;
   }
 }
+/* Agent home: switch the list between my complaints and all complaints. */
+.agent-queue .panel-head {
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.scope-switch {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: 11px;
+  background: #f1ebe6;
+  gap: 2px;
+}
+.scope-switch button {
+  border: 0;
+  background: transparent;
+  padding: 7px 14px;
+  border-radius: 9px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+}
+.scope-switch button.on {
+  background: var(--paper);
+  color: var(--burgundy);
+  box-shadow: 0 1px 3px #42291d1f;
+}
+.scope-switch button:focus-visible {
+  outline: 2px solid var(--burgundy);
+  outline-offset: 1px;
+}

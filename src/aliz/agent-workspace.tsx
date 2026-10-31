@@ -17,7 +17,7 @@ export function AgentWorkspace({
   brand,
   onOpen,
   onPhone,
-  browseAll = false,
+  browseAll: allPage = false,
 }: {
   data: Data;
   brand: string;
@@ -25,7 +25,10 @@ export function AgentWorkspace({
   onPhone: () => void;
   browseAll?: boolean;
 }) {
-  const [queue, setQueue] = useState(browseAll ? "all" : "open"),
+  // On the agent's home, "all" switches the list from their own complaints to
+  // every complaint they can see (the same search as the complaints page).
+  const [browseAll, setBrowseAll] = useState(allPage),
+    [queue, setQueue] = useState(allPage ? "all" : "open"),
     [search, setSearch] = useState(""),
     [term, setTerm] = useState(""),
     [offset, setOffset] = useState(0),
@@ -67,6 +70,12 @@ export function AgentWorkspace({
       controller.abort();
     };
   }, [browseAll, brand, term, queue, offset, revision]);
+  function switchScope(all: boolean, withTerm?: string) {
+    setBrowseAll(all);
+    setQueue(all ? "all" : "open");
+    setOffset(0);
+    if (withTerm !== undefined) setTerm(withTerm);
+  }
   const scoped = data.tickets.filter(
     (t) =>
       (brand === "all" || t.brandId === brand) &&
@@ -135,12 +144,15 @@ export function AgentWorkspace({
   ];
   return (
     <div className="agent-workspace">
-      {!browseAll && (
+      {!allPage && (
         <>
           <DashHello name={data.me.name} line={helloLine} />
           <KpiCards
             selected={queue}
-            onPick={(key) => setQueue(queue === key ? "open" : key)}
+            onPick={(key) => {
+              setBrowseAll(false);
+              setQueue(queue === key ? "open" : key);
+            }}
             items={[
               {
                 key: "working",
@@ -183,6 +195,25 @@ export function AgentWorkspace({
               <span className="count-badge">{n(browseAll ? remote.total : tickets.length)}</span>
             </h2>
           </div>
+          {!allPage && (
+            <div className="scope-switch" role="tablist" aria-label="نطاق القائمة">
+              {[
+                [false, "شكاواي"],
+                [true, "كل الشكاوى"],
+              ].map(([value, label]) => (
+                <button
+                  key={String(value)}
+                  type="button"
+                  role="tab"
+                  aria-selected={browseAll === value}
+                  className={browseAll === value ? "on" : ""}
+                  onClick={() => switchScope(value as boolean, value ? search.trim() : undefined)}
+                >
+                  {label as string}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         <form
           className="agent-queue-controls"
@@ -249,10 +280,17 @@ export function AgentWorkspace({
                   : "ستظهر هنا الشكاوى المسندة إليك أو التي سجلتها هاتفياً."
             }
             action={
-              <button className="secondary" onClick={onPhone}>
-                <Phone size={16} />
-                تسجيل شكوى هاتفية
-              </button>
+              !browseAll && search.trim() ? (
+                <button className="primary" onClick={() => switchScope(true, search.trim())}>
+                  <Search size={16} />
+                  ابحث في كل الشكاوى
+                </button>
+              ) : (
+                <button className="secondary" onClick={onPhone}>
+                  <Phone size={16} />
+                  تسجيل شكوى هاتفية
+                </button>
+              )
             }
           />
         ) : (
