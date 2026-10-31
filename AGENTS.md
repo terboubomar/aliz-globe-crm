@@ -27,3 +27,18 @@ WhatsApp and email confirmations to the customer live in
 `docs/CUSTOMER_RECEIPTS.md`. Delivery state uses the existing `outbox` table
 (no schema change). Both channels stay off until a super admin switches them on
 in Settings, which is refused while any required secret is missing.
+
+## Working with the Lovable connection (owner rule)
+
+Never spend Lovable credits when changing this project. Do not use Lovable
+tools that run Lovable's AI agent: `send_message`, `create_project`,
+`initiate_project`, `remix_project`, `respond_to_approval`, or anything else
+that asks Lovable's agent to edit or build. Make code changes through GitHub
+(branch, PR, CI green, merge); they sync to Lovable on their own.
+
+Allowed without credits: read-only tools (`get_project`, `list_projects`,
+`list_files`, `read_file`, `get_diff`, `get_database_status`, analytics) and
+direct SQL with `query_database` for database changes. For a schema change,
+check the current state first, apply it in one transaction, verify it, and
+keep the same SQL as a file in `drizzle/migrations/` so the repository matches
+the database.
