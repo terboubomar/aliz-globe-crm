@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { permissionsForRole } from "@/lib/domain";
 import { canOpenView } from "@/aliz/access";
-import { destinationHint, methodForPlatform, normalizeIban, validIban } from "@/lib/refund-request";
+import {
+  destinationHint,
+  methodLabel,
+  methodsForPlatform,
+  normalizeIban,
+  validIban,
+} from "@/lib/refund-request";
 
 describe("IT manager", () => {
   const perms = permissionsForRole("IT_MANAGER");
@@ -37,10 +43,12 @@ describe("refund destination", () => {
   });
 });
 
-describe("refund method follows the platform", () => {
-  it("app orders go to the app wallet, phone and branch orders by bank transfer", () => {
-    expect(methodForPlatform("تطبيق واقف")).toBe("WALLET");
-    expect(methodForPlatform("طلب هاتف")).toBe("BANK");
-    expect(methodForPlatform("الفرع مباشرة")).toBe("BANK");
+describe("refund methods per platform", () => {
+  it("offers the wallet and a bank transfer everywhere, in each platform's order", () => {
+    expect(methodsForPlatform("طلب هاتف")).toEqual(["WALLET", "BANK"]);
+    expect(methodsForPlatform("تطبيق واقف")).toEqual(["BANK", "WALLET"]);
+    expect(methodsForPlatform("الفرع مباشرة")).toEqual(["WALLET", "BANK"]);
+    expect(methodLabel("BANK", "تطبيق واقف")).toContain("لوحة تحكم تطبيق واقف");
+    expect(methodLabel("BANK", "طلب هاتف")).toBe("تحويل بنكي لحساب العميل");
   });
 });

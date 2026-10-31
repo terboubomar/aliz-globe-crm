@@ -9,7 +9,12 @@ import {
   MapPin,
   Landmark,
 } from "lucide-react";
-import { REFUND_PLATFORMS, destinationMethods, methodForPlatform } from "@/lib/refund-request";
+import {
+  REFUND_PLATFORMS,
+  methodLabel,
+  methodsForPlatform,
+  type RefundDestination,
+} from "@/lib/refund-request";
 import { Data, Refund, api, date, n, refundStates, eventNames } from "./types";
 import { EvidenceLink } from "./evidence";
 import { Modal, Field, Submit, Empty } from "./ui";
@@ -220,9 +225,11 @@ export function NewRefund({
 }) {
   const [brandId, setBrand] = useState(brand === "all" ? data.brands[0]?.id : brand),
     [platform, setPlatform] = useState(""),
+    [chosen, setChosen] = useState<RefundDestination["method"] | null>(null),
     [error, setError] = useState("");
-  // The platform decides how the money goes back: app wallet or bank transfer.
-  const method = platform ? methodForPlatform(platform) : null;
+  // Each platform offers the wallet and a bank transfer; its usual one is picked first.
+  const methods = platform ? methodsForPlatform(platform) : [];
+  const method = chosen && methods.includes(chosen) ? chosen : (methods[0] ?? null);
   return (
     <Modal title="طلب استرجاع" onClose={onClose} wide>
       <form
@@ -280,7 +287,10 @@ export function NewRefund({
             <select
               name="platform"
               value={platform}
-              onChange={(e) => setPlatform(e.target.value)}
+              onChange={(e) => {
+                setPlatform(e.target.value);
+                setChosen(null);
+              }}
               required
             >
               <option value="" disabled>
@@ -306,19 +316,25 @@ export function NewRefund({
           </Field>
           <fieldset className="refund-destination full">
             <legend>إلى أين يُعاد المبلغ؟</legend>
-            <div className="refund-destination-choices">
-              {(["BANK", "WALLET"] as const).map((m) => (
-                <span
-                  key={m}
-                  className={"choice" + (method === m ? " selected" : method ? " muted" : "")}
-                  aria-current={method === m ? "true" : undefined}
-                >
-                  {m === "BANK" ? <Landmark size={18} /> : <Wallet size={18} />}
-                  {destinationMethods[m]}
-                </span>
-              ))}
-            </div>
-            {!method && <p className="hint">يتحدد حسب منصة الطلب: اختر المنصة أولاً.</p>}
+            {method ? (
+              <div className="refund-destination-choices" role="radiogroup">
+                {methods.map((m) => (
+                  <label key={m} className={"choice" + (method === m ? " selected" : "")}>
+                    <input
+                      type="radio"
+                      name="method"
+                      value={m}
+                      checked={method === m}
+                      onChange={() => setChosen(m)}
+                    />
+                    {m === "BANK" ? <Landmark size={18} /> : <Wallet size={18} />}
+                    {methodLabel(m, platform)}
+                  </label>
+                ))}
+              </div>
+            ) : (
+              <p className="hint">اختر منصة الطلب أولاً لعرض طرق الاسترجاع المتاحة.</p>
+            )}
             {method === "BANK" && (
               <div className="form-grid">
                 <Field label="اسم صاحب الحساب">
@@ -340,6 +356,9 @@ export function NewRefund({
             )}
             {method === "WALLET" && (
               <p className="hint">يُعاد المبلغ إلى محفظة العميل من لوحة تحكم تطبيق واقف.</p>
+            )}
+            {method === "BANK" && platform === REFUND_PLATFORMS[0] && (
+              <p className="hint">يُنفَّذ التحويل البنكي من لوحة تحكم تطبيق واقف.</p>
             )}
             {method === "WALLET" && (
               <div className="form-grid">
@@ -480,7 +499,7 @@ function RefundDetail({
           {r.destination.method === "BANK" ? <Landmark size={18} /> : <Wallet size={18} />}
           <div>
             <small>يُعاد المبلغ إلى</small>
-            <b>{destinationMethods[r.destination.method]}</b>
+            <b>{methodLabel(r.destination.method, r.platform)}</b>
             {r.destination.method === "BANK" ? (
               <span>
                 {r.destination.holder} — <bdi dir="ltr">{r.destination.iban}</bdi>
