@@ -5946,3 +5946,24 @@ th {
 .refund-destination-card small {
   color: var(--muted);
 }
+
+/* Navigation rail show/hide (owner request, 2026-10-31): staff can drop the
+   rail for more room on wide screens and bring it back from the same button. */
+.sidebar {
+  transition: transform 0.2s, visibility 0.2s;
+}
+.sidebar-toggle {
+  display: none;
+}
+@media (min-width: 761px) {
+  .sidebar-toggle {
+    display: inline-flex;
+  }
+  .app-shell.rail-hidden .sidebar {
+    transform: translateX(100%);
+    visibility: hidden;
+  }
+  .app-shell.rail-hidden .main-shell {
+    margin-right: 0;
+  }
+}
