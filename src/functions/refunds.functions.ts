@@ -4,7 +4,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import {
   DomainError, assertRefundSeparation, authorize, can, normalizePhone, refundNext, refundNumber, refundPermission, saudiMobile,
 } from "@/lib/domain";
-import { REFUND_PLATFORMS, methodsForPlatform, normalizeIban, validIban, type RefundDestination } from "@/lib/refund-request";
+import { REFUND_PLATFORMS, SAUDI_BANKS, methodsForPlatform, normalizeIban, validIban, type RefundDestination } from "@/lib/refund-request";
 
 const core = () => import("./core.server");
 
@@ -56,6 +56,7 @@ export const listRefunds = createServerFn({ method: "POST" })
 const destinationInput = z.discriminatedUnion("method", [
   z.object({
     method: z.literal("BANK"),
+    bank: z.enum(SAUDI_BANKS.map((b) => b.name) as [string, ...string[]], { message: "اختر البنك" }),
     holder: z.string().trim().min(3, "اكتب اسم صاحب الحساب كما في البنك").max(100),
     iban: z.string().transform(normalizeIban).refine(validIban, "رقم الآيبان غير صحيح؛ يبدأ بـ SA ويتكون من 24 خانة"),
   }),
