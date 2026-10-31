@@ -4,6 +4,7 @@
 // The screens keep their original markup and behaviour; only data access
 // changes here. Paths with no backend yet fail with a clear Arabic message.
 import { supabase } from "@/integrations/supabase/client";
+import { passkeyMessage } from "@/lib/passkey-errors";
 import {
   complaintAction,
   createPhoneComplaint,
@@ -493,6 +494,11 @@ async function route(
       password: String(body["password"]),
     });
     if (error) throw new Error("بيانات الدخول غير صحيحة");
+    return { ok: true };
+  }
+  if (is("login", "passkey")) {
+    const { error } = await supabase.auth.signInWithPasskey();
+    if (error) throw new Error(passkeyMessage(error, "signin"));
     return { ok: true };
   }
   if (is("logout")) {

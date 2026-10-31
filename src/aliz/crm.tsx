@@ -31,6 +31,7 @@ import {
   Upload,
   PanelRightClose,
   PanelRightOpen,
+  Fingerprint,
   Home,
   MoreHorizontal,
 } from "lucide-react";
@@ -64,6 +65,7 @@ import { ScheduleWorkspace } from "./schedule-workspace";
 import { TelegramAccount } from "./telegram-integration";
 import { TwoStepAccount } from "./two-step-account";
 import { CustomerCard } from "./customer-card";
+import { PasskeyAccount } from "./passkey-account";
 import { SettingsWorkspace } from "./settings-workspace";
 import { ReasonPicker } from "./reason-options";
 import { ReportsWorkspace } from "./reports-workspace";
@@ -276,6 +278,11 @@ export default function CRM() {
         onSignIn={async (email, password) => {
           setError("");
           await api("login", { email, password });
+          await load();
+        }}
+        onPasskey={async () => {
+          setError("");
+          await api("login/passkey", {});
           await load();
         }}
       />
@@ -536,6 +543,16 @@ export default function CRM() {
               >
                 <ShieldCheck size={17} />
                 التحقق بخطوتين
+              </button>
+              <button
+                className="text-btn"
+                onClick={(event) => {
+                  setModal("passkeys");
+                  event.currentTarget.closest<HTMLElement>("[popover]")?.hidePopover();
+                }}
+              >
+                <Fingerprint size={17} />
+                Face ID / Touch ID
               </button>
               <button
                 className="text-btn profile-logout"
@@ -1083,6 +1100,11 @@ export default function CRM() {
           brand={data.brands.find((b) => b.branches.some((x) => x.id === selected))!}
           onClose={() => setModal(null)}
         />
+      )}
+      {modal === "passkeys" && (
+        <Modal title="Face ID / Touch ID" onClose={() => setModal(null)}>
+          <PasskeyAccount />
+        </Modal>
       )}
       {modal === "two-step" && (
         <Modal title="التحقق بخطوتين" onClose={() => setModal(null)}>

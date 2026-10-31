@@ -1,12 +1,16 @@
 import { useState, useEffect, FormEvent } from "react";
 import { api } from "./types";
-import { ArrowLeft, Eye, EyeOff, LoaderCircle } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, Fingerprint, LoaderCircle } from "lucide-react";
+import { deviceSupportsPasskey } from "@/lib/passkey-errors";
 export function SignIn({
   onSignIn,
+  onPasskey,
   checking,
   connectionError,
 }: {
   onSignIn: (email: string, password: string) => Promise<void>;
+  /** Sign in with Face ID / Touch ID (a passkey saved on this device). */
+  onPasskey?: () => Promise<void>;
   checking: boolean;
   connectionError: string;
 }) {
@@ -14,6 +18,22 @@ export function SignIn({
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const [auth, setAuth] = useState<{ mode: string; available: boolean } | null>(null);
+  const [passkey, setPasskey] = useState(false);
+  useEffect(() => {
+    deviceSupportsPasskey().then(setPasskey);
+  }, []);
+  async function withPasskey() {
+    if (!onPasskey) return;
+    setBusy(true);
+    setError("");
+    try {
+      await onPasskey();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
   useEffect(() => {
     api<{ mode: string; available: boolean }>("auth/options")
       .then(setAuth)
@@ -131,6 +151,22 @@ export function SignIn({
                     </>
                   )}
                 </button>
+                {passkey && onPasskey && (
+                  <>
+                    <div className="sign-in-or" aria-hidden="true">
+                      <span>أو</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="secondary sign-in-passkey"
+                      disabled={busy || checking}
+                      onClick={withPasskey}
+                    >
+                      <Fingerprint size={19} />
+                      الدخول بـ Face ID / Touch ID
+                    </button>
+                  </>
+                )}
               </>
             )}
           </form>
