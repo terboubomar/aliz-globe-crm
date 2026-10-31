@@ -9,7 +9,7 @@ import {
   MapPin,
   Landmark,
 } from "lucide-react";
-import { REFUND_PLATFORMS, destinationMethods } from "@/lib/refund-request";
+import { REFUND_PLATFORMS, destinationMethods, methodForPlatform } from "@/lib/refund-request";
 import { Data, Refund, api, date, n, refundStates, eventNames } from "./types";
 import { EvidenceLink } from "./evidence";
 import { Modal, Field, Submit, Empty } from "./ui";
@@ -203,7 +203,7 @@ export function RefundWorkspace({
     </>
   );
 }
-function NewRefund({
+export function NewRefund({
   data,
   brand,
   mutate,
@@ -219,8 +219,10 @@ function NewRefund({
   onDone: (id: string) => void;
 }) {
   const [brandId, setBrand] = useState(brand === "all" ? data.brands[0]?.id : brand),
-    [method, setMethod] = useState<"BANK" | "WALLET">("BANK"),
+    [platform, setPlatform] = useState(""),
     [error, setError] = useState("");
+  // The platform decides how the money goes back: app wallet or bank transfer.
+  const method = platform ? methodForPlatform(platform) : null;
   return (
     <Modal title="طلب استرجاع" onClose={onClose} wide>
       <form
@@ -275,7 +277,12 @@ function NewRefund({
             <input name="externalOrder" dir="ltr" required maxLength={100} />
           </Field>
           <Field label="منصة الطلب">
-            <select name="platform" defaultValue="" required>
+            <select
+              name="platform"
+              value={platform}
+              onChange={(e) => setPlatform(e.target.value)}
+              required
+            >
               <option value="" disabled>
                 اختر المنصة
               </option>
@@ -299,22 +306,20 @@ function NewRefund({
           </Field>
           <fieldset className="refund-destination full">
             <legend>إلى أين يُعاد المبلغ؟</legend>
-            <div className="refund-destination-choices" role="radiogroup">
+            <div className="refund-destination-choices">
               {(["BANK", "WALLET"] as const).map((m) => (
-                <label key={m} className={"choice" + (method === m ? " selected" : "")}>
-                  <input
-                    type="radio"
-                    name="method"
-                    value={m}
-                    checked={method === m}
-                    onChange={() => setMethod(m)}
-                  />
+                <span
+                  key={m}
+                  className={"choice" + (method === m ? " selected" : method ? " muted" : "")}
+                  aria-current={method === m ? "true" : undefined}
+                >
                   {m === "BANK" ? <Landmark size={18} /> : <Wallet size={18} />}
                   {destinationMethods[m]}
-                </label>
+                </span>
               ))}
             </div>
-            {method === "BANK" ? (
+            {!method && <p className="hint">يتحدد حسب منصة الطلب: اختر المنصة أولاً.</p>}
+            {method === "BANK" && (
               <div className="form-grid">
                 <Field label="اسم صاحب الحساب">
                   <input name="holder" required minLength={3} maxLength={100} autoComplete="off" />
@@ -332,7 +337,11 @@ function NewRefund({
                   />
                 </Field>
               </div>
-            ) : (
+            )}
+            {method === "WALLET" && (
+              <p className="hint">يُعاد المبلغ إلى محفظة العميل من لوحة تحكم تطبيق واقف.</p>
+            )}
+            {method === "WALLET" && (
               <div className="form-grid">
                 <Field label="رقم الجوال المرتبط بالمحفظة">
                   <input

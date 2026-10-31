@@ -1,19 +1,26 @@
 /*
  * What a new refund request needs: one of three order platforms, an amount, and
- * where the money goes back to (the customer's bank account or wallet).
+ * where the money goes back to, which follows from the platform:
+ *   - Waqf App orders go back to the customer's wallet, from the Waqf App dashboard;
+ *   - phone and in-branch orders go back by bank transfer (holder + IBAN).
  * The destination is stored encrypted next to the refund (outbox key
  * "refunddest:<refundId>"), never in Telegram messages beyond a masked hint.
  */
 
-export const REFUND_PLATFORMS = ["تطبيق واقف", "طلب هاتف", "الفرع مباشرة"] as const;
+export const APP_PLATFORM = "تطبيق واقف";
+export const REFUND_PLATFORMS = [APP_PLATFORM, "طلب هاتف", "الفرع مباشرة"] as const;
 
 export type RefundDestination =
   { method: "BANK"; holder: string; iban: string } | { method: "WALLET"; phone: string };
 
 export const destinationMethods: Record<RefundDestination["method"], string> = {
-  BANK: "الحساب البنكي للعميل",
-  WALLET: "محفظة العميل",
+  BANK: "تحويل بنكي لحساب العميل",
+  WALLET: "محفظة العميل في تطبيق واقف",
 };
+
+/** How a refund for this platform is made: the app wallet for app orders, else a bank transfer. */
+export const methodForPlatform = (platform: string): RefundDestination["method"] =>
+  platform === APP_PLATFORM ? "WALLET" : "BANK";
 
 export const normalizeIban = (s: string) => s.replace(/[\s-]/g, "").toUpperCase();
 

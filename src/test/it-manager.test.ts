@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { permissionsForRole } from "@/lib/domain";
 import { canOpenView } from "@/aliz/access";
-import { destinationHint, normalizeIban, validIban } from "@/lib/refund-request";
+import { destinationHint, methodForPlatform, normalizeIban, validIban } from "@/lib/refund-request";
 
 describe("IT manager", () => {
   const perms = permissionsForRole("IT_MANAGER");
@@ -32,7 +32,15 @@ describe("refund destination", () => {
   it("shows only the last digits in alerts", () => {
     expect(
       destinationHint({ method: "BANK", holder: "Test", iban: "SA0380000000608010167519" }),
-    ).toBe("الحساب البنكي للعميل (ينتهي بـ 7519)");
+    ).toBe("تحويل بنكي لحساب العميل (ينتهي بـ 7519)");
     expect(destinationHint({ method: "WALLET", phone: "966500000123" })).toContain("0123");
+  });
+});
+
+describe("refund method follows the platform", () => {
+  it("app orders go to the app wallet, phone and branch orders by bank transfer", () => {
+    expect(methodForPlatform("تطبيق واقف")).toBe("WALLET");
+    expect(methodForPlatform("طلب هاتف")).toBe("BANK");
+    expect(methodForPlatform("الفرع مباشرة")).toBe("BANK");
   });
 });
