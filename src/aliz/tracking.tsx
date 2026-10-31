@@ -206,7 +206,10 @@ export default function Tracking({ token }: { token: string }) {
             </p>
           )}
           <p className="hint tk-hint">
-            هذا الرابط خاص بك ويعرض حالة بلاغك فقط. احفظه للرجوع له في أي وقت.
+            هذا الرابط خاص بك ويعرض حالة بلاغك فقط. احفظه للرجوع له في أي وقت.{" "}
+            <a href="/privacy" target="_blank" rel="noopener">
+              إشعار الخصوصية
+            </a>
           </p>
         </>
       )}

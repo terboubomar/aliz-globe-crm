@@ -7820,3 +7820,53 @@ th {
   font-size: 12px;
   color: var(--muted);
 }
+
+/* Customer privacy notice (/privacy). */
+.privacy-page {
+  padding-bottom: calc(40px + env(safe-area-inset-bottom));
+}
+.privacy-head {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin: 6px 0 16px;
+}
+.privacy-head > span {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: #eef7f2;
+  color: var(--green);
+  flex-shrink: 0;
+}
+.privacy-head h1 {
+  font-size: 21px;
+  margin: 0;
+}
+.privacy-head small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.privacy-section h2 {
+  font-size: 16px;
+  margin: 0 0 8px;
+}
+.privacy-section p,
+.privacy-section li {
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--ink);
+  margin: 0 0 6px;
+}
+.privacy-section ul {
+  margin: 0 0 6px;
+  padding-inline-start: 20px;
+}
+.public-privacy a,
+.qf-consent a,
+.tk-hint a {
+  color: var(--burgundy);
+  font-weight: 700;
+}

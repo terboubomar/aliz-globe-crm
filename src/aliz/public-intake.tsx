@@ -509,8 +509,12 @@ export default function PublicIntake({ code }: { code: string }) {
               <div className="public-privacy">
                 <ShieldCheck size={19} />
                 <p>
-                  نستخدم معلوماتك فقط لمعالجة البلاغ والتواصل معك بخصوصه. لا ترفق بيانات دفع أو
-                  مستندات شخصية.
+                  تستخدم شركة أليز غلوب معلوماتك فقط لمعالجة بلاغك والتواصل معك بخصوصه، ولا نبيعها
+                  أو نستخدمها للتسويق. نحتفظ بها سنتين بعد إغلاق البلاغ ثم نحذفها. لا ترفق بيانات
+                  دفع أو مستندات شخصية.{" "}
+                  <a href="/privacy" target="_blank" rel="noopener">
+                    اقرأ إشعار الخصوصية
+                  </a>
                 </p>
               </div>
               <label className="checkbox qf-consent">
@@ -519,7 +523,13 @@ export default function PublicIntake({ code }: { code: string }) {
                   checked={consent}
                   onChange={(e) => setConsent(e.target.checked)}
                 />
-                اطلعت على إشعار الخصوصية وأوافق على تسجيل البلاغ.
+                <span>
+                  اطلعت على{" "}
+                  <a href="/privacy" target="_blank" rel="noopener">
+                    إشعار الخصوصية
+                  </a>{" "}
+                  وأوافق على تسجيل البلاغ ومعالجة بياناتي لهذا الغرض.
+                </span>
               </label>
             </section>
 
