@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
-import { ArrowLeft, Clock, Headphones, MessageSquare, Phone, Search } from "lucide-react";
-import { Data, Ticket, categories, date, n, risk, states, api } from "./types";
+import { AlertTriangle, Clock, Headphones, MessageSquare, Phone, Search } from "lucide-react";
+import { Data, Ticket, categories, n, risk, states, api } from "./types";
 import { Empty } from "./ui";
+import { AttentionStrip, CaseRow, DashHello, KpiCards } from "./dashboard-bits";
+import { riyadhDay } from "./schedule-time";
 export function agentQueue(t: Ticket, id: string) {
   if (t.state === "CLOSED") return "closed";
   if (t.state === "RESOLVED" && t.communicationsOwner === id) return "contact";
@@ -73,13 +75,34 @@ export function AgentWorkspace({
         t.creator === data.me.id),
   );
   const count = (key: string) => scoped.filter((t) => agentQueue(t, data.me.id) === key).length;
+  const lateCount = scoped.filter((t) => t.state !== "CLOSED" && risk(t) === "late").length;
+  const openCount = scoped.filter((t) => t.state !== "CLOSED").length;
+  const today = riyadhDay(new Date());
+  const shift = data.shifts.find(
+    (x) => x.userId === data.me.id && !x.cancelledAt && !x.dayOff && riyadhDay(x.start) === today,
+  );
+  const hm = (iso: string) =>
+    new Intl.DateTimeFormat("ar-SA-u-nu-latn", {
+      hour: "numeric",
+      minute: "2-digit",
+      timeZone: "Asia/Riyadh",
+    }).format(new Date(iso));
+  const helloLine =
+    (openCount
+      ? `لديك ${n(openCount)} شكاوى مفتوحة${lateCount ? `، منها ${n(lateCount)} متأخرة` : ""}.`
+      : "لا توجد شكاوى مفتوحة عليك الآن.") +
+    (shift ? ` ورديتك اليوم ${hm(shift.start)} – ${hm(shift.end)}.` : "");
   const tickets = browseAll
     ? remote.tickets
     : scoped
         .filter(
           (t) =>
             (queue === "all" ||
-              (queue === "open" ? t.state !== "CLOSED" : agentQueue(t, data.me.id) === queue)) &&
+              (queue === "open"
+                ? t.state !== "CLOSED"
+                : queue === "late"
+                  ? t.state !== "CLOSED" && risk(t) === "late"
+                  : agentQueue(t, data.me.id) === queue)) &&
             (!search ||
               [
                 t.number,
@@ -103,6 +126,7 @@ export function AgentWorkspace({
     { id: "open", label: browseAll ? "الشكاوى المفتوحة" : "عملي المفتوح" },
     { id: "working", label: "جارٍ العمل" },
     { id: "contact", label: "التواصل مع العميل" },
+    ...(!browseAll ? [{ id: "late", label: "متأخرة عن المهلة" }] : []),
     { id: "waiting", label: "بانتظار الإسناد" },
     { id: "escalated", label: "قيد التصعيد" },
     ...(!browseAll ? [{ id: "tracking", label: "للمتابعة فقط" }] : []),
@@ -112,26 +136,44 @@ export function AgentWorkspace({
   return (
     <div className="agent-workspace">
       {!browseAll && (
-        <section className="agent-work-counters" aria-label="ملخص عملي">
-          {[
-            { id: "working", label: "بانتظار البدء أو جارٍ العمل", icon: Headphones },
-            { id: "contact", label: "تحتاج تواصلاً مع العميل", icon: MessageSquare },
-            { id: "waiting", label: "سجلتها وبانتظار الإسناد", icon: Clock },
-          ].map((c) => (
-            <button
-              className={queue === c.id ? "selected" : ""}
-              key={c.id}
-              onClick={() => setQueue(c.id)}
-            >
-              <c.icon size={22} />
-              <div>
-                <b>{n(count(c.id))}</b>
-                <span>{c.label}</span>
-              </div>
-              <ArrowLeft size={17} />
-            </button>
-          ))}
-        </section>
+        <>
+          <DashHello name={data.me.name} line={helloLine} />
+          <KpiCards
+            selected={queue}
+            onPick={(key) => setQueue(queue === key ? "open" : key)}
+            items={[
+              {
+                key: "working",
+                label: "بانتظار البدء أو جارٍ العمل",
+                value: count("working"),
+                icon: Headphones,
+                tone: "burgundy",
+              },
+              {
+                key: "contact",
+                label: "تحتاج تواصلاً مع العميل",
+                value: count("contact"),
+                icon: MessageSquare,
+                tone: "blue",
+              },
+              {
+                key: "late",
+                label: "متأخرة عن المهلة",
+                value: lateCount,
+                icon: AlertTriangle,
+                tone: "red",
+              },
+              {
+                key: "waiting",
+                label: "سجلتها وبانتظار الإسناد",
+                value: count("waiting"),
+                icon: Clock,
+                tone: "amber",
+              },
+            ]}
+          />
+          <AttentionStrip tickets={scoped} onOpen={onOpen} />
+        </>
       )}
       <section className="panel agent-queue">
         <div className="panel-head">
@@ -214,10 +256,9 @@ export function AgentWorkspace({
             }
           />
         ) : (
-          <div className="agent-ticket-list">
+          <div className="dash-case-list">
             {tickets.map((t) => {
-              const stage = agentQueue(t, data.me.id),
-                late = t.state !== "CLOSED" && risk(t) === "late";
+              const stage = agentQueue(t, data.me.id);
               const next =
                 stage === "contact"
                   ? "التواصل مع العميل"
@@ -231,51 +272,23 @@ export function AgentWorkspace({
                         ? "متابعة التصعيد"
                         : "عرض الشكوى";
               return (
-                <article
-                  className={"agent-ticket " + (t.priority === "P1" ? "urgent" : "")}
+                <CaseRow
                   key={t.id}
-                >
-                  <div className="agent-ticket-heading">
-                    <strong dir="ltr">{t.number}</strong>
-                    <span className={"badge " + (t.priority === "P1" ? "red" : "neutral")}>
-                      {t.priority === "P1" ? "حرجة" : t.priority === "P2" ? "عالية" : "عادية"}
-                    </span>
-                    <span className="badge neutral">
-                      {browseAll
-                        ? states[t.state]
-                        : stage === "escalated"
-                          ? "قيد التصعيد"
-                          : stage === "waiting"
-                            ? "بانتظار الإسناد"
-                            : stage === "tracking"
-                              ? "للمتابعة فقط"
-                              : states[t.state]}
-                    </span>
-                    {late && (
-                      <span className="agent-overdue">
-                        <Clock size={13} />
-                        تحتاج انتباهك
-                      </span>
-                    )}
-                  </div>
-                  <div className="agent-ticket-body">
-                    <img src={"/logos/" + t.brand.logo} alt={t.brand.name} />
-                    <div>
-                      <h3>{categories[t.category]}</h3>
-                      <p>
-                        {t.brand.name} — {t.branch?.name ?? "لم يُحدد الفرع"}
-                      </p>
-                      <small>
-                        استُقبلت {date(t.receivedAt)}
-                        {t.externalOrder && " · الطلب " + t.externalOrder}
-                      </small>
-                    </div>
-                    <button className="secondary" onClick={() => onOpen(t.id)}>
-                      {next}
-                      <ArrowLeft size={16} />
-                    </button>
-                  </div>
-                </article>
+                  t={t}
+                  onOpen={onOpen}
+                  action={next}
+                  status={
+                    browseAll
+                      ? states[t.state]!
+                      : stage === "escalated"
+                        ? "قيد التصعيد"
+                        : stage === "waiting"
+                          ? "بانتظار الإسناد"
+                          : stage === "tracking"
+                            ? "للمتابعة فقط"
+                            : states[t.state]!
+                  }
+                />
               );
             })}
           </div>

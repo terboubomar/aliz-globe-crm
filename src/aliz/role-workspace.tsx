@@ -1,5 +1,19 @@
 import { useState } from "react";
-import { ArrowLeft, Search, Users, Building2, QrCode, Wallet } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  Building2,
+  CheckCheck,
+  Inbox,
+  MessageSquare,
+  QrCode,
+  Search,
+  Siren,
+  Ticket as TicketIcon,
+  Users,
+  Wallet,
+} from "lucide-react";
+import { AttentionStrip, CaseRow, DashHello, KpiCards, type Kpi } from "./dashboard-bits";
 import {
   Data,
   SummaryCounts,
@@ -12,6 +26,16 @@ import {
   summaryFor,
 } from "./types";
 import { Empty } from "./ui";
+const KPI_LOOK: Record<string, Pick<Kpi, "icon" | "tone">> = {
+  open: { icon: TicketIcon, tone: "burgundy" },
+  waiting: { icon: Inbox, tone: "amber" },
+  contact: { icon: MessageSquare, tone: "blue" },
+  escalated: { icon: Siren, tone: "red" },
+  urgent: { icon: AlertTriangle, tone: "red" },
+  late: { icon: AlertTriangle, tone: "red" },
+  closed: { icon: CheckCheck, tone: "green" },
+  refunds: { icon: Wallet, tone: "amber" },
+};
 const unassigned = (t: Ticket) => !t.resolutionOwner || t.resolutionOwner === t.branchId;
 const finished = (status: string) => ["COMPLETED", "REJECTED"].includes(status);
 export function RoleWorkspace({
@@ -117,6 +141,13 @@ export function RoleWorkspace({
             key: executive ? "refunds" : "late",
           },
         ];
+  const lateNow = count("late", late.length),
+    openNow = count("active", active.length);
+  const helloLine = openNow
+    ? `${n(openNow)} شكاوى مفتوحة${lateNow ? `، منها ${n(lateNow)} متأخرة` : ""}${
+        lead && waiting.length ? ` و${n(count("waiting", waiting.length))} بانتظار الإسناد` : ""
+      }.`
+    : "لا توجد شكاوى مفتوحة الآن ضمن نطاقك.";
   const shortCuts = superadmin
     ? [
         {
@@ -165,19 +196,19 @@ export function RoleWorkspace({
     <div className={"role-workspace role-" + role.toLowerCase()}>
       {!recordsOnly && (
         <>
-          <section className="role-metrics" aria-label="مؤشرات مساحة العمل">
-            {metrics.map((m) => (
-              <button
-                key={m.label}
-                className={queue === m.key ? "selected" : ""}
-                onClick={() => (m.key === "refunds" ? onNavigate("refunds") : setQueue(m.key))}
-              >
-                <span>{m.label}</span>
-                <b>{n(m.value)}</b>
-                <ArrowLeft size={17} />
-              </button>
-            ))}
-          </section>
+          <DashHello name={data.me.name} line={helloLine} />
+          <KpiCards
+            selected={queue}
+            onPick={(key) =>
+              key === "refunds" ? onNavigate("refunds") : setQueue(queue === key ? "open" : key)
+            }
+            items={metrics.map((m): Kpi => ({
+              ...m,
+              icon: KPI_LOOK[m.key]!.icon,
+              tone: KPI_LOOK[m.key]!.tone,
+            }))}
+          />
+          <AttentionStrip tickets={cases} onOpen={onOpen} />
           {!!shortCuts.length && (
             <section className="role-shortcuts" aria-label="اختصارات الدور">
               {shortCuts.map((s) => (
@@ -378,32 +409,23 @@ export function RoleWorkspace({
             }
           />
         ) : (
-          <div className="role-case-list">
+          <div className="dash-case-list">
             {visible.slice(0, recordsOnly ? 500 : 12).map((t) => (
-              <article key={t.id}>
-                <div>
-                  <b dir="ltr">{t.number}</b>
-                  <h3>
-                    {categories[t.category]} — {t.branch?.name ?? "فرع غير محدد"}
-                  </h3>
-                  <p>
-                    {t.brand.name} · استُقبلت {date(t.receivedAt)}
-                  </p>
-                </div>
-                <span className={"badge " + (t.priority === "P1" ? "red" : "neutral")}>
-                  {t.priority === "P1" ? "حرجة" : states[t.state]}
-                </span>
-                <button className="secondary" onClick={() => onOpen(t.id)}>
-                  {executive
+              <CaseRow
+                key={t.id}
+                t={t}
+                onOpen={onOpen}
+                status={states[t.state]!}
+                action={
+                  executive
                     ? "عرض التفاصيل"
                     : operations
                       ? "متابعة التصعيد"
                       : unassigned(t) && data.permissions.includes("assign")
                         ? "إسناد الشكوى"
-                        : "متابعة الشكوى"}
-                  <ArrowLeft size={16} />
-                </button>
-              </article>
+                        : "متابعة الشكوى"
+                }
+              />
             ))}
           </div>
         )}
