@@ -46,9 +46,10 @@ describe("refund destination", () => {
 describe("refund methods per platform", () => {
   it("offers the wallet and a bank transfer everywhere, in each platform's order", () => {
     expect(methodsForPlatform("طلب هاتف")).toEqual(["WALLET", "BANK"]);
-    expect(methodsForPlatform("تطبيق واقف")).toEqual(["BANK", "WALLET"]);
+    expect(methodsForPlatform("تطبيق واقف")).toEqual(["APP_BANK", "WALLET"]);
     expect(methodsForPlatform("الفرع مباشرة")).toEqual(["WALLET", "BANK"]);
-    expect(methodLabel("BANK", "تطبيق واقف")).toContain("لوحة تحكم تطبيق واقف");
+    expect(methodLabel("APP_BANK")).toContain("لوحة تحكم تطبيق واقف");
+    expect(destinationHint({ method: "APP_BANK" })).toContain("برقم الطلب");
     expect(methodLabel("BANK", "طلب هاتف")).toBe("تحويل بنكي لحساب العميل");
   });
 });

@@ -63,6 +63,16 @@ const destinationInput = z.discriminatedUnion("method", [
     method: z.literal("WALLET"),
     phone: z.string().trim().regex(saudiMobile, "أدخل رقم جوال سعودي صحيح للمحفظة").transform(normalizePhone),
   }),
+  z.object({
+    method: z.literal("APP_BANK"),
+    phone: z
+      .string()
+      .trim()
+      .optional()
+      .transform((v) => (v ? v : undefined))
+      .refine((v) => !v || saudiMobile.test(v), "أدخل رقم جوال سعودي صحيح")
+      .transform((v) => (v ? normalizePhone(v) : undefined)),
+  }),
 ]);
 // New requests: refunds only, one of the refund platforms, an amount, and where the money goes.
 const requestInput = z.object({
