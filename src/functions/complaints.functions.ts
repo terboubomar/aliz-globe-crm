@@ -19,7 +19,7 @@ export const getBootstrap = createServerFn({ method: "POST" })
     const [{ data: brands }, { data: branches }, staff, s] = await Promise.all([
       context.supabase.from("brands").select("*").order("created_at"),
       context.supabase.from("branches").select("*").order("name"),
-      c.staffDirectory(a.role === "SUPER_ADMIN" ? ["waqf", "kabab", "batatisyon", "mazmuzil", "shawarman", ...a.brandIds] : a.brandIds),
+      c.staffDirectory(a.role === "SUPER_ADMIN" ? ["waqf", "kabab", "batatisyon", "mazmuzil", ...a.brandIds] : a.brandIds),
       c.settings(),
     ]);
     const lists = await c.catalog();
