@@ -29,6 +29,8 @@ import {
   Send,
   Building2,
   Upload,
+  PanelRightClose,
+  PanelRightOpen,
 } from "lucide-react";
 import {
   Data,
@@ -98,6 +100,7 @@ export default function CRM() {
     [search, setSearch] = useState(""),
     [filter, setFilter] = useState("all"),
     [menu, setMenu] = useState(false),
+    [rail, setRail] = useState(true),
     [modal, setModal] = useState<string | null>(null),
     [selected, setSelected] = useState<string | null>(null),
     [toast, setToast] = useState(""),
@@ -191,6 +194,23 @@ export default function CRM() {
     }
     return undefined;
   }, [toast]);
+  // Whether the navigation rail is visible is the staff member's own choice,
+  // remembered between visits. Read after mount so the first render matches
+  // the server-rendered markup.
+  useEffect(() => {
+    try {
+      setRail(localStorage.getItem("aliz-sidebar") !== "hidden");
+    } catch {
+      /* storage unavailable: keep the rail open */
+    }
+  }, []);
+  useEffect(() => {
+    try {
+      localStorage.setItem("aliz-sidebar", rail ? "shown" : "hidden");
+    } catch {
+      /* storage unavailable: nothing to remember */
+    }
+  }, [rail]);
   async function mutate(path: string, body?: unknown) {
     setBusy(true);
     try {
@@ -210,7 +230,7 @@ export default function CRM() {
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setMenu(false);
-        document.querySelector<HTMLButtonElement>('[aria-controls="crm-sidebar"]')?.focus();
+        document.querySelector<HTMLButtonElement>('.mobile-only[aria-controls="crm-sidebar"]')?.focus();
       }
     };
     window.addEventListener("keydown", closeOnEscape);
@@ -297,7 +317,7 @@ export default function CRM() {
     }
   };
   return (
-    <div className="app-shell">
+    <div className={"app-shell " + (rail ? "" : "rail-hidden")}>
       <aside
         id="crm-sidebar"
         aria-label="القائمة الجانبية"
@@ -308,7 +328,7 @@ export default function CRM() {
             <img src="/logos/aliz.webp" alt="Aliz Globe Company" />
             <span>
               <b>أليز غلوب</b>
-              <small>إدارة تجربة العملاء</small>
+              <small>CRM</small>
             </span>
           </a>
           <button
@@ -412,6 +432,17 @@ export default function CRM() {
       <div className="main-shell">
         <header className="topbar">
           <div className="breadcrumb">
+            <button
+              type="button"
+              className="icon-btn sidebar-toggle"
+              aria-label={rail ? "إخفاء القائمة الجانبية" : "إظهار القائمة الجانبية"}
+              title={rail ? "إخفاء القائمة الجانبية" : "إظهار القائمة الجانبية"}
+              aria-expanded={rail}
+              aria-controls="crm-sidebar"
+              onClick={() => setRail(!rail)}
+            >
+              {rail ? <PanelRightClose size={19} /> : <PanelRightOpen size={19} />}
+            </button>
             <button
               className="icon-btn mobile-only"
               aria-label="فتح القائمة"
