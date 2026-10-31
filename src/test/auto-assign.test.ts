@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// Automatic assignment: the new complaint goes to the agent with the fewest open
-// cases, preferring agents on shift. Synthetic data only.
+// Automatic assignment: the new complaint goes to the on-shift agent with the
+// fewest open cases; with nobody on shift it waits for the next shift.
+// Synthetic data only.
 
 type Row = Record<string, unknown>;
 const db = vi.hoisted(() => ({
@@ -114,7 +115,7 @@ describe("choosing the agent", () => {
     expect(pickAgent([c("a", 3), c("b", 0), c("c", 1)])?.id).toBe("b");
   });
 
-  it("prefers agents on shift, and breaks ties by fewest cases today", () => {
+  it("only picks agents on shift, and breaks ties by fewest cases today", () => {
     expect(
       pickAgent([
         { id: "off", name: "a", open: 0, recent: 0, onShift: false },
@@ -127,6 +128,7 @@ describe("choosing the agent", () => {
         { id: "quiet-today", name: "b", open: 1, recent: 1, onShift: true },
       ])?.id,
     ).toBe("quiet-today");
+    expect(pickAgent([{ id: "off", name: "a", open: 0, recent: 0, onShift: false }])).toBeNull();
   });
 });
 
@@ -146,6 +148,7 @@ describe("assigning a new complaint", () => {
       openCase("a2"),
     );
     db.tables["tickets"]!.push(openCase("a2", "CLOSED"), openCase("a2", "RESOLVED"));
+    db.tables["shifts"] = [shift("a3"), shift("a2"), shift("other-brand")];
     expect(await autoAssign(NEW_ID, now)).toBe("a2");
     const call = db.rpc.mock.calls[0]![1];
     expect(call).toMatchObject({
@@ -155,7 +158,32 @@ describe("assigning a new complaint", () => {
       _events: [{ type: "AUTO_ASSIGNED" }],
       p: { state: "ASSIGNED", resolution_owner: "a2", communications_owner: "a2" },
     });
+    expect(call._timers).toHaveLength(1);
     expect(call._timers[0]).toMatchObject({ op: "upsert", milestone: "ACKNOWLEDGMENT" });
+  });
+
+  it("waits when nobody is on shift", async () => {
+    db.tables["user_roles"] = [agent("a1", "Agent")];
+    db.tables["shifts"] = [
+      shift("a1", { start_at: "2026-10-28T13:00:00Z", end_at: "2026-10-28T21:00:00Z" }),
+    ];
+    expect(await autoAssign(NEW_ID, now)).toBeNull();
+    expect(db.rpc).not.toHaveBeenCalled();
+  });
+
+  it("restarts every deadline from assignment after waiting for a shift", async () => {
+    db.tables["tickets"]![0]!["received_at"] = "2026-10-28T02:00:00Z";
+    db.tables["user_roles"] = [agent("a1", "Agent")];
+    db.tables["shifts"] = [shift("a1")];
+    expect(await autoAssign(NEW_ID, now)).toBe("a1");
+    const timers = db.rpc.mock.calls[0]![1]._timers as { milestone: string; due_at: string }[];
+    expect(timers.map((t) => t.milestone).sort()).toEqual([
+      "ACKNOWLEDGMENT",
+      "FIRST_ACTION",
+      "REMEDY",
+    ]);
+    const first = timers.find((t) => t.milestone === "FIRST_ACTION")!;
+    expect(first.due_at).toBe(new Date(+now + 60 * 60_000).toISOString());
   });
 
   it("skips agents on a break or off shift when someone else is working", async () => {

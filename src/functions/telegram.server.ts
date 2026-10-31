@@ -479,7 +479,11 @@ export async function notifyNewComplaint(ticketId: string) {
       title,
       "",
       ...ticketLines(info),
-      owner ? `👤 أُسندت تلقائياً إلى: ${esc(owner.name)}` : "📥 لم تُسند بعد",
+      owner
+        ? `👤 أُسندت تلقائياً إلى: ${esc(owner.name)}`
+        : (await settings()).autoAssign
+          ? "⏳ لا يوجد موظف مناوب الآن — ستُسند تلقائياً عند بدء أول وردية"
+          : "📥 لم تُسند بعد",
     ].join("\n");
     for (const a of admins ?? []) {
       const chat = await chatOf(a.user_id);

@@ -193,14 +193,15 @@ export const complaintActions = [
 
 export type SlaPolicy = {
   version: string;
-  p1First: number; p1Ack: number; p2First: number; p2Ack: number; p2Remedy: number;
+  p1First: number; p1Ack: number; p1Remedy?: number; p2First: number; p2Ack: number; p2Remedy: number;
   p3First: number; p3Ack: number; p3Remedy: number;
 };
 export function slaMilestones(priority: string, received: Date, p: SlaPolicy, assigned?: Date) {
   const key = priority.toLowerCase() as "p1" | "p2" | "p3";
   const first = p[`${key}First` as keyof SlaPolicy] as number;
   const ack = p[`${key}Ack` as keyof SlaPolicy] as number;
-  const remedy = key === "p1" ? null : (p[`${key}Remedy` as keyof SlaPolicy] as number);
+  const r = p[`${key}Remedy` as keyof SlaPolicy];
+  const remedy = typeof r === "number" && r > 0 ? r : null;
   const at = (base: Date, m: number, f = 1) => new Date(+base + m * 60000 * f).toISOString();
   return [
     { milestone: "FIRST_ACTION", due_at: at(received, first), warning_at: at(received, first, 0.8) },

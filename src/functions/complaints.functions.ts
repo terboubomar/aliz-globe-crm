@@ -41,6 +41,7 @@ export const getBootstrap = createServerFn({ method: "POST" })
         financeLimitMinor: s.financeLimitMinor,
         slaVersion: s.sla?.version ?? "PENDING",
         slaApproved: !!s.sla?.approved,
+        slaPolicy: s.sla ?? null,
         whatsapp: live.whatsapp,
         email: live.email,
         telegram: s.telegram,
