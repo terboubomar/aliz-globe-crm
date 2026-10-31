@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as QCodeRouteImport } from './routes/q.$code'
 import { Route as TrackTokenRouteImport } from './routes/track.$token'
+import { Route as ApiPublicCronAssignRouteImport } from './routes/api/public/cron/assign'
 import { Route as ApiPublicCronReceiptsRouteImport } from './routes/api/public/cron/receipts'
 import { Route as ApiPublicCronScheduleRouteImport } from './routes/api/public/cron/schedule'
 import { Route as ApiPublicCronTelegramRouteImport } from './routes/api/public/cron/telegram'
@@ -31,6 +32,11 @@ const QCodeRoute = QCodeRouteImport.update({
 const TrackTokenRoute = TrackTokenRouteImport.update({
   id: '/track/$token',
   path: '/track/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicCronAssignRoute = ApiPublicCronAssignRouteImport.update({
+  id: '/api/public/cron/assign',
+  path: '/api/public/cron/assign',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicCronReceiptsRoute = ApiPublicCronReceiptsRouteImport.update({
@@ -65,6 +71,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/q/$code': typeof QCodeRoute
   '/track/$token': typeof TrackTokenRoute
+  '/api/public/cron/assign': typeof ApiPublicCronAssignRoute
   '/api/public/cron/receipts': typeof ApiPublicCronReceiptsRoute
   '/api/public/cron/schedule': typeof ApiPublicCronScheduleRoute
   '/api/public/cron/telegram': typeof ApiPublicCronTelegramRoute
@@ -75,6 +82,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/q/$code': typeof QCodeRoute
   '/track/$token': typeof TrackTokenRoute
+  '/api/public/cron/assign': typeof ApiPublicCronAssignRoute
   '/api/public/cron/receipts': typeof ApiPublicCronReceiptsRoute
   '/api/public/cron/schedule': typeof ApiPublicCronScheduleRoute
   '/api/public/cron/telegram': typeof ApiPublicCronTelegramRoute
@@ -86,6 +94,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/q/$code': typeof QCodeRoute
   '/track/$token': typeof TrackTokenRoute
+  '/api/public/cron/assign': typeof ApiPublicCronAssignRoute
   '/api/public/cron/receipts': typeof ApiPublicCronReceiptsRoute
   '/api/public/cron/schedule': typeof ApiPublicCronScheduleRoute
   '/api/public/cron/telegram': typeof ApiPublicCronTelegramRoute
@@ -98,6 +107,7 @@ export interface FileRouteTypes {
     | '/'
     | '/q/$code'
     | '/track/$token'
+    | '/api/public/cron/assign'
     | '/api/public/cron/receipts'
     | '/api/public/cron/schedule'
     | '/api/public/cron/telegram'
@@ -108,6 +118,7 @@ export interface FileRouteTypes {
     | '/'
     | '/q/$code'
     | '/track/$token'
+    | '/api/public/cron/assign'
     | '/api/public/cron/receipts'
     | '/api/public/cron/schedule'
     | '/api/public/cron/telegram'
@@ -118,6 +129,7 @@ export interface FileRouteTypes {
     | '/'
     | '/q/$code'
     | '/track/$token'
+    | '/api/public/cron/assign'
     | '/api/public/cron/receipts'
     | '/api/public/cron/schedule'
     | '/api/public/cron/telegram'
@@ -129,6 +141,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   QCodeRoute: typeof QCodeRoute
   TrackTokenRoute: typeof TrackTokenRoute
+  ApiPublicCronAssignRoute: typeof ApiPublicCronAssignRoute
   ApiPublicCronReceiptsRoute: typeof ApiPublicCronReceiptsRoute
   ApiPublicCronScheduleRoute: typeof ApiPublicCronScheduleRoute
   ApiPublicCronTelegramRoute: typeof ApiPublicCronTelegramRoute
@@ -157,6 +170,13 @@ declare module '@tanstack/react-router' {
       path: '/track/$token'
       fullPath: '/track/$token'
       preLoaderRoute: typeof TrackTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/cron/assign': {
+      id: '/api/public/cron/assign'
+      path: '/api/public/cron/assign'
+      fullPath: '/api/public/cron/assign'
+      preLoaderRoute: typeof ApiPublicCronAssignRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/cron/receipts': {
@@ -201,6 +221,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   QCodeRoute: QCodeRoute,
   TrackTokenRoute: TrackTokenRoute,
+  ApiPublicCronAssignRoute: ApiPublicCronAssignRoute,
   ApiPublicCronReceiptsRoute: ApiPublicCronReceiptsRoute,
   ApiPublicCronScheduleRoute: ApiPublicCronScheduleRoute,
   ApiPublicCronTelegramRoute: ApiPublicCronTelegramRoute,

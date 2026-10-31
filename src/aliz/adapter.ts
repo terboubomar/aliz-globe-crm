@@ -27,6 +27,7 @@ import {
   setBranchActive,
   updateBrand,
   updateSetting,
+  updateSla,
   telegramAccount,
   telegramLink,
   telegramConfirm,
@@ -268,6 +269,8 @@ async function bootstrap(): Promise<Data> {
     integrations: { whatsapp: b.flags.whatsapp, email: b.flags.email },
     policy: {
       sla: b.flags.slaVersion,
+      slaApproved: b.flags.slaApproved,
+      slaPolicy: b.flags.slaPolicy,
       finance: b.flags.financeApproved,
       publicIntake: b.flags.publicIntake,
       autoAssign: b.flags.autoAssign,
@@ -695,6 +698,7 @@ async function route(
     const key = at(2) === "email" ? "email_receipts_enabled" : "whatsapp_enabled";
     return updateSetting({ data: { key, value: !!body["enabled"] } });
   }
+  if (is("settings", "sla")) return updateSla({ data: body as never });
   if (is("settings", "require-mfa"))
     return updateSetting({ data: { key: "require_mfa", value: !!body["enabled"] } });
   if (is("settings", "auto-assign"))

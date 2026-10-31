@@ -16,6 +16,7 @@ import {
   FileText,
   ListChecks,
   ShieldCheck,
+  Clock,
 } from "lucide-react";
 import { CATALOG_ROLES } from "@/lib/catalog";
 import { ListsPanel } from "./lists-workspace";
@@ -197,6 +198,7 @@ export function SettingsWorkspace({
                 <PublicIntakeSetting data={data} onMutate={onMutate} />
                 <AutoAssignSetting data={data} onMutate={onMutate} />
                 <RequireMfaSetting data={data} onMutate={onMutate} />
+                <SlaSetting data={data} onMutate={onMutate} />
               </>
             )}
             {shortcuts.length > 0 && (
@@ -446,6 +448,138 @@ function PublicIntakeSetting({
               </button>
             )}
           </div>
+        )}
+        {error && (
+          <p className="error" role="alert">
+            {error}
+          </p>
+        )}
+      </div>
+    </section>
+  );
+}
+
+const SLA_ROWS = [
+  { key: "p1", label: "عاجلة P1" },
+  { key: "p2", label: "عالية P2" },
+  { key: "p3", label: "عادية P3" },
+] as const;
+const SLA_COLS = [
+  { key: "Ack", label: "بدء العمل", hint: "من الإسناد حتى يضغط الموظف «بدء العمل»" },
+  { key: "First", label: "أول إجراء", hint: "من وصول الشكوى حتى أول إجراء عليها" },
+  { key: "Remedy", label: "الحل", hint: "من وصول الشكوى حتى حلها" },
+] as const;
+const SLA_DEFAULT: Record<string, number> = {
+  p1Ack: 5,
+  p1First: 10,
+  p1Remedy: 120,
+  p2Ack: 10,
+  p2First: 15,
+  p2Remedy: 240,
+  p3Ack: 15,
+  p3First: 30,
+  p3Remedy: 1440,
+};
+const asDuration = (m: number) =>
+  !m
+    ? ""
+    : m < 60
+      ? `${n(m)} د`
+      : m % 60
+        ? `${n(Math.floor(m / 60))} س ${n(m % 60)} د`
+        : `${n(m / 60)} س`;
+
+function SlaSetting({
+  data,
+  onMutate,
+}: {
+  data: Data;
+  onMutate: (path: string, body?: unknown) => Promise<unknown>;
+}) {
+  const saved = data.policy.slaPolicy ?? {};
+  const [values, setValues] = useState<Record<string, number>>(() =>
+    Object.fromEntries(
+      Object.entries(SLA_DEFAULT).map(([k, d]) => [
+        k,
+        typeof saved[k] === "number" && (saved[k] as number) > 0 ? (saved[k] as number) : d,
+      ]),
+    ),
+  );
+  const [busy, setBusy] = useState(false),
+    [error, setError] = useState(""),
+    [notice, setNotice] = useState("");
+  const approved = !!data.policy.slaApproved;
+  async function save() {
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      await onMutate("settings/sla", values);
+      setNotice("تم اعتماد المهل. تُطبّق على الشكاوى الجديدة من الآن.");
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <section className="panel settings-intake">
+      <div className="panel-head">
+        <h2>
+          <Clock size={18} />
+          مهل الاستجابة
+        </h2>
+        <span className={"badge " + (approved ? "green" : "amber")}>
+          {approved ? "معتمدة" : "تجريبية"}
+        </span>
+      </div>
+      <div className="padded settings-intake-body">
+        <p>
+          بالدقائق لكل أولوية. الشكوى التي تصل خارج أوقات الورديات تنتظر أول موظف مناوب، وتبدأ مهلها
+          من لحظة إسنادها.
+        </p>
+        <div className="sla-grid" role="table" aria-label="مهل الاستجابة">
+          <div className="sla-row sla-head" role="row">
+            <span role="columnheader">الأولوية</span>
+            {SLA_COLS.map((c) => (
+              <span role="columnheader" key={c.key} title={c.hint}>
+                {c.label}
+                <small>{c.hint}</small>
+              </span>
+            ))}
+          </div>
+          {SLA_ROWS.map((r) => (
+            <div className="sla-row" role="row" key={r.key}>
+              <b role="rowheader">{r.label}</b>
+              {SLA_COLS.map((c) => {
+                const k = r.key + c.key;
+                return (
+                  <label key={k} role="cell">
+                    <input
+                      type="number"
+                      min={1}
+                      max={c.key === "Remedy" ? 20160 : 1440}
+                      inputMode="numeric"
+                      aria-label={`${r.label} — ${c.label} بالدقائق`}
+                      value={values[k] ?? ""}
+                      onChange={(e) => setValues({ ...values, [k]: Number(e.target.value) })}
+                    />
+                    <small>{asDuration(values[k] ?? 0)}</small>
+                  </label>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+        <div className="settings-intake-actions">
+          <button className="primary" disabled={busy} onClick={save}>
+            {busy ? "جارٍ الحفظ…" : "حفظ واعتماد المهل"}
+          </button>
+        </div>
+        {notice && (
+          <p className="notice" role="status">
+            {notice}
+          </p>
         )}
         {error && (
           <p className="error" role="alert">

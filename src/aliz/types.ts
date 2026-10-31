@@ -144,6 +144,8 @@ export type Data = {
     publicIntake: boolean;
     autoAssign?: boolean;
     requireMfa?: boolean;
+    slaApproved?: boolean;
+    slaPolicy?: Record<string, number | string | boolean> | null;
   };
 };
 export {

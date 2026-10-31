@@ -1529,7 +1529,9 @@ function TicketDetail({
             </div>
           ))}
         </div>
-        <p className="hint">مهل تجريبية مقترحة؛ لا تمثل التزاماً معتمداً.</p>
+        {!data.policy.slaApproved && (
+          <p className="hint">مهل تجريبية مقترحة؛ لا تمثل التزاماً معتمداً.</p>
+        )}
       </details>
       <div className="queue-tabs detail-tabs">
         {[

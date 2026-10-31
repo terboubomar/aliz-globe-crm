@@ -7715,3 +7715,51 @@ th {
   margin-inline-start: auto;
   color: var(--muted);
 }
+
+/* Settings → response times grid. */
+.sla-grid {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
+}
+.sla-row {
+  display: grid;
+  grid-template-columns: 110px repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  align-items: center;
+}
+.sla-head span {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.sla-head small {
+  display: block;
+  font-weight: 400;
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+.sla-row label {
+  display: grid;
+  gap: 3px;
+}
+.sla-row input {
+  width: 100%;
+  text-align: center;
+}
+.sla-row label small {
+  font-size: 11px;
+  color: var(--muted);
+  text-align: center;
+  min-height: 15px;
+}
+@media (max-width: 640px) {
+  .sla-row {
+    grid-template-columns: 70px repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+  .sla-head small {
+    display: none;
+  }
+}

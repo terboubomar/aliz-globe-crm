@@ -456,6 +456,34 @@ export const updateSetting = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/* ---------------- Response times (SUPER_ADMIN) ---------------- */
+// Minutes per priority. "First" counts from when the complaint arrives (or from
+// assignment if it waited for a shift), "Ack" from assignment until work
+// starts, "Remedy" until it is solved. New complaints use the new times;
+// existing ones keep the times they were opened with.
+const minutes = (max: number) => z.number().int().min(1).max(max);
+export const updateSla = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({
+      p1First: minutes(1440), p1Ack: minutes(1440), p1Remedy: minutes(20160),
+      p2First: minutes(1440), p2Ack: minutes(1440), p2Remedy: minutes(20160),
+      p3First: minutes(1440), p3Ack: minutes(1440), p3Remedy: minutes(20160),
+    }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const c = await core();
+    const a = await c.requireActor(context as never);
+    if (a.role !== "SUPER_ADMIN") throw new DomainError("FORBIDDEN", 403, "متاح لمدير النظام فقط");
+    const version = "V" + new Date().toISOString().slice(0, 16).replace(/[-:T]/g, "");
+    const value = { ...data, version, approved: true };
+    const db = await c.admin();
+    const { error } = await db.from("app_settings").upsert({ key: "sla_policy", value: value as never, updated_at: new Date().toISOString() });
+    c.rpcError(error);
+    await db.rpc("write_audit", { _actor: a.id, _action: "SLA_POLICY_UPDATED", _entity: version });
+    return value;
+  });
+
 /* ---------------- Private evidence ---------------- */
 export const uploadEvidence = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

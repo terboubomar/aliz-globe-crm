@@ -174,7 +174,12 @@ describe("bootstrap", () => {
     expect(data.me.role).toBe("SHIFT_LEAD");
     expect(data.brands[0]?.logo).toBe("waqf.jpeg");
     expect(data.brands[0]?.branches.map((b) => b.id)).toEqual(["b1"]);
-    expect(data.policy).toEqual({ sla: "SLA-1", finance: false, publicIntake: false });
+    expect(data.policy).toEqual({
+      sla: "SLA-1",
+      finance: false,
+      publicIntake: false,
+      slaApproved: true,
+    });
     const t = data.tickets[0] as Ticket;
     expect(t.brand.name).toBe("واقف");
     expect(t.branch?.name).toBe("فرع أ");
