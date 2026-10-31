@@ -760,6 +760,10 @@ async function route(
       number: r.number,
       state: r.state,
       createdAt: r.receivedAt,
+      logo: r.logo ? logoFile(r.logo) : "",
+      startedAt: r.startedAt,
+      solvedAt: r.solvedAt,
+      closedAt: r.closedAt,
       receipt: {
         number: r.number,
         brand: r.brand,
