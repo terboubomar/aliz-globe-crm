@@ -1,5 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
-import { Check, CheckCircle2, Clock3, RefreshCw, ShieldCheck } from "lucide-react";
+import {
+  Check,
+  CheckCircle2,
+  ClipboardCheck,
+  Clock3,
+  RefreshCw,
+  ShieldCheck,
+  UsersRound,
+  Wrench,
+} from "lucide-react";
 import { api } from "./types";
 import { HelpWidget } from "./public-help";
 import { TRACK_STEPS, trackMessage, trackStep } from "@/lib/tracking-steps";
@@ -21,6 +30,17 @@ const when = (iso?: string | null) =>
         calendar: "gregory",
         day: "numeric",
         month: "long",
+        hour: "numeric",
+        minute: "2-digit",
+        timeZone: "Asia/Riyadh",
+      }).format(new Date(iso))
+    : "";
+
+const STEP_ICONS = [ClipboardCheck, UsersRound, Wrench, CheckCircle2];
+const STEP_SHORT = ["الاستلام", "الفريق", "الحل", "تم"];
+const clock = (iso?: string | null) =>
+  iso
+    ? new Intl.DateTimeFormat("ar-SA-u-nu-latn", {
         hour: "numeric",
         minute: "2-digit",
         timeZone: "Asia/Riyadh",
@@ -96,62 +116,66 @@ export default function Tracking({ token }: { token: string }) {
 
       {data && (
         <>
-          <div className="qf-brand">
-            {data.logo ? <img src={"/logos/" + data.logo} alt="" /> : null}
-            <div>
-              <b>{data.receipt?.brand}</b>
-              <small>{data.receipt?.branch}</small>
+          <section className={"tk-hero " + message.tone} aria-live="polite">
+            <div className="tk-hero-top">
+              {data.logo ? (
+                <span className="tk-hero-logo">
+                  <img src={"/logos/" + data.logo} alt="" />
+                </span>
+              ) : null}
+              <div className="tk-hero-brand">
+                <b>{data.receipt?.brand}</b>
+                <small>{data.receipt?.branch}</small>
+              </div>
+              <div className="tk-hero-number">
+                <small>رقم البلاغ</small>
+                <b dir="ltr">{data.number}</b>
+              </div>
             </div>
-            <div className="tk-number">
-              <small>رقم البلاغ</small>
-              <b dir="ltr">{data.number}</b>
+            <div className="tk-hero-status">
+              <span className="tk-hero-icon" aria-hidden="true">
+                {message.tone === "done" ? <CheckCircle2 size={24} /> : <Clock3 size={24} />}
+              </span>
+              <div>
+                <h1>{message.title}</h1>
+                <p>{message.body}</p>
+              </div>
             </div>
-          </div>
-
-          <section className={"tk-status " + message.tone} aria-live="polite">
-            <span className="tk-status-icon" aria-hidden="true">
-              {message.tone === "done" ? <CheckCircle2 size={26} /> : <Clock3 size={26} />}
-            </span>
-            <div>
-              <h1>{message.title}</h1>
-              <p>{message.body}</p>
-            </div>
-          </section>
-
-          <section className="qf-card">
-            <span className="qf-label">مراحل البلاغ</span>
-            <ol className="tk-steps">
+            <ol className="tk-track" aria-label="مراحل البلاغ">
               {TRACK_STEPS.map((label, i) => {
                 const done = i < step || (i === step && finished);
                 const current = i === step && !finished;
+                const Icon = STEP_ICONS[i]!;
                 return (
                   <li
                     key={label}
                     className={done ? "done" : current ? "current" : ""}
                     aria-current={current ? "step" : undefined}
                   >
-                    <span className="tk-dot" aria-hidden="true">
-                      {done ? <Check size={14} strokeWidth={3} /> : null}
+                    <span className="tk-track-dot" aria-hidden="true">
+                      {done ? (
+                        <Check size={16} strokeWidth={3} />
+                      ) : (
+                        <Icon size={16} strokeWidth={2} />
+                      )}
                     </span>
-                    <div>
-                      <b>{label}</b>
-                      {(done || current) && times[i] ? <small>{when(times[i])}</small> : null}
-                      {current && <small className="tk-now">المرحلة الحالية</small>}
-                    </div>
+                    <b>{STEP_SHORT[i]}</b>
+                    <small>{(done || current) && times[i] ? clock(times[i]) : " "}</small>
+                    <span className="sr-only">{label}</span>
                   </li>
                 );
               })}
             </ol>
           </section>
 
-          <section className="qf-card">
+          <section className="qf-card tk-details">
             <span className="qf-label">تفاصيل البلاغ</span>
-            <dl className="qf-summary">
+            <dl>
               {[
-                ["رقم البلاغ", data.number],
                 ["السبب", data.receipt?.category || "—"],
                 ["الفرع", data.receipt?.branch || "—"],
-                ["وقت الاستلام", when(data.createdAt) || "—"],
+                ["تاريخ الاستلام", when(data.createdAt) || "—"],
+                ["المرحلة", TRACK_STEPS[step]],
               ].map(([k, v]) => (
                 <div key={k}>
                   <dt>{k}</dt>
