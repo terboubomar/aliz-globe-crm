@@ -510,7 +510,6 @@ export function DirectoryWorkspace({
                   <option value="kabab.png">كباب علوم — الشعار المرفق</option>
                   <option value="batatisyon.jpeg">بطاطسيون — الشعار المرفق</option>
                   <option value="mazmuzil.webp">مزمزيل — الشعار المرفق</option>
-                  <option value="shawarman.webp">شاورمان — الشعار المرفق</option>
                 </select>
               </Field>
             </div>

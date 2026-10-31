@@ -76,7 +76,6 @@ const logoFiles: Record<string, string> = {
   kabab: "kabab.png",
   batatisyon: "batatisyon.jpeg",
   mazmuzil: "mazmuzil.webp",
-  shawarman: "shawarman.webp",
   aliz: "aliz.webp",
 };
 const logoFile = (logo: string) => logoFiles[logo] ?? (logo.includes(".") ? logo : "neutral.svg");

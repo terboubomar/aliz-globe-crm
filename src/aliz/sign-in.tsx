@@ -175,7 +175,6 @@ export function SignIn({
             <img src="/logos/kabab.png" alt="كباب علوم" />
             <img src="/logos/batatisyon.jpeg" alt="بطاطسيون" />
             <img src="/logos/mazmuzil.webp" alt="مزمزيل" />
-            <img src="/logos/shawarman.webp" alt="شاورمان" />
           </div>
         </div>
       </section>
