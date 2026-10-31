@@ -247,7 +247,9 @@ export function NewRefund({
               destination:
                 method === "BANK"
                   ? { method, holder: b["holder"], iban: b["iban"] }
-                  : { method, phone: b["walletPhone"] },
+                  : method === "APP_BANK"
+                    ? { method, phone: b["appPhone"] || undefined }
+                    : { method, phone: b["walletPhone"] },
             })) as { id: string };
             onDone(r.id);
           } catch (e) {
@@ -327,7 +329,7 @@ export function NewRefund({
                       checked={method === m}
                       onChange={() => setChosen(m)}
                     />
-                    {m === "BANK" ? <Landmark size={18} /> : <Wallet size={18} />}
+                    {m === "WALLET" ? <Wallet size={18} /> : <Landmark size={18} />}
                     {methodLabel(m, platform)}
                   </label>
                 ))}
@@ -357,8 +359,25 @@ export function NewRefund({
             {method === "WALLET" && (
               <p className="hint">يُعاد المبلغ إلى محفظة العميل من لوحة تحكم تطبيق واقف.</p>
             )}
-            {method === "BANK" && platform === REFUND_PLATFORMS[0] && (
-              <p className="hint">يُنفَّذ التحويل البنكي من لوحة تحكم تطبيق واقف.</p>
+            {method === "APP_BANK" && (
+              <>
+                <p className="hint">
+                  يُنفَّذ التحويل من لوحة تحكم تطبيق واقف برقم الطلب أعلاه أو برقم جوال العميل؛ لا
+                  حاجة لرقم الآيبان.
+                </p>
+                <div className="form-grid">
+                  <Field label="رقم جوال العميل في التطبيق (اختياري)">
+                    <input
+                      name="appPhone"
+                      type="tel"
+                      dir="ltr"
+                      placeholder="05xxxxxxxx"
+                      pattern="(\+?966|0)?5[0-9]{8}"
+                      autoComplete="off"
+                    />
+                  </Field>
+                </div>
+              </>
             )}
             {method === "WALLET" && (
               <div className="form-grid">
@@ -496,17 +515,29 @@ function RefundDetail({
       </div>
       {r.destination && (
         <div className="refund-destination-card">
-          {r.destination.method === "BANK" ? <Landmark size={18} /> : <Wallet size={18} />}
+          {r.destination.method === "WALLET" ? <Wallet size={18} /> : <Landmark size={18} />}
           <div>
             <small>يُعاد المبلغ إلى</small>
             <b>{methodLabel(r.destination.method, r.platform)}</b>
-            {r.destination.method === "BANK" ? (
+            {r.destination.method === "BANK" && (
               <span>
                 {r.destination.holder} — <bdi dir="ltr">{r.destination.iban}</bdi>
               </span>
-            ) : (
+            )}
+            {r.destination.method === "WALLET" && (
               <span>
                 جوال المحفظة: <bdi dir="ltr">{r.destination.phone}</bdi>
+              </span>
+            )}
+            {r.destination.method === "APP_BANK" && (
+              <span>
+                من لوحة تحكم التطبيق برقم الطلب <bdi dir="ltr">{r.externalOrder}</bdi>
+                {r.destination.phone && (
+                  <>
+                    {" "}
+                    أو جوال العميل <bdi dir="ltr">{r.destination.phone}</bdi>
+                  </>
+                )}
               </span>
             )}
           </div>
