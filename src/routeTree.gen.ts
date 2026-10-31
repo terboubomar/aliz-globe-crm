@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as QCodeRouteImport } from './routes/q.$code'
 import { Route as TrackTokenRouteImport } from './routes/track.$token'
 import { Route as ApiPublicCronAssignRouteImport } from './routes/api/public/cron/assign'
@@ -22,6 +23,11 @@ import { Route as ApiPublicWebhooksWhatsappRouteImport } from './routes/api/publ
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const QCodeRoute = QCodeRouteImport.update({
@@ -69,6 +75,7 @@ const ApiPublicWebhooksWhatsappRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/privacy': typeof PrivacyRoute
   '/q/$code': typeof QCodeRoute
   '/track/$token': typeof TrackTokenRoute
   '/api/public/cron/assign': typeof ApiPublicCronAssignRoute
@@ -80,6 +87,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/privacy': typeof PrivacyRoute
   '/q/$code': typeof QCodeRoute
   '/track/$token': typeof TrackTokenRoute
   '/api/public/cron/assign': typeof ApiPublicCronAssignRoute
@@ -92,6 +100,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/privacy': typeof PrivacyRoute
   '/q/$code': typeof QCodeRoute
   '/track/$token': typeof TrackTokenRoute
   '/api/public/cron/assign': typeof ApiPublicCronAssignRoute
@@ -105,6 +114,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/privacy'
     | '/q/$code'
     | '/track/$token'
     | '/api/public/cron/assign'
@@ -116,6 +126,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/privacy'
     | '/q/$code'
     | '/track/$token'
     | '/api/public/cron/assign'
@@ -127,6 +138,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/privacy'
     | '/q/$code'
     | '/track/$token'
     | '/api/public/cron/assign'
@@ -139,6 +151,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  PrivacyRoute: typeof PrivacyRoute
   QCodeRoute: typeof QCodeRoute
   TrackTokenRoute: typeof TrackTokenRoute
   ApiPublicCronAssignRoute: typeof ApiPublicCronAssignRoute
@@ -156,6 +169,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/q/$code': {
@@ -219,6 +239,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  PrivacyRoute: PrivacyRoute,
   QCodeRoute: QCodeRoute,
   TrackTokenRoute: TrackTokenRoute,
   ApiPublicCronAssignRoute: ApiPublicCronAssignRoute,

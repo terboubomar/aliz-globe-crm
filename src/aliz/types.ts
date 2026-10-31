@@ -202,6 +202,8 @@ export const eventNames: Record<string, string> = {
   TRIAGE: "فرز البلاغ",
   ASSIGN: "إسناد البلاغ",
   AUTO_ASSIGNED: "إسناد تلقائي للموظف الأقل حالات",
+  PERSONAL_DATA_REMOVED: "حذف بيانات العميل بعد انتهاء مدة الاحتفاظ",
+  EVIDENCE_EXPIRED: "حذف الصور بعد انتهاء مدة الاحتفاظ",
   ACKNOWLEDGE: "استلام الفرع",
   INVESTIGATE: "بدء المعالجة",
   START: "بدء العمل",
