@@ -59,7 +59,7 @@ export default function PublicIntake({ code }: { code: string }) {
     [platform, setPlatform] = useState(""),
     [externalOrder, setExternalOrder] = useState(""),
     [name, setName] = useState(""),
-    [contact, setContact] = useState<Contact>("call"),
+    [contact, setContact] = useState<Contact>("whatsapp"),
     [phone, setPhone] = useState(""),
     [email, setEmail] = useState(""),
     [consent, setConsent] = useState(false),
@@ -75,7 +75,6 @@ export default function PublicIntake({ code }: { code: string }) {
     api<Context>("public/q/" + code)
       .then((c) => {
         setContext(c);
-        setContact(c.whatsappAvailable ? "whatsapp" : "call");
       })
       .catch((e) => setError(e.message));
   }, [code]);
@@ -86,11 +85,10 @@ export default function PublicIntake({ code }: { code: string }) {
   );
   const platforms = context?.platforms ?? activePlatforms();
   const picked = reasons.find((r) => r.id === category);
-  const contacts: Contact[] = [
-    ...(context?.whatsappAvailable ? (["whatsapp"] as const) : []),
-    "call",
-    ...(context?.emailAvailable ? (["email"] as const) : []),
-  ];
+  // All three ways are always offered: the phone or email is saved with the
+  // complaint either way; the automatic confirmation is sent only when that
+  // channel is switched on.
+  const contacts: Contact[] = ["whatsapp", "call", "email"];
   const previews = useMemo(() => files.map((f) => URL.createObjectURL(f)), [files]);
   useEffect(() => () => previews.forEach((u) => URL.revokeObjectURL(u)), [previews]);
 
@@ -185,10 +183,17 @@ export default function PublicIntake({ code }: { code: string }) {
 
   const sentBy =
     contact === "whatsapp"
-      ? "أرسلنا رقم البلاغ على واتساب. احتفظ فيه للمتابعة."
+      ? context?.whatsappAvailable
+        ? "أرسلنا رقم البلاغ على واتساب. احتفظ فيه للمتابعة."
+        : "بنتواصل معك على واتساب قريباً. احتفظ برقم البلاغ للمتابعة."
       : contact === "email"
-        ? "أرسلنا رقم البلاغ إلى بريدك الإلكتروني."
+        ? context?.emailAvailable
+          ? "أرسلنا رقم البلاغ إلى بريدك الإلكتروني."
+          : "بنتواصل معك عبر بريدك الإلكتروني قريباً. احتفظ برقم البلاغ للمتابعة."
         : "بنتصل عليك قريباً. احتفظ برقم البلاغ للمتابعة.";
+  // Delivery notes only when a confirmation was actually attempted.
+  const quiet = (status?: string) =>
+    !status || ["NOT_REQUESTED", "NOT_CONFIGURED"].includes(status);
 
   return (
     <main className="public-shell qf" ref={top}>
@@ -227,14 +232,15 @@ export default function PublicIntake({ code }: { code: string }) {
             {copied ? <Check size={16} /> : <Copy size={16} />}
             {copied ? "تم نسخ الرابط" : "نسخ رابط المتابعة"}
           </button>
-          {receipt.confirmationStatus && confirmationLabels[receipt.confirmationStatus] && (
+          {!quiet(receipt.confirmationStatus) &&
+            confirmationLabels[receipt.confirmationStatus!] && (
+              <p role="status" className="notice">
+                {confirmationLabels[receipt.confirmationStatus!]}
+              </p>
+            )}
+          {!quiet(receipt.emailStatus) && emailConfirmationLabels[receipt.emailStatus!] && (
             <p role="status" className="notice">
-              {confirmationLabels[receipt.confirmationStatus]}
-            </p>
-          )}
-          {receipt.emailStatus && emailConfirmationLabels[receipt.emailStatus] && (
-            <p role="status" className="notice">
-              {emailConfirmationLabels[receipt.emailStatus]}
+              {emailConfirmationLabels[receipt.emailStatus!]}
             </p>
           )}
           {uploadError && (
