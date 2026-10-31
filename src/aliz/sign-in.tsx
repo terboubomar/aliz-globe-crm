@@ -1,7 +1,7 @@
 import { useState, useEffect, FormEvent } from "react";
 import { api } from "./types";
 import { ArrowLeft, Eye, EyeOff, Fingerprint, LoaderCircle } from "lucide-react";
-import { deviceSupportsPasskey } from "@/lib/passkey-errors";
+import { PASSKEYS_ENABLED, deviceSupportsPasskey } from "@/lib/passkey-errors";
 export function SignIn({
   onSignIn,
   onPasskey,
@@ -20,7 +20,7 @@ export function SignIn({
   const [auth, setAuth] = useState<{ mode: string; available: boolean } | null>(null);
   const [passkey, setPasskey] = useState(false);
   useEffect(() => {
-    deviceSupportsPasskey().then(setPasskey);
+    if (PASSKEYS_ENABLED) deviceSupportsPasskey().then(setPasskey);
   }, []);
   async function withPasskey() {
     if (!onPasskey) return;

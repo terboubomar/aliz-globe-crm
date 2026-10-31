@@ -1,5 +1,11 @@
 /* Plain Arabic messages for passkey (Face ID / Touch ID) failures. */
 
+/**
+ * Face ID / Touch ID sign-in is built but hidden: the hosting (Lovable Cloud)
+ * does not offer passkeys in its auth settings yet. Set to true once it does.
+ */
+export const PASSKEYS_ENABLED = false;
+
 export function passkeyMessage(e: unknown, when: "signin" | "register") {
   const err = (e ?? {}) as { name?: string; code?: string; message?: string; status?: number };
   const text = `${err.name ?? ""} ${err.code ?? ""} ${err.message ?? ""}`.toLowerCase();

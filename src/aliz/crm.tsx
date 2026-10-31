@@ -66,6 +66,7 @@ import { TelegramAccount } from "./telegram-integration";
 import { TwoStepAccount } from "./two-step-account";
 import { CustomerCard } from "./customer-card";
 import { PasskeyAccount } from "./passkey-account";
+import { PASSKEYS_ENABLED } from "@/lib/passkey-errors";
 import { SettingsWorkspace } from "./settings-workspace";
 import { ReasonPicker } from "./reason-options";
 import { ReportsWorkspace } from "./reports-workspace";
@@ -544,16 +545,18 @@ export default function CRM() {
                 <ShieldCheck size={17} />
                 التحقق بخطوتين
               </button>
-              <button
-                className="text-btn"
-                onClick={(event) => {
-                  setModal("passkeys");
-                  event.currentTarget.closest<HTMLElement>("[popover]")?.hidePopover();
-                }}
-              >
-                <Fingerprint size={17} />
-                Face ID / Touch ID
-              </button>
+              {PASSKEYS_ENABLED && (
+                <button
+                  className="text-btn"
+                  onClick={(event) => {
+                    setModal("passkeys");
+                    event.currentTarget.closest<HTMLElement>("[popover]")?.hidePopover();
+                  }}
+                >
+                  <Fingerprint size={17} />
+                  Face ID / Touch ID
+                </button>
+              )}
               <button
                 className="text-btn profile-logout"
                 aria-label="تسجيل الخروج"
