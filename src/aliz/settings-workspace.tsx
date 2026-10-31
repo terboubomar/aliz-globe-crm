@@ -15,6 +15,7 @@ import {
   Mail,
   FileText,
   ListChecks,
+  ShieldCheck,
 } from "lucide-react";
 import { CATALOG_ROLES } from "@/lib/catalog";
 import { ListsPanel } from "./lists-workspace";
@@ -195,6 +196,7 @@ export function SettingsWorkspace({
               <>
                 <PublicIntakeSetting data={data} onMutate={onMutate} />
                 <AutoAssignSetting data={data} onMutate={onMutate} />
+                <RequireMfaSetting data={data} onMutate={onMutate} />
               </>
             )}
             {shortcuts.length > 0 && (
@@ -445,6 +447,65 @@ function PublicIntakeSetting({
             )}
           </div>
         )}
+        {error && (
+          <p className="error" role="alert">
+            {error}
+          </p>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function RequireMfaSetting({
+  data,
+  onMutate,
+}: {
+  data: Data;
+  onMutate: (path: string, body?: unknown) => Promise<unknown>;
+}) {
+  const on = !!data.policy.requireMfa;
+  const [busy, setBusy] = useState(false),
+    [error, setError] = useState("");
+  async function save(enabled: boolean) {
+    setBusy(true);
+    setError("");
+    try {
+      await onMutate("settings/require-mfa", { enabled });
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <section className="panel settings-intake">
+      <div className="panel-head">
+        <h2>
+          <ShieldCheck size={18} />
+          التحقق بخطوتين
+        </h2>
+        <span className={"badge " + (on ? "green" : "neutral")}>
+          {on ? "إلزامي للجميع" : "اختياري"}
+        </span>
+      </div>
+      <div className="padded settings-intake-body">
+        <p>
+          {on
+            ? "كل حساب يلزمه رمز من تطبيق المصادقة عند تسجيل الدخول؛ من لم يفعّله يُطلب منه التفعيل عند الدخول التالي."
+            : "كل موظف يقرر بنفسه من قائمة الحساب ← التحقق بخطوتين. من فعّله يُطلب منه الرمز دائماً عند الدخول."}
+        </p>
+        <div className="settings-intake-actions">
+          {on ? (
+            <button className="secondary" disabled={busy} onClick={() => save(false)}>
+              جعله اختيارياً
+            </button>
+          ) : (
+            <button className="primary" disabled={busy} onClick={() => save(true)}>
+              إلزام جميع الحسابات
+            </button>
+          )}
+        </div>
         {error && (
           <p className="error" role="alert">
             {error}

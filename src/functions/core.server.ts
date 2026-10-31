@@ -16,7 +16,9 @@ export async function settings() {
   if (error) throw error;
   const map = Object.fromEntries((data ?? []).map((r) => [r.key, r.value])) as Record<string, unknown>;
   return {
-    requireMfa: map["require_mfa"] !== false,
+    // Two-step verification is each person's choice unless a super admin
+    // makes it required for everyone.
+    requireMfa: map["require_mfa"] === true,
     publicIntake: map["public_intake_enabled"] === true,
     financeApproved: map["finance_policy_approved"] === true,
     financeLimitMinor: typeof map["finance_approval_limit_minor"] === "number" ? (map["finance_approval_limit_minor"] as number) : null,
@@ -35,6 +37,20 @@ export type AccessState =
   | { status: "DISABLED" }
   | { status: "MFA_REQUIRED" };
 
+// Whether a user has switched on two-step verification (a verified TOTP
+// factor). Cached briefly so it is not looked up on every request.
+const factorCache = new Map<string, { on: boolean; at: number }>();
+export async function hasTwoStep(userId: string) {
+  const hit = factorCache.get(userId);
+  if (hit && Date.now() - hit.at < 60_000) return hit.on;
+  const db = await admin();
+  const { data, error } = await db.auth.admin.mfa.listFactors({ userId });
+  if (error) throw error;
+  const on = (data?.factors ?? []).some((f) => f.status === "verified");
+  factorCache.set(userId, { on, at: Date.now() });
+  return on;
+}
+
 /** Resolve the caller from the protected role table (never from user metadata). */
 export async function accessState(ctx: Ctx): Promise<AccessState> {
   const { data: row, error } = await ctx.supabase
@@ -46,7 +62,10 @@ export async function accessState(ctx: Ctx): Promise<AccessState> {
   if (!row) return { status: "NO_ACCESS" };
   if (!row.enabled) return { status: "DISABLED" };
   const s = await settings();
-  if (s.requireMfa && ctx.claims["aal"] !== "aal2") return { status: "MFA_REQUIRED" };
+  // Anyone who switched on two-step verification must use it to sign in, even
+  // when it is not required for everyone.
+  if (ctx.claims["aal"] !== "aal2" && (s.requireMfa || (await hasTwoStep(ctx.userId))))
+    return { status: "MFA_REQUIRED" };
   return {
     status: "OK",
     email: row.email,

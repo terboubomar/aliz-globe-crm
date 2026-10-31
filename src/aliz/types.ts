@@ -138,7 +138,13 @@ export type Data = {
   permissions: string[];
   catalog?: Catalog;
   integrations?: { whatsapp: boolean; email?: boolean };
-  policy: { sla: string; finance: boolean; publicIntake: boolean; autoAssign?: boolean };
+  policy: {
+    sla: string;
+    finance: boolean;
+    publicIntake: boolean;
+    autoAssign?: boolean;
+    requireMfa?: boolean;
+  };
 };
 export {
   categories,

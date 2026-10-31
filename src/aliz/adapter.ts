@@ -271,6 +271,7 @@ async function bootstrap(): Promise<Data> {
       finance: b.flags.financeApproved,
       publicIntake: b.flags.publicIntake,
       autoAssign: b.flags.autoAssign,
+      requireMfa: b.flags.requireMfa,
     },
   };
 }
@@ -694,6 +695,8 @@ async function route(
     const key = at(2) === "email" ? "email_receipts_enabled" : "whatsapp_enabled";
     return updateSetting({ data: { key, value: !!body["enabled"] } });
   }
+  if (is("settings", "require-mfa"))
+    return updateSetting({ data: { key: "require_mfa", value: !!body["enabled"] } });
   if (is("settings", "auto-assign"))
     return updateSetting({ data: { key: "auto_assign_enabled", value: !!body["enabled"] } });
   if (is("settings", "public-intake"))
