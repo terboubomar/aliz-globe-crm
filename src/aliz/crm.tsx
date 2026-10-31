@@ -31,6 +31,8 @@ import {
   Upload,
   PanelRightClose,
   PanelRightOpen,
+  Home,
+  MoreHorizontal,
 } from "lucide-react";
 import {
   Data,
@@ -335,6 +337,17 @@ export default function CRM() {
       if (epoch === authEpoch.current) setError((e as Error).message);
     }
   };
+  // Phone quick bar: the two main views this role can open, a new phone
+  // complaint (when allowed), alerts and "more" (the full menu).
+  const quickViews = ["overview", "tickets", "refunds", "tasks", "schedule"]
+    .filter((id) => canOpenView(id, data.permissions, data.me.role))
+    .slice(0, 2)
+    .map((id) => navigation.find((item) => item.id === id)!);
+  const exactOpenCount = summaryFor(data.ticketSummary, "all")?.active;
+  const quickOpen =
+    exactOpenCount !== undefined || data.ticketCount === data.tickets.length
+      ? (exactOpenCount ?? data.tickets.filter((t) => t.state !== "CLOSED").length)
+      : 0;
   return (
     <div
       className={"app-shell" + (rail ? "" : " rail-compact") + (railReady ? " rail-animate" : "")}
@@ -571,7 +584,7 @@ export default function CRM() {
             </div>
             <div className="heading-actions">
               {permit("create") && ["overview", "tickets"].includes(view) && (
-                <button className="primary" onClick={() => setModal("create")}>
+                <button className="primary heading-create" onClick={() => setModal("create")}>
                   <Plus size={19} />
                   تسجيل شكوى هاتفية
                 </button>
@@ -950,6 +963,88 @@ export default function CRM() {
           </footer>
         </main>
       </div>
+      <nav className="quick-bar" aria-label="إجراءات سريعة">
+        {quickViews.map((item) => {
+          const Icon = item.id === "overview" ? Home : item.icon;
+          const active = view === item.id && !menu;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              className={active ? "active" : ""}
+              aria-current={active ? "page" : undefined}
+              onClick={() => {
+                go(item.id);
+                window.scrollTo({ top: 0 });
+              }}
+            >
+              <span className="quick-bar-icon">
+                <Icon size={21} strokeWidth={active ? 2.1 : 1.7} />
+                {item.id === "tickets" && quickOpen > 0 && (
+                  <small aria-label={`${n(quickOpen)} شكاوى مفتوحة`}>
+                    {quickOpen > 99 ? "99+" : n(quickOpen)}
+                  </small>
+                )}
+              </span>
+              <span className="quick-bar-label">
+                {item.id === "overview"
+                  ? "الرئيسية"
+                  : viewLabel(item.id, data.me.role, item.label).split(" ")[0]}
+              </span>
+            </button>
+          );
+        })}
+        {permit("create") && (
+          <button
+            type="button"
+            className="quick-bar-primary"
+            aria-label="تسجيل شكوى هاتفية"
+            onClick={() => {
+              setMenu(false);
+              setModal("create");
+            }}
+          >
+            <span className="quick-bar-icon">
+              <Plus size={24} strokeWidth={2.2} />
+            </span>
+            <span className="quick-bar-label">شكوى جديدة</span>
+          </button>
+        )}
+        {permit("read") && (
+          <button
+            type="button"
+            className={notifications ? "active" : ""}
+            aria-expanded={notifications}
+            onClick={() => {
+              setMenu(false);
+              setNotifications(!notifications);
+              window.scrollTo({ top: 0 });
+            }}
+          >
+            <span className="quick-bar-icon">
+              <Bell size={21} strokeWidth={notifications ? 2.1 : 1.7} />
+              {late.length > 0 && (
+                <small aria-label={`${n(late.length)} تنبيه`}>
+                  {late.length > 99 ? "99+" : n(late.length)}
+                </small>
+              )}
+            </span>
+            <span className="quick-bar-label">التنبيهات</span>
+          </button>
+        )}
+        <button
+          type="button"
+          className={menu ? "active" : ""}
+          aria-expanded={menu}
+          aria-controls="crm-sidebar"
+          onClick={() => setMenu(!menu)}
+        >
+          <span className="quick-bar-icon">
+            <MoreHorizontal size={21} strokeWidth={menu ? 2.1 : 1.7} />
+          </span>
+          <span className="quick-bar-label">المزيد</span>
+        </button>
+      </nav>
       {toast && (
         <div className="toast" role="status">
           <Check size={18} />

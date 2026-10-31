@@ -60,7 +60,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
+      { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
       { title: "أليز غلوب | إدارة تجربة العملاء" },
       { name: "description", content: "مساحة عمل موحّدة لتجربة العملاء وعمليات الفروع" },
       { property: "og:type", content: "website" },
