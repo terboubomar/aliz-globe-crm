@@ -2,6 +2,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { DomainError, type Actor, type SlaPolicy } from "@/lib/domain";
+import { signedInWithPasskey } from "@/lib/passkey-errors";
 
 export type Ctx = { supabase: SupabaseClient<Database>; userId: string; claims: Record<string, unknown> };
 
@@ -64,7 +65,10 @@ export async function accessState(ctx: Ctx): Promise<AccessState> {
   const s = await settings();
   // Anyone who switched on two-step verification must use it to sign in, even
   // when it is not required for everyone.
-  if (ctx.claims["aal"] !== "aal2" && (s.requireMfa || (await hasTwoStep(ctx.userId))))
+  // A passkey sign-in (Face ID / Touch ID) already needs the device and the
+  // person's face or fingerprint, so it counts as two-step too.
+  const strong = ctx.claims["aal"] === "aal2" || signedInWithPasskey(ctx.claims);
+  if (!strong && (s.requireMfa || (await hasTwoStep(ctx.userId))))
     return { status: "MFA_REQUIRED" };
   return {
     status: "OK",
