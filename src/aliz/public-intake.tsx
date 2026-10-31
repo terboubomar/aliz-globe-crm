@@ -40,6 +40,8 @@ type Contact = "whatsapp" | "call" | "email";
 
 const STEPS = ["وش صار؟", "تفاصيل الطلب", "التواصل والإرسال"] as const;
 const PHONE = /^(\+?966|0)?5\d{8}$/;
+/** Customer service line shown on the form for urgent issues. */
+const HOTLINE = "920031754";
 const MAX_PHOTOS = 3;
 const MAX_BYTES = 5 * 1024 * 1024;
 
@@ -67,7 +69,8 @@ export default function PublicIntake({ code }: { code: string }) {
     [busy, setBusy] = useState(false),
     [receipt, setReceipt] = useState<Result | null>(null),
     [uploadError, setUploadError] = useState(""),
-    [copied, setCopied] = useState(false);
+    [copied, setCopied] = useState(false),
+    [callTip, setCallTip] = useState(true);
   const fileInput = useRef<HTMLInputElement>(null);
   const top = useRef<HTMLElement>(null);
 
@@ -542,6 +545,28 @@ export default function PublicIntake({ code }: { code: string }) {
             </div>
           </form>
         </>
+      )}
+      {context && (
+        <div className={"qf-call" + (receipt ? " done" : "")}>
+          {callTip && (
+            <div className="qf-call-tip" role="note">
+              <button type="button" aria-label="إخفاء" onClick={() => setCallTip(false)}>
+                <X size={14} />
+              </button>
+              <b>عندك مشكلة عاجلة؟</b>
+              <a href={"tel:" + HOTLINE}>
+                اتصل علينا <span dir="ltr">{HOTLINE}</span>
+              </a>
+            </div>
+          )}
+          <a
+            className="qf-call-btn"
+            href={"tel:" + HOTLINE}
+            aria-label={"اتصل بخدمة العملاء " + HOTLINE}
+          >
+            <Phone size={24} strokeWidth={2} />
+          </a>
+        </div>
       )}
       <div className="public-footer">
         <ShieldCheck size={15} /> متابعة آمنة • أليز غلوب

@@ -6329,7 +6329,8 @@ th {
   width: 54px;
   height: 54px;
   border-radius: 12px;
-  object-fit: cover;
+  object-fit: contain; /* brand logos are often wide: show all of it */
+  padding: 3px;
   border: 1px solid var(--border);
   background: #fff;
 }
@@ -6816,5 +6817,105 @@ th {
   .qf-contact {
     animation: none;
     transition: none;
+  }
+}
+
+/* Floating call widget: urgent issues go to the call centre. */
+.qf-call {
+  position: fixed;
+  left: 16px;
+  bottom: calc(88px + env(safe-area-inset-bottom));
+  z-index: 25;
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+.qf-call.done {
+  bottom: calc(20px + env(safe-area-inset-bottom));
+}
+.qf-call-btn {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--burgundy);
+  color: #fff;
+  box-shadow: 0 8px 22px #b62e3055;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.12s;
+}
+.qf-call-btn::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid var(--burgundy);
+  animation: qf-ring 2.4s ease-out infinite;
+}
+.qf-call-btn:active {
+  transform: scale(0.94);
+}
+.qf-call-btn:focus-visible {
+  outline: 3px solid #b62e3066;
+  outline-offset: 3px;
+}
+@keyframes qf-ring {
+  0% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  70%,
+  100% {
+    transform: scale(1.45);
+    opacity: 0;
+  }
+}
+.qf-call-tip {
+  position: relative;
+  margin-bottom: 6px;
+  padding: 10px 14px 10px 30px;
+  border-radius: 14px 14px 14px 4px;
+  background: var(--paper);
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 24px #42291d1f;
+  line-height: 1.4;
+  animation: qf-in 0.25s ease;
+}
+.qf-call-tip b {
+  display: block;
+  font-size: 13px;
+  color: var(--ink);
+}
+.qf-call-tip a {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--burgundy);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.qf-call-tip a span {
+  font-weight: 800;
+}
+.qf-call-tip button {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  display: grid;
+  place-items: center;
+  padding: 0;
+  cursor: pointer;
+}
+@media (prefers-reduced-motion: reduce) {
+  .qf-call-btn::before,
+  .qf-call-tip {
+    animation: none;
   }
 }
