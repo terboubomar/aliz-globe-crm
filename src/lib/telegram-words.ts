@@ -16,7 +16,8 @@ export type WordKey =
   | "shiftNote"
   | "weekNew"
   | "weekUpdated"
-  | "welcome";
+  | "welcome"
+  | "refundNew";
 
 export const WORDS: Record<
   WordKey,
@@ -52,6 +53,10 @@ export const WORDS: Record<
   weekNew: { label: "عنوان إرسال جدول جديد", default: "جدول جديد" },
   weekUpdated: { label: "عنوان إرسال جدول معدّل", default: "تم تحديث جدولك" },
   welcome: { label: "رسالة الترحيب بعد ربط الحساب", default: "تم ربط حسابك بنظام شكاوى أليز" },
+  refundNew: {
+    label: "عنوان طلب استرجاع جديد (لمدير تقنية المعلومات)",
+    default: "طلب استرجاع جديد",
+  },
 };
 
 export const WORD_KEYS = Object.keys(WORDS) as WordKey[];

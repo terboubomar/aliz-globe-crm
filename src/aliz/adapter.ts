@@ -230,9 +230,14 @@ async function bootstrap(): Promise<Data> {
   applyCatalog(b.catalog);
   const from = new Date(Date.now() - 14 * 86400000).toISOString(),
     to = new Date(Date.now() + 56 * 86400000).toISOString();
+  // Refund-only roles (IT manager) never load complaints.
   const [{ tickets, total }, refunds, shifts] = await Promise.all([
-    allTickets(),
-    b.permissions.includes("read") ? listRefunds() : Promise.resolve([] as LovableRefund[]),
+    b.permissions.includes("read")
+      ? allTickets()
+      : Promise.resolve({ tickets: [] as ListTicket[], total: 0 }),
+    b.permissions.includes("read") || b.permissions.includes("refund.view")
+      ? listRefunds()
+      : Promise.resolve([] as LovableRefund[]),
     listShifts({ data: { from, to } }).catch(() => [] as Row[]),
   ]);
   const timers = await timersFor(tickets.map((t) => t.id));
@@ -537,14 +542,13 @@ async function route(
   if (is("refunds") && method === "POST")
     return requestRefund({
       data: {
-        ticketId: (body["ticketId"] as string) || undefined,
-        brandId: (body["brandId"] as string) || undefined,
-        branchId: (body["branchId"] as string) || null,
-        externalOrder: (body["externalOrder"] as string) || undefined,
-        platform: (body["platform"] as string) || undefined,
-        kind: (body["kind"] as never) ?? "REFUND",
+        brandId: String(body["brandId"] ?? ""),
+        branchId: String(body["branchId"] ?? ""),
+        externalOrder: String(body["externalOrder"] ?? ""),
+        platform: String(body["platform"] ?? "") as never,
         reason: String(body["reason"] ?? ""),
-        amountMinor: num(body["amountMinor"]),
+        amountMinor: num(body["amountMinor"]) as number,
+        destination: body["destination"] as never,
       },
     });
   if (is("refunds", "*", "evidence", "images")) return upload({ refundId: at(1) }, extra?.body);

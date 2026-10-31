@@ -466,3 +466,64 @@ describe("custom wording", () => {
     tg.clearWordsCache();
   });
 });
+
+describe("refund alerts", () => {
+  it("tells IT managers in scope about a new refund, with only the last IBAN digits", async () => {
+    const IT = {
+      id: "00000000-0000-4000-8000-0000000000aa",
+      name: "Sara",
+      role: "IT_MANAGER",
+      brandIds: ["waqf"],
+      branchIds: [],
+    };
+    const OTHER = {
+      ...IT,
+      id: "00000000-0000-4000-8000-0000000000ab",
+      name: "Ali",
+      brandIds: ["kabab"],
+    };
+    db.tables["user_roles"]!.push(
+      ...[IT, OTHER].map((u) => ({
+        user_id: u.id,
+        name: u.name,
+        role: u.role,
+        enabled: true,
+        brand_ids: u.brandIds,
+        branch_ids: [],
+      })),
+    );
+    await link(IT as never, 444);
+    await link(OTHER as never, 555);
+    const RID = "00000000-0000-4000-8000-0000000000f1";
+    db.tables["refunds"] = [
+      {
+        id: RID,
+        sequence: 12,
+        created_at: "2026-11-01T09:00:00Z",
+        brand_id: "waqf",
+        branch_id: "b1",
+        external_order: "W-77",
+        platform: "طلب هاتف",
+        amount_minor: 4550,
+        requester: AGENT.id,
+      },
+    ];
+    db.tables["outbox"]!.push({
+      key: "refunddest:" + RID,
+      ticket_id: RID,
+      status:
+        "enc:" +
+        JSON.stringify({ method: "BANK", holder: "Customer", iban: "SA0380000000608010167519" }),
+    });
+    sent.length = 0;
+    await tg.notifyRefundRequested(RID);
+    await tg.notifyRefundRequested(RID);
+    expect(sent.map((m) => m.chat_id)).toEqual(["444"]);
+    const text = sent[0]!.text;
+    expect(text).toContain("طلب استرجاع جديد");
+    expect(text).toContain("45.50");
+    expect(text).toContain("ينتهي بـ 7519");
+    expect(text).not.toContain("SA0380000000608010167519");
+    expect(text).not.toContain("Customer");
+  });
+});

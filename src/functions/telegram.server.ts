@@ -1,10 +1,4 @@
-import {
-  DomainError,
-  roleLabels,
-  stateLabels,
-  ticketNumber,
-  type Actor,
-} from "@/lib/domain";
+import { DomainError, roleLabels, stateLabels, ticketNumber, type Actor } from "@/lib/domain";
 import { addDays, riyadhDay, riyadhISO, weekDays } from "@/aliz/schedule-time";
 import { word, type WordKey } from "@/lib/telegram-words";
 import { admin, rpcError, settings } from "./core.server";
@@ -498,6 +492,75 @@ export async function notifyNewComplaint(ticketId: string) {
     }
   } catch {
     /* alerts must never break the complaint */
+  }
+}
+
+/** Tells the IT managers in scope about a new refund request. Never throws. */
+export async function notifyRefundRequested(refundId: string) {
+  try {
+    if (!(await ready())) return;
+    const db = await admin();
+    const { data: r } = await db
+      .from("refunds")
+      .select(
+        "id,sequence,created_at,brand_id,branch_id,external_order,platform,amount_minor,requester",
+      )
+      .eq("id", refundId)
+      .maybeSingle();
+    if (!r) return;
+    const [{ data: brand }, { data: branch }, { data: staff }, { data: dest }] = await Promise.all([
+      db.from("brands").select("name").eq("id", r.brand_id).maybeSingle(),
+      r.branch_id
+        ? db.from("branches").select("name").eq("id", r.branch_id).maybeSingle()
+        : Promise.resolve({ data: null }),
+      db
+        .from("user_roles")
+        .select("user_id,name,role,enabled,brand_ids,branch_ids")
+        .eq("enabled", true)
+        .in("user_id", [r.requester]),
+      db
+        .from("outbox")
+        .select("status")
+        .eq("key", "refunddest:" + refundId)
+        .maybeSingle(),
+    ]);
+    const { data: managers } = await db
+      .from("user_roles")
+      .select("user_id,brand_ids,branch_ids")
+      .eq("role", "IT_MANAGER")
+      .eq("enabled", true);
+    const { refundNumber } = await import("@/lib/domain");
+    const { destinationHint } = await import("@/lib/refund-request");
+    let where = "";
+    try {
+      where = dest?.status ? destinationHint(JSON.parse(await decrypt(dest.status))) : "";
+    } catch {
+      where = "";
+    }
+    const requester = staff?.find((x) => x.user_id === r.requester)?.name ?? "—";
+    const text = [
+      `💳 <b>${await w("refundNew")}</b>`,
+      "",
+      `<code>${refundNumber(r.sequence, r.created_at)}</code>`,
+      `🏷 ${esc(brand?.name ?? "")} · 📍 ${esc((branch as { name: string } | null)?.name ?? "غير محدد")}`,
+      `💰 المبلغ: ${r.amount_minor ? (r.amount_minor / 100).toFixed(2) : "غير محدد"} ر.س`,
+      `🛒 ${esc(r.platform)} · رقم الطلب: <code>${esc(r.external_order)}</code>`,
+      ...(where ? [`🏦 يُعاد إلى: ${esc(where)}`] : []),
+      `👤 مقدم الطلب: ${esc(requester)}`,
+    ].join("\n");
+    const inScope = (m: { brand_ids: string[] | null; branch_ids: string[] | null }) =>
+      (m.brand_ids ?? []).includes(r.brand_id) &&
+      (!(m.branch_ids ?? []).length ||
+        (!!r.branch_id && (m.branch_ids ?? []).includes(r.branch_id)));
+    for (const m of (managers ?? []).filter(inScope)) {
+      const chat = await chatOf(m.user_id);
+      if (chat && (await once(`REFUND:${refundId}:${m.user_id}`, refundId)))
+        await send(chat, text, {
+          inline_keyboard: [[{ text: "فتح طلبات الاسترجاع ↗", url: `${origin()}/?view=refunds` }]],
+        });
+    }
+  } catch {
+    /* alerts must never break the refund request */
   }
 }
 

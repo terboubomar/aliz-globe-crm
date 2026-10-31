@@ -2,8 +2,9 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import {
-  DomainError, assertRefundSeparation, authorize, can, refundNext, refundNumber, refundPermission,
+  DomainError, assertRefundSeparation, authorize, can, normalizePhone, refundNext, refundNumber, refundPermission, saudiMobile,
 } from "@/lib/domain";
+import { REFUND_PLATFORMS, normalizeIban, validIban, type RefundDestination } from "@/lib/refund-request";
 
 const core = () => import("./core.server");
 
@@ -13,11 +14,27 @@ export const listRefunds = createServerFn({ method: "POST" })
     const c = await core();
     const { decrypt } = await import("./crypto.server");
     const a = await c.requireActor(context as never);
-    if (!can(a, "read")) return [];
+    if (!can(a, "read") && !can(a, "refund.view")) return [];
     // RLS (refund_visible) applies the source refundScope: brand/branch, agent-own, ops-escalated.
     const { data, error } = await context.supabase.from("refunds").select("*, refund_events(*)").order("created_at", { ascending: false }).limit(500);
     if (error) throw error;
     const pii = can(a, "pii");
+    // Refund handlers (IT manager) need the request details and where to send the money.
+    const details = pii || can(a, "refund.view");
+    const db = await c.admin();
+    const ids = (data ?? []).map((r) => r.id);
+    const { data: dests } = ids.length
+      ? await db.from("outbox").select("ticket_id,status").in("key", ids.map((id) => "refunddest:" + id))
+      : { data: [] as { ticket_id: string; status: string }[] };
+    const destinationOf = async (r: { id: string; requester: string }) => {
+      const row = dests?.find((d) => d.ticket_id === r.id);
+      if (!row || !(details || r.requester === a.id)) return null;
+      try {
+        return JSON.parse(await decrypt(row.status)) as RefundDestination;
+      } catch {
+        return null;
+      }
+    };
     return Promise.all(
       (data ?? []).map(async (r) => ({
         id: r.id, number: refundNumber(r.sequence, r.created_at), ticketId: r.ticket_id, brandId: r.brand_id,
@@ -25,25 +42,37 @@ export const listRefunds = createServerFn({ method: "POST" })
         amountMinor: r.amount_minor, status: r.status, requester: r.requester, approver: r.approver,
         processor: r.processor, verifier: r.verifier, externalReference: r.external_reference,
         createdAt: r.created_at, version: r.version,
-        reason: pii || r.requester === a.id ? await decrypt(r.reason_enc) : "تفاصيل الطلب مقيدة حسب الصلاحية",
+        reason: details || r.requester === a.id ? await decrypt(r.reason_enc) : "تفاصيل الطلب مقيدة حسب الصلاحية",
+        destination: await destinationOf(r),
         events: await Promise.all(
           ((r.refund_events as { id: string; type: string; actor: string; note_enc: string | null; created_at: string }[]) ?? [])
             .sort((x, y) => x.created_at.localeCompare(y.created_at))
-            .map(async (e) => ({ id: e.id, type: e.type, actor: e.actor, createdAt: e.created_at, note: e.note_enc && (pii || e.actor === a.id) ? await decrypt(e.note_enc) : null })),
+            .map(async (e) => ({ id: e.id, type: e.type, actor: e.actor, createdAt: e.created_at, note: e.note_enc && (details || e.actor === a.id) ? await decrypt(e.note_enc) : null })),
         ),
       })),
     );
   });
 
+const destinationInput = z.discriminatedUnion("method", [
+  z.object({
+    method: z.literal("BANK"),
+    holder: z.string().trim().min(3, "اكتب اسم صاحب الحساب كما في البنك").max(100),
+    iban: z.string().transform(normalizeIban).refine(validIban, "رقم الآيبان غير صحيح؛ يبدأ بـ SA ويتكون من 24 خانة"),
+  }),
+  z.object({
+    method: z.literal("WALLET"),
+    phone: z.string().trim().regex(saudiMobile, "أدخل رقم جوال سعودي صحيح للمحفظة").transform(normalizePhone),
+  }),
+]);
+// New requests: refunds only, one of the refund platforms, an amount, and where the money goes.
 const requestInput = z.object({
-  ticketId: z.string().uuid().optional(),
-  brandId: z.string().optional(),
-  branchId: z.string().uuid().nullable().optional(),
-  externalOrder: z.string().trim().min(1).max(100).optional(),
-  platform: z.string().trim().min(1).max(80).optional(),
-  kind: z.enum(["REFUND", "CANCELLATION"]),
+  brandId: z.string().min(1, "اختر العلامة"),
+  branchId: z.string().uuid("اختر الفرع"),
+  externalOrder: z.string().trim().min(1, "أدخل رقم الطلب").max(100),
+  platform: z.enum(REFUND_PLATFORMS, { message: "اختر منصة الطلب" }),
   reason: z.string().trim().min(5, "السبب 5 أحرف على الأقل").max(1000),
-  amountMinor: z.number().int().positive().max(10000000).optional(),
+  amountMinor: z.number({ message: "أدخل المبلغ المطلوب" }).int().positive("أدخل المبلغ المطلوب").max(10000000),
+  destination: destinationInput,
 });
 
 export const requestRefund = createServerFn({ method: "POST" })
@@ -54,27 +83,22 @@ export const requestRefund = createServerFn({ method: "POST" })
     const { encrypt } = await import("./crypto.server");
     const a = await c.requireActor(context as never);
     authorize(a, "refund.request");
-    let linked: { id: string; brand_id: string; branch_id: string | null; external_order: string | null; platform: string | null } | null = null;
-    if (b.ticketId) {
-      const { data } = await context.supabase.from("tickets").select("id,brand_id,branch_id,external_order,platform").eq("id", b.ticketId).maybeSingle();
-      if (!data) throw new DomainError("NOT_FOUND", 404, "الشكوى المرتبطة خارج نطاقك");
-      linked = data;
-    }
-    const brandId = b.brandId ?? linked?.brand_id;
-    const branchId = b.branchId ?? linked?.branch_id ?? null;
-    const externalOrder = b.externalOrder ?? linked?.external_order;
-    const platform = b.platform ?? linked?.platform;
-    if (!brandId || !externalOrder || !platform) throw new DomainError("ORDER_REQUIRED", 400, "حدد العلامة ورقم الطلب ومنصة الطلب");
-    if (linked && (linked.brand_id !== brandId || linked.branch_id !== branchId))
-      throw new DomainError("SCOPE_MISMATCH", 400, "نطاق الطلب المالي يجب أن يطابق الشكوى المرتبطة");
+    const { brandId, branchId, externalOrder, platform } = b;
     authorize(a, "refund.request", { brandId, branchId });
     const db = await c.admin();
     const { data: brand } = await db.from("brands").select("status").eq("id", brandId).maybeSingle();
     if (!brand || brand.status !== "ACTIVE") throw new DomainError("BRAND_INACTIVE", 400, "العلامة غير مفعلة");
     const { data: id, error } = await db.rpc("request_refund_tx", {
-      p: { ticket_id: linked?.id ?? null, brand_id: brandId, branch_id: branchId, external_order: externalOrder, platform, kind: b.kind, reason_enc: await encrypt(b.reason), amount_minor: b.amountMinor ?? null, requester: a.id },
+      p: { ticket_id: null, brand_id: brandId, branch_id: branchId, external_order: externalOrder, platform, kind: "REFUND", reason_enc: await encrypt(b.reason), amount_minor: b.amountMinor, requester: a.id },
     });
     c.rpcError(error);
+    // Where the money goes back to, encrypted, next to the refund.
+    const { error: destError } = await db.from("outbox").upsert(
+      { key: "refunddest:" + id, type: "REFUND_DESTINATION", ticket_id: String(id), status: await encrypt(JSON.stringify(b.destination)) },
+      { onConflict: "key" },
+    );
+    c.rpcError(destError);
+    await (await import("./telegram.server")).notifyRefundRequested(String(id));
     return { id };
   });
 

@@ -1,6 +1,16 @@
 import { useEffect, useState, FormEvent } from "react";
-import { Wallet, Plus, ArrowLeft, Clock, Upload, ShieldCheck, MapPin } from "lucide-react";
-import { Data, Refund, activePlatforms, api, date, n, refundStates, eventNames } from "./types";
+import {
+  Wallet,
+  Plus,
+  ArrowLeft,
+  Clock,
+  Upload,
+  ShieldCheck,
+  MapPin,
+  Landmark,
+} from "lucide-react";
+import { REFUND_PLATFORMS, destinationMethods } from "@/lib/refund-request";
+import { Data, Refund, api, date, n, refundStates, eventNames } from "./types";
 import { EvidenceLink } from "./evidence";
 import { Modal, Field, Submit, Empty } from "./ui";
 type Mutation = (path: string, body?: unknown) => Promise<unknown>;
@@ -209,20 +219,26 @@ function NewRefund({
   onDone: (id: string) => void;
 }) {
   const [brandId, setBrand] = useState(brand === "all" ? data.brands[0]?.id : brand),
-    [ticketId, setTicket] = useState(""),
+    [method, setMethod] = useState<"BANK" | "WALLET">("BANK"),
     [error, setError] = useState("");
-  const ticket = data.tickets.find((t) => t.id === ticketId);
   return (
-    <Modal title="طلب استرجاع أو إلغاء مستقل" onClose={onClose} wide>
+    <Modal title="طلب استرجاع" onClose={onClose} wide>
       <form
         onSubmit={async (e) => {
           const b = fields(e);
+          setError("");
           try {
             const r = (await mutate("refunds", {
-              ...b,
-              ticketId: ticketId || undefined,
-              branchId: b["branchId"] || null,
-              amountMinor: b["amount"] ? Math.round(Number(b["amount"]) * 100) : undefined,
+              brandId: b["brandId"],
+              branchId: b["branchId"],
+              externalOrder: b["externalOrder"],
+              platform: b["platform"],
+              reason: b["reason"],
+              amountMinor: Math.round(Number(b["amount"]) * 100),
+              destination:
+                method === "BANK"
+                  ? { method, holder: b["holder"], iban: b["iban"] }
+                  : { method, phone: b["walletPhone"] },
             })) as { id: string };
             onDone(r.id);
           } catch (e) {
@@ -232,14 +248,7 @@ function NewRefund({
       >
         <div className="form-grid">
           <Field label="العلامة التجارية">
-            <select
-              name="brandId"
-              value={brandId}
-              onChange={(e) => {
-                setBrand(e.target.value);
-                setTicket("");
-              }}
-            >
+            <select name="brandId" value={brandId} onChange={(e) => setBrand(e.target.value)}>
               {data.brands.map((b) => (
                 <option key={b.id} value={b.id}>
                   {b.name}
@@ -247,26 +256,11 @@ function NewRefund({
               ))}
             </select>
           </Field>
-          <Field label="شكوى مرتبطة (اختياري)">
-            <select value={ticketId} onChange={(e) => setTicket(e.target.value)}>
-              <option value="">طلب مستقل دون شكوى</option>
-              {data.tickets
-                .filter((t) => t.brandId === brandId)
-                .map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.number} — {t.branch?.name ?? "غير محدد"}
-                  </option>
-                ))}
-            </select>
-          </Field>
           <Field label="الفرع">
-            <select
-              name="branchId"
-              key={brandId + ticketId}
-              defaultValue={ticket?.branchId ?? ""}
-              required
-            >
-              <option value="">اختر الفرع</option>
+            <select name="branchId" key={brandId} defaultValue="" required>
+              <option value="" disabled>
+                اختر الفرع
+              </option>
               {data.brands
                 .find((b) => b.id === brandId)
                 ?.branches.filter((b) => b.active)
@@ -277,42 +271,83 @@ function NewRefund({
                 ))}
             </select>
           </Field>
-          <Field label="نوع الطلب">
-            <select name="kind">
-              <option value="REFUND">طلب استرجاع</option>
-              <option value="CANCELLATION">طلب إلغاء</option>
-            </select>
-          </Field>
           <Field label="رقم الطلب الخارجي">
-            <input
-              name="externalOrder"
-              key={"order-" + ticketId}
-              defaultValue={ticket?.externalOrder ?? ""}
-              dir="ltr"
-              required
-              maxLength={100}
-            />
+            <input name="externalOrder" dir="ltr" required maxLength={100} />
           </Field>
           <Field label="منصة الطلب">
-            <select
-              name="platform"
-              key={"platform-" + ticketId}
-              defaultValue={ticket?.platform ?? ""}
-              required
-            >
-              <option value="">اختر المنصة</option>
-              {[
-                ...new Set([...(ticket?.platform ? [ticket.platform] : []), ...activePlatforms()]),
-              ].map((p) => (
+            <select name="platform" defaultValue="" required>
+              <option value="" disabled>
+                اختر المنصة
+              </option>
+              {REFUND_PLATFORMS.map((p) => (
                 <option key={p} value={p}>
                   {p}
                 </option>
               ))}
             </select>
           </Field>
-          <Field label="المبلغ المطلوب (ر.س، اختياري)">
-            <input name="amount" type="number" min="0.01" max="100000" step="0.01" />
+          <Field label="المبلغ المطلوب (ر.س)">
+            <input
+              name="amount"
+              type="number"
+              min="0.01"
+              max="100000"
+              step="0.01"
+              required
+              inputMode="decimal"
+            />
           </Field>
+          <fieldset className="refund-destination full">
+            <legend>إلى أين يُعاد المبلغ؟</legend>
+            <div className="refund-destination-choices" role="radiogroup">
+              {(["BANK", "WALLET"] as const).map((m) => (
+                <label key={m} className={"choice" + (method === m ? " selected" : "")}>
+                  <input
+                    type="radio"
+                    name="method"
+                    value={m}
+                    checked={method === m}
+                    onChange={() => setMethod(m)}
+                  />
+                  {m === "BANK" ? <Landmark size={18} /> : <Wallet size={18} />}
+                  {destinationMethods[m]}
+                </label>
+              ))}
+            </div>
+            {method === "BANK" ? (
+              <div className="form-grid">
+                <Field label="اسم صاحب الحساب">
+                  <input name="holder" required minLength={3} maxLength={100} autoComplete="off" />
+                </Field>
+                <Field label="رقم الآيبان (IBAN)">
+                  <input
+                    name="iban"
+                    required
+                    dir="ltr"
+                    placeholder="SA00 0000 0000 0000 0000 0000"
+                    pattern="\s*[Ss][Aa][0-9 ]{22,30}\s*"
+                    title="يبدأ بـ SA ويتكون من 24 خانة"
+                    maxLength={34}
+                    autoComplete="off"
+                  />
+                </Field>
+              </div>
+            ) : (
+              <div className="form-grid">
+                <Field label="رقم الجوال المرتبط بالمحفظة">
+                  <input
+                    name="walletPhone"
+                    required
+                    type="tel"
+                    dir="ltr"
+                    placeholder="05xxxxxxxx"
+                    pattern="(\+?966|0)?5[0-9]{8}"
+                    autoComplete="off"
+                  />
+                </Field>
+              </div>
+            )}
+          </fieldset>
           <Field label="سبب الطلب" full>
             <textarea name="reason" required minLength={5} maxLength={1000} rows={3} />
           </Field>
@@ -323,8 +358,8 @@ function NewRefund({
           </p>
         )}
         <div className="form-footer">
-          <p>تسجيل الطلب لا ينفّذ أي إلغاء أو حركة مالية.</p>
-          <Submit busy={busy}>تسجيل الطلب المالي</Submit>
+          <p>تسجيل الطلب لا ينفّذ أي حركة مالية؛ يصل إشعار لمدير تقنية المعلومات لتنفيذه.</p>
+          <Submit busy={busy}>تسجيل طلب الاسترجاع</Submit>
         </div>
       </form>
     </Modal>
@@ -431,6 +466,24 @@ function RefundDetail({
           <b>{name(r.verifier)}</b>
         </div>
       </div>
+      {r.destination && (
+        <div className="refund-destination-card">
+          {r.destination.method === "BANK" ? <Landmark size={18} /> : <Wallet size={18} />}
+          <div>
+            <small>يُعاد المبلغ إلى</small>
+            <b>{destinationMethods[r.destination.method]}</b>
+            {r.destination.method === "BANK" ? (
+              <span>
+                {r.destination.holder} — <bdi dir="ltr">{r.destination.iban}</bdi>
+              </span>
+            ) : (
+              <span>
+                جوال المحفظة: <bdi dir="ltr">{r.destination.phone}</bdi>
+              </span>
+            )}
+          </div>
+        </div>
+      )}
       <p className="description">{r.reason}</p>
       {r.ticket && (
         <div className="linked-record">

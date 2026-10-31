@@ -97,6 +97,8 @@ export type Refund = {
   version: number;
   requester: string;
   externalReference: string | null;
+  // Where the money goes back to; null when hidden by permissions or not recorded.
+  destination?: import("@/lib/refund-request").RefundDestination | null;
 };
 export type Task = {
   id: string;
@@ -170,6 +172,7 @@ export const roleNames: Record<string, string> = {
   OPERATIONS_MANAGER: "مدير العمليات",
   CEO: "الرئيس التنفيذي",
   OWNER: "المالك",
+  IT_MANAGER: "مدير تقنية المعلومات",
   AGENT: "موظف خدمة العملاء",
   SHIFT_LEAD: "قائد الفريق",
   CUSTOMER_SERVICE_MANAGER: "مدير خدمة العملاء",
