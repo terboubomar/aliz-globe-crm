@@ -40,6 +40,8 @@ type Contact = "whatsapp" | "call" | "email";
 
 const STEPS = ["وش صار؟", "تفاصيل الطلب", "التواصل والإرسال"] as const;
 const PHONE = /^(\+?966|0)?5\d{8}$/;
+/** Customer service line shown on the form for urgent issues. */
+const HOTLINE = "920031754";
 const MAX_PHOTOS = 3;
 const MAX_BYTES = 5 * 1024 * 1024;
 
@@ -277,6 +279,18 @@ export default function PublicIntake({ code }: { code: string }) {
               <small>{context.demo ? "فرع تجريبي • لا تدخل بيانات حقيقية" : context.branch}</small>
             </div>
           </div>
+          <a className="qf-hotline" href={"tel:" + HOTLINE}>
+            <span className="qf-hotline-icon" aria-hidden="true">
+              <Phone size={18} strokeWidth={2} />
+            </span>
+            <span className="qf-hotline-text">
+              <b>عندك مشكلة عاجلة؟</b>
+              <small>اتصل علينا مباشرة</small>
+            </span>
+            <span className="qf-hotline-number" dir="ltr">
+              {HOTLINE}
+            </span>
+          </a>
           <div className="qf-progress" aria-hidden="true">
             {STEPS.map((s, i) => (
               <i key={s} className={i <= step ? "on" : ""} />

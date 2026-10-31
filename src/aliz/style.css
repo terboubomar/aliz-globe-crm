@@ -6329,7 +6329,8 @@ th {
   width: 54px;
   height: 54px;
   border-radius: 12px;
-  object-fit: cover;
+  object-fit: contain; /* brand logos are often wide: show all of it */
+  padding: 3px;
   border: 1px solid var(--border);
   background: #fff;
 }
@@ -6817,4 +6818,55 @@ th {
     animation: none;
     transition: none;
   }
+}
+.qf-hotline {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+  padding: 11px 13px;
+  border: 1px solid #f0d9d4;
+  border-radius: 14px;
+  background: #fbf1ee;
+  color: var(--ink);
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s;
+}
+.qf-hotline:hover {
+  background: #f8e8e4;
+}
+.qf-hotline:focus-visible {
+  outline: 2px solid var(--burgundy);
+  outline-offset: 2px;
+}
+.qf-hotline-icon {
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--burgundy);
+  color: #fff;
+}
+.qf-hotline-text {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.35;
+}
+.qf-hotline-text b {
+  display: block;
+  font-size: 14px;
+}
+.qf-hotline-text small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.qf-hotline-number {
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: var(--burgundy);
+  white-space: nowrap;
 }
