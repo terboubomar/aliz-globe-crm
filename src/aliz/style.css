@@ -5947,11 +5947,9 @@ th {
   color: var(--muted);
 }
 
-/* Navigation rail show/hide (owner request, 2026-10-31): staff can drop the
-   rail for more room on wide screens and bring it back from the same button. */
-.sidebar {
-  transition: transform 0.2s, visibility 0.2s;
-}
+/* Sidebar size (owner request, 2026-10-31): full, or a slim icon rail that
+   keeps every section one click away. Ctrl+B or the top-bar button switches;
+   the choice is remembered per browser. Desktop only; phones keep the drawer. */
 .sidebar-toggle {
   display: none;
 }
@@ -5959,11 +5957,84 @@ th {
   .sidebar-toggle {
     display: inline-flex;
   }
-  .app-shell.rail-hidden .sidebar {
-    transform: translateX(100%);
-    visibility: hidden;
+  .app-shell.rail-animate .sidebar,
+  .app-shell.rail-animate .main-shell {
+    transition:
+      width 0.2s ease,
+      margin-right 0.2s ease,
+      padding 0.2s ease;
   }
-  .app-shell.rail-hidden .main-shell {
-    margin-right: 0;
+  .app-shell.rail-compact {
+    --sidebar: 76px;
+  }
+  .rail-compact .sidebar {
+    padding-inline: 10px;
+  }
+  .rail-compact .sidebar-heading {
+    justify-content: center;
+    padding-inline: 0;
+  }
+  .rail-compact .sidebar .group-logo {
+    flex: 0 0 auto;
+    justify-content: center;
+  }
+  .rail-compact .sidebar .group-logo img {
+    width: 40px;
+    height: 45px;
+  }
+  /* Hidden from sight, still read by screen readers. */
+  .rail-compact .sidebar .group-logo span,
+  .rail-compact .sidebar-nav-text,
+  .rail-compact .profile > div {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+  .rail-compact .sidebar .nav-label {
+    height: 1px;
+    margin: 8px 10px;
+    overflow: hidden;
+    color: transparent;
+    background: #eee8e2;
+  }
+  .rail-compact .sidebar-nav-group + .sidebar-nav-group {
+    margin-top: 8px;
+    padding-top: 0;
+    border-top: 0;
+  }
+  .rail-compact .sidebar nav {
+    padding-inline: 0;
+  }
+  .rail-compact .sidebar nav button {
+    justify-content: center;
+    padding: 8px 0;
+  }
+  .rail-compact .sidebar-nav-current {
+    display: none;
+  }
+  /* The open-complaints count becomes a small badge on the icon. */
+  .rail-compact .sidebar .nav-count {
+    position: absolute;
+    top: 3px;
+    inset-inline-end: 6px;
+    margin: 0;
+    min-width: 18px;
+    padding: 0 4px;
+    font-size: 10px;
+    line-height: 16px;
+    background: #b62e30;
+    color: #fff;
+  }
+  .rail-compact .sidebar nav button.active::before {
+    inset-inline-start: -10px;
+  }
+  .rail-compact .sidebar-bottom {
+    padding-inline: 0;
+  }
+  .rail-compact .profile {
+    justify-content: center;
   }
 }
