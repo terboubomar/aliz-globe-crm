@@ -6540,8 +6540,8 @@ th {
   text-align: center;
 }
 .qf-platform-mark {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border-radius: 12px;
   display: grid;
   place-items: center;
@@ -6554,16 +6554,22 @@ th {
   font-weight: 800;
   line-height: 1;
 }
-.qf-platform-mark.brand-app {
+.qf-platform-mark.brand-app,
+.qf-platform-mark.logo {
   background: #fff;
-  border: 1px solid var(--border);
+  border: 1px solid #eee5df;
 }
 .qf-platform-mark img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
-.qf-platform.on .qf-platform-mark:not(.brand-app) {
+/* A brand's own logo is often wide: show all of it, not a crop. */
+.qf-platform-mark.brand-app:not(.logo) img {
+  object-fit: contain;
+  padding: 4px;
+}
+.qf-platform.on .qf-platform-mark:not(.brand-app, .logo) {
   background: var(--burgundy);
   color: #fff;
 }
