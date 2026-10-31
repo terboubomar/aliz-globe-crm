@@ -63,6 +63,7 @@ import { agentInvolved } from "./workflow";
 import { ScheduleWorkspace } from "./schedule-workspace";
 import { TelegramAccount } from "./telegram-integration";
 import { TwoStepAccount } from "./two-step-account";
+import { CustomerCard } from "./customer-card";
 import { SettingsWorkspace } from "./settings-workspace";
 import { ReasonPicker } from "./reason-options";
 import { ReportsWorkspace } from "./reports-workspace";
@@ -1449,6 +1450,7 @@ function TicketDetail({
         <Badge tone="amber">{states[t.state]}</Badge>
         <Badge tone={t.priority === "P1" ? "red" : "neutral"}>{t.priority}</Badge>
       </div>
+      <CustomerCard t={t} canSee={can("pii")} />
       <ComplaintJourney ticket={t} />
       {t.branchBrief && (
         <section className="branch-brief">
