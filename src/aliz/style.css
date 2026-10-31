@@ -6830,6 +6830,35 @@ th {
   align-items: flex-end;
   gap: 10px;
 }
+.qf-call-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.qf-wa-btn {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #25d366;
+  color: #fff;
+  box-shadow: 0 8px 22px #25d36655;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.12s;
+}
+.qf-wa-btn:active {
+  transform: scale(0.94);
+}
+.qf-wa-btn:focus-visible {
+  outline: 3px solid #25d36666;
+  outline-offset: 3px;
+}
+.qf-call-tip a.wa {
+  display: block;
+  margin-top: 2px;
+  color: #128c4b;
+}
 .qf-call.done {
   bottom: calc(20px + env(safe-area-inset-bottom));
 }
