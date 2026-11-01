@@ -90,6 +90,13 @@ function RootShell({ children }: { children: ReactNode }) {
   return (
     <html lang="ar" dir="rtl">
       <head>
+        {/* Runs before the app bundle: if the entry module itself is stale after a
+            dev-server restart, the in-app listener never installs, so reload once here. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){var K="aliz-stale-reload-at";function r(){try{var l=+sessionStorage.getItem(K)||0;if(Date.now()-l<30000)return;sessionStorage.setItem(K,String(Date.now()));}catch(e){}location.reload();}function s(m){return /dynamically imported module|error loading script|vite:preload/i.test(m||"");}addEventListener("unhandledrejection",function(e){var x=e.reason;if(s(typeof x==="string"?x:x&&x.message))r();});addEventListener("error",function(e){if(s(e.message))r();});})();`,
+          }}
+        />
         <HeadContent />
       </head>
       <body>
