@@ -254,12 +254,18 @@ export function templateEntries(
   week: number,
   busy: (userId: string, from: string, to: string) => boolean = () => false,
 ) {
-  const n = template.rows.length;
   const entries: Entry[] = [];
   const skipped: { userId: string; day: string }[] = [];
-  template.rows.forEach((person, i) => {
-    const pattern = template.rotate ? template.rows[(((i + week) % n) + n) % n]! : person;
-    const before = template.rotate ? template.rows[(((i + week - 1) % n) + n) % n]! : person;
+  // Shift leads keep their own row; only the other rows rotate among themselves.
+  const pool = template.rows.filter((r) => !r.lead);
+  const m = pool.length;
+  const rowFor = (person: TemplateRow, offset: number) => {
+    if (!template.rotate || person.lead || !m) return person;
+    return pool[(((pool.indexOf(person) + offset) % m) + m) % m]!;
+  };
+  template.rows.forEach((person) => {
+    const pattern = rowFor(person, week);
+    const before = rowFor(person, week - 1);
     const last = before.days[6];
     let lastEnd =
       last && !last.off && last.end <= last.start ? Date.parse(riyadhISO(sunday, last.end)) : 0;
