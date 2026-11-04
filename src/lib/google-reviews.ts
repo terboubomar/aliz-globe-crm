@@ -27,7 +27,7 @@ export const PLACEHOLDERS = ["{الاسم}", "{العلامة}", "{الفرع}",
 
 export const DEFAULT_RULES: GoogleRules = {
   enabled: false,
-  complaintMaxStars: 3,
+  complaintMaxStars: 2,
   rules: {
     5: {
       mode: "script",

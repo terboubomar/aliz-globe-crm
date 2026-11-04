@@ -36,7 +36,14 @@ describe("Google review rules", () => {
       on,
       connectedAt,
     );
-    expect(three).toMatchObject({ complaint: true, priority: "P3" });
+    expect(three).toMatchObject({ complaint: false, priority: "P3" });
+
+    const two = decide(
+      { stars: 2, createdAt: "2026-11-04T12:00:00Z", hasReply: false },
+      on,
+      connectedAt,
+    );
+    expect(two).toMatchObject({ complaint: true, priority: "P3" });
 
     const five = decide(
       { stars: 5, createdAt: "2026-11-04T12:00:00Z", hasReply: false },
@@ -92,7 +99,7 @@ describe("Google review rules", () => {
       rules: { 5: { mode: "shout", send: "now", text: 4 } },
     });
     expect(r.enabled).toBe(false);
-    expect(r.complaintMaxStars).toBe(3);
+    expect(r.complaintMaxStars).toBe(2);
     expect(r.rules[5]).toEqual(DEFAULT_RULES.rules[5]);
     expect(readRules(null)).toEqual(DEFAULT_RULES);
   });
