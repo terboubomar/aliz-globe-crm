@@ -14,6 +14,18 @@ import {
 } from "@/functions/complaints.functions";
 import { listRefunds, refundAction, requestRefund } from "@/functions/refunds.functions";
 import {
+  googleConnect,
+  googleDisconnect,
+  googleLinkLocation,
+  googleLocations,
+  googleReply,
+  googleReviews,
+  googleSaveRules,
+  googleStatus,
+  googleSuggest,
+  googleSyncNow,
+} from "@/functions/google.functions";
+import {
   cancelShift,
   createStaff,
   evidenceLink,
@@ -815,6 +827,34 @@ async function route(
   if (is("integrations", "whatsapp") || is("integrations", "email"))
     return receiptChannelStatus({ data: { channel: at(1) as "whatsapp" | "email" } });
   if (is("integrations", "telegram")) return telegramStatus();
+
+  // Google Business Profile reviews
+  if (is("integrations", "google")) return googleStatus();
+  if (is("integrations", "google", "connect")) return googleConnect();
+  if (is("integrations", "google", "disconnect")) return googleDisconnect();
+  if (is("integrations", "google", "locations")) return googleLocations();
+  if (is("integrations", "google", "link"))
+    return googleLinkLocation({
+      data: {
+        branchId: String(body["branchId"] ?? ""),
+        location: (body["location"] as string) || null,
+      },
+    });
+  if (is("integrations", "google", "sync")) return googleSyncNow();
+  if (is("settings", "google")) return googleSaveRules({ data: body as never });
+  if (is("reviews") && method === "GET")
+    return googleReviews({
+      data: {
+        filter: (params.get("filter") || "unanswered") as "pending" | "unanswered" | "all",
+        ...(params.get("brandId") ? { brandId: params.get("brandId")! } : {}),
+        limit: 100,
+      },
+    });
+  if (is("reviews", "reply"))
+    return googleReply({
+      data: { id: String(body["id"] ?? ""), text: String(body["text"] ?? "") },
+    });
+  if (is("reviews", "suggest")) return googleSuggest({ data: { id: String(body["id"] ?? "") } });
   throw new Error(NOT_YET);
 }
 
