@@ -166,8 +166,11 @@ export async function presentTicket(t: TicketRow, a: Actor, detail = false) {
     customerConfirmedAt: t.customer_confirmed_at, closedAt: t.closed_at, version: t.version, escalated: t.escalated,
   };
   if (!detail) return { ...base, description: null as string | null, customer: null as { name: string; phone: string; email?: string } | null, branchBrief: null as string | null };
+  // Complaints from Google carry the review and its public reply.
+  const google = t.source === "GOOGLE_REVIEW" && pii ? await (await import("./google.server")).reviewForTicket(t.id) : null;
   return {
     ...base,
+    google,
     description: pii ? await decrypt(t.description_enc) : "تفاصيل العميل محجوبة حسب الصلاحية",
     customer: pii && t.customer_enc ? (JSON.parse(await decrypt(t.customer_enc)) as { name: string; phone: string; email?: string }) : null,
     branchBrief: t.branch_brief_enc ? await decrypt(t.branch_brief_enc) : null,

@@ -119,6 +119,7 @@ export type Database = {
           code: string
           created_at: string
           district: string | null
+          google_location: string | null
           id: string
           latitude: number | null
           longitude: number | null
@@ -134,6 +135,7 @@ export type Database = {
           code: string
           created_at?: string
           district?: string | null
+          google_location?: string | null
           id?: string
           latitude?: number | null
           longitude?: number | null
@@ -149,6 +151,7 @@ export type Database = {
           code?: string
           created_at?: string
           district?: string | null
+          google_location?: string | null
           id?: string
           latitude?: number | null
           longitude?: number | null
@@ -193,6 +196,63 @@ export type Database = {
           name?: string
           name_en?: string
           status?: string
+        }
+        Relationships: []
+      }
+      google_reviews: {
+        Row: {
+          brand_id: string | null
+          branch_id: string | null
+          comment_enc: string | null
+          created_at: string
+          id: string
+          location: string
+          rating: number
+          replied_at: string | null
+          replied_by: string | null
+          reply_enc: string | null
+          reply_source: string | null
+          reply_state: string
+          reviewer_enc: string | null
+          synced_at: string
+          ticket_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          brand_id?: string | null
+          branch_id?: string | null
+          comment_enc?: string | null
+          created_at: string
+          id: string
+          location: string
+          rating: number
+          replied_at?: string | null
+          replied_by?: string | null
+          reply_enc?: string | null
+          reply_source?: string | null
+          reply_state?: string
+          reviewer_enc?: string | null
+          synced_at?: string
+          ticket_id?: string | null
+          updated_at: string
+        }
+        Update: {
+          brand_id?: string | null
+          branch_id?: string | null
+          comment_enc?: string | null
+          created_at?: string
+          id?: string
+          location?: string
+          rating?: number
+          replied_at?: string | null
+          replied_by?: string | null
+          reply_enc?: string | null
+          reply_source?: string | null
+          reply_state?: string
+          reviewer_enc?: string | null
+          synced_at?: string
+          ticket_id?: string | null
+          updated_at?: string
         }
         Relationships: []
       }
