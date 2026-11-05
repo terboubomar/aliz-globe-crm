@@ -12,6 +12,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   Star,
+  MessageCircle,
 } from "lucide-react";
 import { Data, Ticket, categories, states, date, n, risk, subject } from "./types";
 import { SourceIcon, sourceLabel } from "./source-label";
@@ -153,6 +154,7 @@ export function ComplaintsWorkspace({
             { id: "PUBLIC_QR", name: "QR من العميل", icon: QrCode },
             { id: "PHONE_AGENT", name: "الهاتف / مركز الاتصال", icon: Phone },
             { id: "GOOGLE_REVIEW", name: "تقييمات Google", icon: Star },
+            { id: "SOCIAL_DM", name: "إنستغرام / ماسنجر", icon: MessageCircle },
           ].map((c) => (
             <button
               key={c.id}

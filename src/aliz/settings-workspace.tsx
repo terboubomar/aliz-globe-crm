@@ -18,6 +18,7 @@ import {
   ShieldCheck,
   Clock,
   Star,
+  Instagram,
 } from "lucide-react";
 import { CATALOG_ROLES } from "@/lib/catalog";
 import { ListsPanel } from "./lists-workspace";
@@ -29,6 +30,7 @@ import { canOpenView } from "./access";
 import { EmailIntegration, WhatsAppIntegration } from "./whatsapp-integration";
 import { TelegramIntegration } from "./telegram-integration";
 import { GoogleIntegration } from "./google-reviews";
+import { MetaIntegration } from "./meta-inbox";
 
 type Section = "general" | "lists" | "templates" | "integrations" | "audit";
 export function SettingsWorkspace({
@@ -43,7 +45,9 @@ export function SettingsWorkspace({
   onMutate: (path: string, body?: unknown) => Promise<unknown>;
 }) {
   const [section, setSection] = useState<Section>("general"),
-    [channel, setChannel] = useState<"whatsapp" | "email" | "telegram" | "google">("whatsapp");
+    [channel, setChannel] = useState<"whatsapp" | "email" | "telegram" | "google" | "meta">(
+      "whatsapp",
+    );
   const sections = [
     { id: "general" as const, label: "عام", icon: Building2 },
     ...(CATALOG_ROLES.includes(data.me.role)
@@ -266,6 +270,16 @@ export function SettingsWorkspace({
                 </span>
                 <ChevronLeft size={18} />
               </button>
+              <button aria-pressed={channel === "meta"} onClick={() => setChannel("meta")}>
+                <span className="settings-channel-icon">
+                  <Instagram size={24} />
+                </span>
+                <span>
+                  <b>إنستغرام وماسنجر</b>
+                  <small>الرد على الرسائل من CRM</small>
+                </span>
+                <ChevronLeft size={18} />
+              </button>
             </div>
             {channel === "whatsapp" ? (
               <WhatsAppIntegration />
@@ -273,6 +287,8 @@ export function SettingsWorkspace({
               <EmailIntegration />
             ) : channel === "google" ? (
               <GoogleIntegration data={data} />
+            ) : channel === "meta" ? (
+              <MetaIntegration data={data} />
             ) : (
               <TelegramIntegration />
             )}

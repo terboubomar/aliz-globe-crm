@@ -7,6 +7,7 @@ import {
   CalendarDays,
   Settings,
   Star,
+  MessageCircle,
   ChevronLeft,
   Plus,
   Search,
@@ -69,6 +70,7 @@ import { TelegramAccount } from "./telegram-integration";
 import { TwoStepAccount } from "./two-step-account";
 import { CustomerCard } from "./customer-card";
 import { ReviewsWorkspace, TicketReview } from "./google-reviews";
+import { InboxWorkspace } from "./meta-inbox";
 import { PasskeyAccount } from "./passkey-account";
 import { PASSKEYS_ENABLED } from "@/lib/passkey-errors";
 import { SettingsWorkspace } from "./settings-workspace";
@@ -89,6 +91,7 @@ const navigation = [
   { id: "schedule", label: "جدولة الفريق", icon: CalendarDays },
   { id: "reports", label: "التقارير", icon: Activity },
   { id: "reviews", label: "تقييمات Google", icon: Star },
+  { id: "inbox", label: "رسائل إنستغرام وماسنجر", icon: MessageCircle },
   { id: "users", label: "المستخدمون والصلاحيات", icon: ShieldCheck },
   { id: "settings", label: "الإعدادات", icon: Settings },
 ];
@@ -118,7 +121,23 @@ export default function CRM() {
     [selected, setSelected] = useState<string | null>(null),
     [toast, setToast] = useState(""),
     [notifications, setNotifications] = useState(false),
-    [access, setAccess] = useState<AccessError["code"] | null>(null);
+    [access, setAccess] = useState<AccessError["code"] | null>(null),
+    [inboxUnread, setInboxUnread] = useState(0);
+  // Unread Instagram/Messenger chats for the menu badge, checked every minute.
+  const inboxAllowed = !!data && canOpenView("inbox", data.permissions, data.me.role);
+  const refreshInbox = useCallback(async () => {
+    try {
+      setInboxUnread((await api<{ unread: number }>("inbox/unread", {})).unread);
+    } catch {
+      /* Not connected yet, or no access: no badge. */
+    }
+  }, []);
+  useEffect(() => {
+    if (!inboxAllowed) return;
+    void refreshInbox();
+    const t = window.setInterval(() => void refreshInbox(), 60_000);
+    return () => window.clearInterval(t);
+  }, [inboxAllowed, refreshInbox]);
   const load = useCallback(async () => {
     const epoch = authEpoch.current;
     try {
@@ -400,6 +419,7 @@ export default function CRM() {
                 "tickets",
                 "refunds",
                 "customers",
+                "inbox",
                 "reviews",
                 "tasks",
                 "schedule",
@@ -449,6 +469,14 @@ export default function CRM() {
                               {n(openCount)}
                             </small>
                           )}
+                        {item.id === "inbox" && inboxUnread > 0 && (
+                          <small
+                            className="nav-count"
+                            aria-label={`${n(inboxUnread)} محادثات غير مقروءة`}
+                          >
+                            {n(inboxUnread)}
+                          </small>
+                        )}
                         {active && (
                           <ChevronLeft
                             className="sidebar-nav-current"
@@ -937,6 +965,14 @@ export default function CRM() {
                 />
               )}
             </section>
+          )}
+          {view === "inbox" && (
+            <InboxWorkspace
+              data={data}
+              brand={brand}
+              onOpenTicket={openTicket}
+              onCountChange={() => void refreshInbox()}
+            />
           )}
           {view === "reviews" && (
             <ReviewsWorkspace data={data} brand={brand} onOpenTicket={openTicket} />
