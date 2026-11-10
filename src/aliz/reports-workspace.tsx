@@ -136,7 +136,6 @@ export function ReportsWorkspace({
               <option value="PUBLIC_QR">QR</option>
               <option value="PHONE_AGENT">الهاتف</option>
               <option value="GOOGLE_REVIEW">Google</option>
-              <option value="SOCIAL_DM">إنستغرام / ماسنجر</option>
             </select>
           </Field>
           <Field label="الأولوية">
@@ -303,7 +302,6 @@ export function ReportsWorkspace({
                       PUBLIC_QR: "رمز الفرع QR",
                       PHONE_AGENT: "الهاتف",
                       GOOGLE_REVIEW: "تقييم Google",
-                      SOCIAL_DM: "إنستغرام / ماسنجر",
                     }}
                   />
                   <div className="report-grid">

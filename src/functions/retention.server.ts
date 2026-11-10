@@ -100,25 +100,11 @@ export async function runRetention(now = new Date()) {
     .lt("created_at", c.personal.toISOString())
     .not("reviewer_enc", "is", null);
 
-  // 5. Instagram/Messenger messages older than 2 years, and the names on
-  // conversations that have been quiet that long.
-  await db.from("meta_messages").delete().lt("created_at", c.personal.toISOString());
-  await db
-    .from("meta_threads")
-    .update({ customer_name_enc: null, last_text_enc: null })
-    .lt("last_message_at", c.personal.toISOString())
-    .not("customer_name_enc", "is", null);
-
-  // 6. Expired Google and Meta connection attempts.
+  // 5. Expired Google connection attempts.
   await db
     .from("outbox")
     .delete()
     .like("key", "ggstate:%")
-    .lt("created_at", c.markers.toISOString());
-  await db
-    .from("outbox")
-    .delete()
-    .like("key", "mtstate:%")
     .lt("created_at", c.markers.toISOString());
 
   return { anonymised, photos };

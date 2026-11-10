@@ -380,7 +380,7 @@ const reportInput = z.object({
   from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   brandId: z.string().optional(),
-  source: z.enum(["PUBLIC_QR", "PHONE_AGENT", "GOOGLE_REVIEW", "SOCIAL_DM"]).optional(),
+  source: z.enum(["PUBLIC_QR", "PHONE_AGENT", "GOOGLE_REVIEW"]).optional(),
   priority: z.enum(["P1", "P2", "P3"]).optional(),
   csv: z.boolean().default(false),
 }).refine((v) => v.from <= v.to && (Date.parse(v.to) - Date.parse(v.from)) / 86400000 < 366, "اختر فترة لا تتجاوز 366 يوماً.");

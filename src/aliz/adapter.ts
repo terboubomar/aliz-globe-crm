@@ -26,18 +26,6 @@ import {
   googleSyncNow,
 } from "@/functions/google.functions";
 import {
-  inboxConvert,
-  inboxReply,
-  inboxSet,
-  inboxThread,
-  inboxThreads,
-  inboxUnread,
-  metaConnect,
-  metaDisconnectPage,
-  metaPageBrand,
-  metaStatus,
-} from "@/functions/meta.functions";
-import {
   cancelShift,
   createStaff,
   evidenceLink,
@@ -867,30 +855,6 @@ async function route(
       data: { id: String(body["id"] ?? ""), text: String(body["text"] ?? "") },
     });
   if (is("reviews", "suggest")) return googleSuggest({ data: { id: String(body["id"] ?? "") } });
-
-  // Meta inbox (Instagram + Messenger)
-  if (is("integrations", "meta")) return metaStatus();
-  if (is("integrations", "meta", "connect")) return metaConnect();
-  if (is("integrations", "meta", "brand"))
-    return metaPageBrand({
-      data: { pageId: String(body["pageId"] ?? ""), brandId: (body["brandId"] as string) || null },
-    });
-  if (is("integrations", "meta", "disconnect"))
-    return metaDisconnectPage({ data: { pageId: String(body["pageId"] ?? "") } });
-  if (is("inbox") && method === "GET")
-    return inboxThreads({
-      data: {
-        filter: (params.get("filter") || "open") as "open" | "unread" | "mine" | "closed",
-        ...(params.get("brandId") ? { brandId: params.get("brandId")! } : {}),
-      },
-    });
-  if (is("inbox", "unread")) return inboxUnread();
-  if (is("inbox", "thread")) return inboxThread({ data: { id: String(body["id"] ?? "") } });
-  if (is("inbox", "reply"))
-    return inboxReply({ data: { id: String(body["id"] ?? ""), text: String(body["text"] ?? "") } });
-  if (is("inbox", "set"))
-    return inboxSet({ data: { id: String(body["id"] ?? ""), change: body["change"] as never } });
-  if (is("inbox", "convert")) return inboxConvert({ data: body as never });
   throw new Error(NOT_YET);
 }
 

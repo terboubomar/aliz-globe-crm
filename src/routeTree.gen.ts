@@ -18,8 +18,6 @@ import { Route as ApiPublicCronReceiptsRouteImport } from './routes/api/public/c
 import { Route as ApiPublicCronScheduleRouteImport } from './routes/api/public/cron/schedule'
 import { Route as ApiPublicCronTelegramRouteImport } from './routes/api/public/cron/telegram'
 import { Route as ApiPublicGoogleCallbackRouteImport } from './routes/api/public/google/callback'
-import { Route as ApiPublicMetaCallbackRouteImport } from './routes/api/public/meta/callback'
-import { Route as ApiPublicWebhooksMetaRouteImport } from './routes/api/public/webhooks/meta'
 import { Route as ApiPublicWebhooksTelegramRouteImport } from './routes/api/public/webhooks/telegram'
 import { Route as ApiPublicWebhooksWhatsappRouteImport } from './routes/api/public/webhooks/whatsapp'
 
@@ -68,16 +66,6 @@ const ApiPublicGoogleCallbackRoute = ApiPublicGoogleCallbackRouteImport.update({
   path: '/api/public/google/callback',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiPublicMetaCallbackRoute = ApiPublicMetaCallbackRouteImport.update({
-  id: '/api/public/meta/callback',
-  path: '/api/public/meta/callback',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublicWebhooksMetaRoute = ApiPublicWebhooksMetaRouteImport.update({
-  id: '/api/public/webhooks/meta',
-  path: '/api/public/webhooks/meta',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ApiPublicWebhooksTelegramRoute =
   ApiPublicWebhooksTelegramRouteImport.update({
     id: '/api/public/webhooks/telegram',
@@ -101,8 +89,6 @@ export interface FileRoutesByFullPath {
   '/api/public/cron/schedule': typeof ApiPublicCronScheduleRoute
   '/api/public/cron/telegram': typeof ApiPublicCronTelegramRoute
   '/api/public/google/callback': typeof ApiPublicGoogleCallbackRoute
-  '/api/public/meta/callback': typeof ApiPublicMetaCallbackRoute
-  '/api/public/webhooks/meta': typeof ApiPublicWebhooksMetaRoute
   '/api/public/webhooks/telegram': typeof ApiPublicWebhooksTelegramRoute
   '/api/public/webhooks/whatsapp': typeof ApiPublicWebhooksWhatsappRoute
 }
@@ -116,8 +102,6 @@ export interface FileRoutesByTo {
   '/api/public/cron/schedule': typeof ApiPublicCronScheduleRoute
   '/api/public/cron/telegram': typeof ApiPublicCronTelegramRoute
   '/api/public/google/callback': typeof ApiPublicGoogleCallbackRoute
-  '/api/public/meta/callback': typeof ApiPublicMetaCallbackRoute
-  '/api/public/webhooks/meta': typeof ApiPublicWebhooksMetaRoute
   '/api/public/webhooks/telegram': typeof ApiPublicWebhooksTelegramRoute
   '/api/public/webhooks/whatsapp': typeof ApiPublicWebhooksWhatsappRoute
 }
@@ -132,8 +116,6 @@ export interface FileRoutesById {
   '/api/public/cron/schedule': typeof ApiPublicCronScheduleRoute
   '/api/public/cron/telegram': typeof ApiPublicCronTelegramRoute
   '/api/public/google/callback': typeof ApiPublicGoogleCallbackRoute
-  '/api/public/meta/callback': typeof ApiPublicMetaCallbackRoute
-  '/api/public/webhooks/meta': typeof ApiPublicWebhooksMetaRoute
   '/api/public/webhooks/telegram': typeof ApiPublicWebhooksTelegramRoute
   '/api/public/webhooks/whatsapp': typeof ApiPublicWebhooksWhatsappRoute
 }
@@ -149,8 +131,6 @@ export interface FileRouteTypes {
     | '/api/public/cron/schedule'
     | '/api/public/cron/telegram'
     | '/api/public/google/callback'
-    | '/api/public/meta/callback'
-    | '/api/public/webhooks/meta'
     | '/api/public/webhooks/telegram'
     | '/api/public/webhooks/whatsapp'
   fileRoutesByTo: FileRoutesByTo
@@ -164,8 +144,6 @@ export interface FileRouteTypes {
     | '/api/public/cron/schedule'
     | '/api/public/cron/telegram'
     | '/api/public/google/callback'
-    | '/api/public/meta/callback'
-    | '/api/public/webhooks/meta'
     | '/api/public/webhooks/telegram'
     | '/api/public/webhooks/whatsapp'
   id:
@@ -179,8 +157,6 @@ export interface FileRouteTypes {
     | '/api/public/cron/schedule'
     | '/api/public/cron/telegram'
     | '/api/public/google/callback'
-    | '/api/public/meta/callback'
-    | '/api/public/webhooks/meta'
     | '/api/public/webhooks/telegram'
     | '/api/public/webhooks/whatsapp'
   fileRoutesById: FileRoutesById
@@ -195,8 +171,6 @@ export interface RootRouteChildren {
   ApiPublicCronScheduleRoute: typeof ApiPublicCronScheduleRoute
   ApiPublicCronTelegramRoute: typeof ApiPublicCronTelegramRoute
   ApiPublicGoogleCallbackRoute: typeof ApiPublicGoogleCallbackRoute
-  ApiPublicMetaCallbackRoute: typeof ApiPublicMetaCallbackRoute
-  ApiPublicWebhooksMetaRoute: typeof ApiPublicWebhooksMetaRoute
   ApiPublicWebhooksTelegramRoute: typeof ApiPublicWebhooksTelegramRoute
   ApiPublicWebhooksWhatsappRoute: typeof ApiPublicWebhooksWhatsappRoute
 }
@@ -266,20 +240,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicGoogleCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/meta/callback': {
-      id: '/api/public/meta/callback'
-      path: '/api/public/meta/callback'
-      fullPath: '/api/public/meta/callback'
-      preLoaderRoute: typeof ApiPublicMetaCallbackRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/webhooks/meta': {
-      id: '/api/public/webhooks/meta'
-      path: '/api/public/webhooks/meta'
-      fullPath: '/api/public/webhooks/meta'
-      preLoaderRoute: typeof ApiPublicWebhooksMetaRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/public/webhooks/telegram': {
       id: '/api/public/webhooks/telegram'
       path: '/api/public/webhooks/telegram'
@@ -307,8 +267,6 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicCronScheduleRoute: ApiPublicCronScheduleRoute,
   ApiPublicCronTelegramRoute: ApiPublicCronTelegramRoute,
   ApiPublicGoogleCallbackRoute: ApiPublicGoogleCallbackRoute,
-  ApiPublicMetaCallbackRoute: ApiPublicMetaCallbackRoute,
-  ApiPublicWebhooksMetaRoute: ApiPublicWebhooksMetaRoute,
   ApiPublicWebhooksTelegramRoute: ApiPublicWebhooksTelegramRoute,
   ApiPublicWebhooksWhatsappRoute: ApiPublicWebhooksWhatsappRoute,
 }
