@@ -7,6 +7,13 @@ import { Empty, Field } from "./ui";
 import { reportDuration } from "./report-format";
 import { addDays, riyadhDay } from "./schedule-time";
 type Report = ReportResult;
+type Kind = "complaint" | "suggestion" | "all";
+const KIND_NOUN: Record<Kind, string> = {
+  complaint: "الشكاوى",
+  suggestion: "الاقتراحات",
+  all: "الشكاوى والاقتراحات",
+};
+const KIND_UNIT: Record<Kind, string> = { complaint: "شكوى", suggestion: "اقتراح", all: "طلب" };
 export function ReportsWorkspace({
   data,
   brand,
@@ -22,8 +29,16 @@ export function ReportsWorkspace({
     [source, setSource] = useState(""),
     [branch, setBranch] = useState(""),
     [priority, setPriority] = useState(""),
+    [kind, setKind] = useState<Kind>("complaint"),
     [tab, setTab] = useState("overview");
-  const [filters, setFilters] = useState({ from, to, source: "", branchId: "", priority: "" }),
+  const [filters, setFilters] = useState({
+      from,
+      to,
+      source: "",
+      branchId: "",
+      priority: "",
+      kind: "complaint" as Kind,
+    }),
     [report, setReport] = useState<Report | null>(null),
     [loading, setLoading] = useState(true),
     [error, setError] = useState(""),
@@ -40,7 +55,10 @@ export function ReportsWorkspace({
     ...(effectiveBranch ? { branchId: effectiveBranch } : {}),
     ...(filters.source ? { source: filters.source } : {}),
     ...(filters.priority ? { priority: filters.priority } : {}),
+    ...(filters.kind !== "complaint" ? { kind: filters.kind } : {}),
   }).toString();
+  const noun = KIND_NOUN[filters.kind],
+    unit = KIND_UNIT[filters.kind];
   useEffect(() => {
     const controller = new AbortController();
     let alive = true;
@@ -68,7 +86,7 @@ export function ReportsWorkspace({
     const f = addDays(today, 1 - Number(value));
     setFrom(f);
     setTo(today);
-    setFilters({ from: f, to: today, source, branchId: branch, priority });
+    setFilters({ from: f, to: today, source, branchId: branch, priority, kind });
   };
   return (
     <div className="reports-workspace">
@@ -81,7 +99,7 @@ export function ReportsWorkspace({
               setError("اختر فترة صحيحة لا تتجاوز 366 يوماً.");
               return;
             }
-            setFilters({ from, to, source, branchId: branch, priority });
+            setFilters({ from, to, source, branchId: branch, priority, kind });
             setRevision((value) => value + 1);
           }}
         >
@@ -117,6 +135,13 @@ export function ReportsWorkspace({
               }}
             />
           </Field>
+          <Field label="النوع">
+            <select value={kind} onChange={(e) => setKind(e.target.value as Kind)}>
+              <option value="complaint">الشكاوى</option>
+              <option value="suggestion">الاقتراحات</option>
+              <option value="all">الشكاوى والاقتراحات</option>
+            </select>
+          </Field>
           <Field label="الفرع">
             <select
               value={branches.some((b) => b.id === branch) ? branch : ""}
@@ -151,7 +176,24 @@ export function ReportsWorkspace({
         </form>
       </section>
       <div className="reports-toolbar">
-        <span>حسب تاريخ استقبال الشكوى · توقيت الرياض</span>
+        <span>
+          حسب تاريخ الاستلام · توقيت الرياض
+          {report && !loading && filters.kind === "complaint" && !!report.suggestions && (
+            <>
+              {" · "}
+              <button
+                type="button"
+                className="text-btn"
+                onClick={() => {
+                  setKind("suggestion");
+                  setFilters({ ...filters, kind: "suggestion" });
+                }}
+              >
+                {n(report.suggestions)} اقتراح في نفس الفترة
+              </button>
+            </>
+          )}
+        </span>
         <div className="table-tools">
           <button className="text-btn" disabled={loading} onClick={() => setRevision(revision + 1)}>
             <RefreshCw size={15} /> تحديث
@@ -208,11 +250,11 @@ export function ReportsWorkspace({
               {report.previous.from} — {report.previous.to}
             </b>
           </div>
-          <section className="reports-metrics" aria-label="مؤشرات الشكاوى">
+          <section className="reports-metrics" aria-label={"مؤشرات " + noun}>
             {[
               {
                 key: "total" as const,
-                label: "الشكاوى المستلمة",
+                label: noun + " المستلمة",
                 value: n(report.summary.total),
                 icon: BarChart3,
               },
@@ -274,40 +316,42 @@ export function ReportsWorkspace({
                 <>
                   <section className="panel reports-trend">
                     <div className="panel-head">
-                      <h2>الشكاوى المستلمة خلال الفترة</h2>
-                      <span className="badge neutral">{n(report.summary.total)} شكوى</span>
+                      <h2>{noun} المستلمة خلال الفترة</h2>
+                      <span className="badge neutral">
+                        {n(report.summary.total)} {unit}
+                      </span>
                     </div>
                     <Trend points={report.trend} previous={report.previous.trend} />
                   </section>
                   <div className="report-grid">
                     <Breakdown
-                      title="حالات الشكاوى"
+                      title={"حالات " + noun}
                       rows={report.states}
                       total={report.summary.total}
                       labels={states}
                     />
                     <Breakdown
-                      title="أسباب الشكاوى"
+                      title={"أسباب " + noun}
                       rows={report.categories}
                       total={report.summary.total}
                       labels={categories}
                     />
                   </div>
                   <Breakdown
-                    title="مصادر الشكاوى"
+                    title={"مصادر " + noun}
                     rows={report.sources}
                     total={report.summary.total}
                     labels={{ PUBLIC_QR: "رمز الفرع QR", PHONE_AGENT: "الهاتف" }}
                   />
                   <div className="report-grid">
                     <Breakdown
-                      title="أولويات الشكاوى"
+                      title={"أولويات " + noun}
                       rows={report.priorities}
                       total={report.summary.total}
                       labels={{ P1: "P1 — حرجة", P2: "P2 — مرتفعة", P3: "P3 — عادية" }}
                     />
                     <Breakdown
-                      title="أعمار الشكاوى غير المحلولة"
+                      title={"أعمار " + noun + " غير المحلولة"}
                       rows={report.aging
                         .map((a) => ({ key: a.key, count: a.count }))
                         .filter((a) => a.count > 0)}
@@ -320,7 +364,9 @@ export function ReportsWorkspace({
                       الوقت الوسيط للحل{" "}
                       <b>{reportDuration(report.summary.medianResolutionHours)}</b>
                     </span>
-                    <span>{n(report.summary.resolvedWithTime)} شكوى محلولة لها توقيت مكتمل</span>
+                    <span>
+                      {n(report.summary.resolvedWithTime)} {unit} محلولة لها توقيت مكتمل
+                    </span>
                   </div>
                 </>
               )}

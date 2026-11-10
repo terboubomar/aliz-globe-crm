@@ -141,5 +141,9 @@ export type ReportResult = Omit<Aggregate, "team"> & {
     trend: Aggregate["trend"];
   };
   filters: Record<string, string>;
+  /** Which entries the figures cover: complaints (default), suggestions or both. */
+  kind?: "complaint" | "suggestion" | "all";
+  /** Suggestions received in the same period, when the figures cover complaints. */
+  suggestions?: number;
   generatedAt: string;
 };

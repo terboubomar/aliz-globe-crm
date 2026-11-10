@@ -60,6 +60,7 @@ import { prepareImage } from "./prepare-image";
 import { aggregateReport, previousReportPeriod, summarize } from "./report-aggregate";
 import type { Brand, Branch, Data, Refund, Shift, Ticket, User } from "./types";
 import { applyCatalog } from "./catalog-state";
+import { SUGGESTION } from "@/lib/catalog";
 
 /** Thrown when the account needs two-factor, has no role yet, or is disabled. */
 export class AccessError extends Error {
@@ -377,7 +378,9 @@ const shiftEntry = (b: Row) => ({
 
 async function report(params: URLSearchParams) {
   const q = Object.fromEntries([...params].filter(([, v]) => v)) as Record<string, string>;
-  const rowsFor = async (from: string, to: string) => {
+  // Complaints only by default; customer suggestions are reported apart.
+  const kind = q["kind"] === "suggestion" || q["kind"] === "all" ? q["kind"] : "complaint";
+  const rowsFor = async (from: string, to: string, only = kind) => {
     const start = new Date(from + "T00:00:00+03:00").toISOString(),
       end = new Date(Date.parse(to + "T00:00:00+03:00") + 86400000).toISOString();
     const out: Row[] = [];
@@ -393,6 +396,8 @@ async function report(params: URLSearchParams) {
       if (q["branchId"]) qb = qb.eq("branch_id", q["branchId"]);
       if (q["source"]) qb = qb.eq("source", q["source"] as never);
       if (q["priority"]) qb = qb.eq("priority", q["priority"] as never);
+      if (only === "complaint") qb = qb.neq("category", SUGGESTION.id);
+      if (only === "suggestion") qb = qb.eq("category", SUGGESTION.id);
       const { data, error } = await qb.order("received_at").range(off, off + 999);
       if (error) throw new Error("تعذر تحميل التقرير");
       out.push(...((data ?? []) as Row[]));
@@ -421,10 +426,12 @@ async function report(params: URLSearchParams) {
   if (!input.from || !input.to) throw new Error("اختر فترة التقرير");
   const previous = previousReportPeriod(input),
     now = new Date();
-  const [rows, previousRows, staff] = await Promise.all([
+  const [rows, previousRows, staff, suggestions] = await Promise.all([
     rowsFor(input.from, input.to),
     rowsFor(previous.from, previous.to),
     getBootstrap().then((b) => (b.status === "OK" ? (b as BootstrapOk).staff : [])),
+    // How many suggestions came in over the same period, shown beside the complaint figures.
+    kind === "complaint" ? rowsFor(input.from, input.to, "suggestion").then((r) => r.length) : 0,
   ]);
   const result = aggregateReport(rows, input.from, input.to, now);
   return {
@@ -443,6 +450,8 @@ async function report(params: URLSearchParams) {
       trend: aggregateReport(previousRows, previous.from, previous.to, now).trend,
     },
     filters: q,
+    kind,
+    suggestions,
     generatedAt: now.toISOString(),
   };
 }
@@ -457,6 +466,7 @@ export async function downloadReport(query: string) {
       brandId: q["brandId"] || undefined,
       source: (q["source"] || undefined) as never,
       priority: (q["priority"] || undefined) as never,
+      kind: (q["kind"] || undefined) as never,
       csv: true,
     },
   });

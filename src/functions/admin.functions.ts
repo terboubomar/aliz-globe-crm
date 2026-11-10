@@ -403,6 +403,8 @@ const reportInput = z.object({
   brandId: z.string().optional(),
   source: z.enum(["PUBLIC_QR", "PHONE_AGENT"]).optional(),
   priority: z.enum(["P1", "P2", "P3"]).optional(),
+  // Complaints and customer suggestions are reported apart; "all" shows both.
+  kind: z.enum(["complaint", "suggestion", "all"]).default("complaint"),
   csv: z.boolean().default(false),
 }).refine((v) => v.from <= v.to && (Date.parse(v.to) - Date.parse(v.from)) / 86400000 < 366, "اختر فترة لا تتجاوز 366 يوماً.");
 
@@ -423,6 +425,8 @@ export const runReport = createServerFn({ method: "POST" })
       if (q.brandId) qb = qb.eq("brand_id", q.brandId);
       if (q.source) qb = qb.eq("source", q.source);
       if (q.priority) qb = qb.eq("priority", q.priority);
+      if (q.kind === "complaint") qb = qb.neq("category", "SUGGESTION");
+      if (q.kind === "suggestion") qb = qb.eq("category", "SUGGESTION");
       const { data, error } = await qb.order("received_at").range(off, off + 999);
       if (error) throw error;
       rows.push(...((data ?? []) as Row[]));
