@@ -78,6 +78,13 @@
       "when": 1795046400000,
       "tag": "0010_maintenance_other_detail",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1795132800000,
+      "tag": "0011_qr_scans",
+      "breakpoints": true
     }
   ]
 }

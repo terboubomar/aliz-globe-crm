@@ -8,6 +8,7 @@ const viewPermissions: Record<string, string[]> = {
   tasks: ["task"],
   schedule: ["schedule", "schedule.self"],
   reports: ["report"],
+  "qr-stats": ["report"],
   users: ["users.manage"],
   settings: [],
   maintenance: ["mnt.view"],
@@ -58,6 +59,7 @@ export const roleWorkspaces: Record<
       "tasks",
       "schedule",
       "reports",
+      "qr-stats",
     ],
     labels: { overview: "تجربة العملاء", tickets: "شكاوى العملاء" },
   },
@@ -96,6 +98,7 @@ export const roleWorkspaces: Record<
     views: [
       "overview",
       "reports",
+      "qr-stats",
       "tickets",
       "refunds",
       "branches",
@@ -134,6 +137,7 @@ export const roleWorkspaces: Record<
     views: [
       "overview",
       "reports",
+      "qr-stats",
       "tickets",
       "refunds",
       "branches",

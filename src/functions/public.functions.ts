@@ -22,7 +22,11 @@ async function resolveQr(c: string, countVisit: boolean) {
   if (!brand || brand.status !== "ACTIVE") throw retired();
   const { data: list } = br ? { data: [] } : await db.from("branches").select("id,name,city,region").eq("brand_id", brand.id).eq("active", true).order("name");
   if (!br && !list?.length) throw retired();
-  if (countVisit) await db.from("qrs").update({ scans: q.scans + 1 }).eq("id", q.id);
+  if (countVisit) {
+    await db.from("qrs").update({ scans: q.scans + 1 }).eq("id", q.id);
+    // Dated log for the QR stats page: time and code only, nothing about the visitor.
+    await db.from("qr_scans" as never).insert({ qr_id: q.id, brand_id: brand.id } as never);
+  }
   return {
     qrId: q.id, branchId: br?.id ?? null, branchName: br?.name ?? "", brandId: brand.id, brandName: brand.name, logo: brand.logo,
     branches: (list ?? []).map((b) => ({ id: b.id, name: b.name, city: b.city, region: b.region })),
