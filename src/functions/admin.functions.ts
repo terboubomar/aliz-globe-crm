@@ -158,13 +158,18 @@ export const retireQr = createServerFn({ method: "POST" })
   });
 
 /* ---------------- Staff accounts (verified provisioning, no self-signup) ---------------- */
+const NO_FINANCE_ROLES: string[] = ["BRANCH_MANAGER", "MAINTENANCE_MANAGER", "TECHNICIAN"];
 const staffInput = z.object({
   name: z.string().trim().min(2).max(100),
   role: z.enum(assignableRoles),
   financeDuty: z.enum(financeDuties),
   brandIds: z.array(z.string()).default([]),
   branchIds: z.array(z.string().uuid()).default([]),
-}).refine((s) => s.role === "SUPER_ADMIN" || s.brandIds.length > 0, { message: "اختر علامة واحدة على الأقل", path: ["brandIds"] });
+}).refine((s) => s.role === "SUPER_ADMIN" || s.brandIds.length > 0, { message: "اختر علامة واحدة على الأقل", path: ["brandIds"] })
+  // A branch manager sees one branch's data: pick their branch.
+  .refine((s) => s.role !== "BRANCH_MANAGER" || s.branchIds.length > 0, { message: "حدد فرع مدير الفرع", path: ["branchIds"] })
+  // Finance duties are for customer-service staff only.
+  .refine((s) => !NO_FINANCE_ROLES.includes(s.role) || s.financeDuty === "NONE", { message: "هذا الدور لا يأخذ مهمة مالية", path: ["financeDuty"] });
 
 export const listStaff = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

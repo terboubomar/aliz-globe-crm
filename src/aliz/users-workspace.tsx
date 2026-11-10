@@ -3,6 +3,9 @@ import { Plus, Search, Pencil, ShieldCheck, Users, RefreshCw } from "lucide-reac
 import { Data, api, n, roleNames } from "./types";
 import { Field, Empty, Modal, Submit } from "./ui";
 import { permissionLabels, roleDescriptions } from "./access";
+
+// Roles outside customer service never take a finance duty.
+const NO_FINANCE = ["BRANCH_MANAGER", "MAINTENANCE_MANAGER", "TECHNICIAN"];
 type ManagedUser = {
   id: string;
   name: string;
@@ -382,7 +385,7 @@ function UserEditor({
         name: String(f.get("name")),
         email: String(f.get("email")),
         role,
-        financeDuty: role === "SUPER_ADMIN" ? "NONE" : financeDuty,
+        financeDuty: ["SUPER_ADMIN", ...NO_FINANCE].includes(role) ? "NONE" : financeDuty,
         brandIds: role === "SUPER_ADMIN" ? [] : brands,
         branchIds: role === "SUPER_ADMIN" || !restricted ? [] : branches,
         enabled: f.get("enabled") === "on",
@@ -443,7 +446,7 @@ function UserEditor({
                 ))}
               </select>
             </Field>
-            {role !== "SUPER_ADMIN" && (
+            {!["SUPER_ADMIN", ...NO_FINANCE].includes(role) && (
               <Field label="المهمة المالية">
                 <select
                   name="financeDuty"

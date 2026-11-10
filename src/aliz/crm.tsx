@@ -34,6 +34,9 @@ import {
   Fingerprint,
   Home,
   MoreHorizontal,
+  Wrench,
+  Headset,
+  ArrowLeftRight,
 } from "lucide-react";
 import {
   Data,
@@ -58,7 +61,17 @@ import { DirectoryWorkspace } from "./directory-workspace";
 import { SignIn } from "./sign-in";
 import { QRWorkspace, QRPanel } from "./qr-workspace";
 import { UsersWorkspace } from "./users-workspace";
-import { canOpenView, roleWorkspaces, viewLabel } from "./access";
+import {
+  appLabels,
+  appOf,
+  appsFor,
+  canOpenView,
+  roleWorkspaces,
+  viewLabel,
+  type AppId,
+} from "./access";
+import { MaintenanceWorkspace } from "./maintenance-workspace";
+import { AppLauncher } from "./app-launcher";
 import { AgentWorkspace } from "./agent-workspace";
 import { agentInvolved } from "./workflow";
 import { ScheduleWorkspace } from "./schedule-workspace";
@@ -86,6 +99,7 @@ const navigation = [
   { id: "reports", label: "التقارير", icon: Activity },
   { id: "users", label: "المستخدمون والصلاحيات", icon: ShieldCheck },
   { id: "settings", label: "الإعدادات", icon: Settings },
+  { id: "maintenance", label: "طلبات الصيانة", icon: Wrench },
 ];
 function form(e: FormEvent<HTMLFormElement>) {
   e.preventDefault();
@@ -113,7 +127,9 @@ export default function CRM() {
     [selected, setSelected] = useState<string | null>(null),
     [toast, setToast] = useState(""),
     [notifications, setNotifications] = useState(false),
-    [access, setAccess] = useState<AccessError["code"] | null>(null);
+    [access, setAccess] = useState<AccessError["code"] | null>(null),
+    // Customer Service or Maintenance; people with both pick one after signing in.
+    [app, setApp] = useState<AppId | null>(null);
   const load = useCallback(async () => {
     const epoch = authEpoch.current;
     try {
@@ -146,6 +162,10 @@ export default function CRM() {
           setToast("الشكوى غير متاحة ضمن صلاحيات حسابك.");
         }
       }
+      const apps = appsFor(next.permissions, next.me.role);
+      setApp((current) =>
+        current && apps.includes(current) ? current : apps.length === 1 ? apps[0]! : null,
+      );
       setView((current) =>
         canOpenView(current, next.permissions, next.me.role)
           ? current
@@ -184,6 +204,7 @@ export default function CRM() {
       setSelected(null);
       setNotifications(false);
       setToast("");
+      setApp(null);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -264,6 +285,7 @@ export default function CRM() {
   }, [menu]);
   function go(id: string) {
     if (data && !canOpenView(id, data.permissions, data.me.role)) return;
+    setApp(appOf(id));
     setView(id);
     setFilter("all");
     setSearch("");
@@ -288,10 +310,25 @@ export default function CRM() {
         }}
       />
     );
+  const apps = appsFor(data.permissions, data.me.role);
+  const openApp = (id: AppId) => {
+    const first =
+      appOf(view) === id && canOpenView(view, data.permissions, data.me.role)
+        ? view
+        : navigation.find(
+            (i) => appOf(i.id) === id && canOpenView(i.id, data.permissions, data.me.role),
+          )?.id;
+    if (first) go(first);
+    else setApp(id);
+  };
+  if (!app && apps.length > 1)
+    return <AppLauncher name={data.me.name} apps={apps} onPick={openApp} onSignOut={logout} />;
+  const currentApp: AppId = app ?? apps[0] ?? "cs";
   const isAgent = data.me.role === "AGENT";
   const workspace = roleWorkspaces[data.me.role];
   const executive = ["CEO", "OWNER"].includes(data.me.role);
-  const customRecords = executive || data.me.role === "OPERATIONS_MANAGER";
+  const customRecords =
+    executive || ["OPERATIONS_MANAGER", "BRANCH_MANAGER"].includes(data.me.role);
   const permit = (p: string) => data.permissions.includes(p),
     filtered = data.tickets.filter(
       (t) =>
@@ -350,8 +387,8 @@ export default function CRM() {
   // Quick bar for phones and tablets: the main views this role can open (two
   // on phones, four on tablets), a new phone complaint (when allowed), alerts
   // and, on phones, "more" (the full menu; tablets keep the sidebar).
-  const quickViews = ["overview", "tickets", "refunds", "tasks", "schedule"]
-    .filter((id) => canOpenView(id, data.permissions, data.me.role))
+  const quickViews = ["overview", "tickets", "refunds", "tasks", "schedule", "maintenance"]
+    .filter((id) => appOf(id) === currentApp && canOpenView(id, data.permissions, data.me.role))
     .slice(0, 4)
     .map((id) => navigation.find((item) => item.id === id)!);
   const exactOpenCount = summaryFor(data.ticketSummary, "all")?.active;
@@ -385,6 +422,29 @@ export default function CRM() {
             <X size={19} />
           </button>
         </div>
+        {apps.length > 1 && (
+          <div className="app-switch" role="group" aria-label="التطبيق">
+            {apps.map((id) => {
+              const Icon = id === "maintenance" ? Wrench : Headset;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  className={id === currentApp ? "active" : ""}
+                  aria-pressed={id === currentApp}
+                  title={appLabels[id]}
+                  onClick={() => {
+                    openApp(id);
+                    setMenu(false);
+                  }}
+                >
+                  <Icon size={17} />
+                  <span>{appLabels[id]}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
         <nav aria-label="التنقل الرئيسي">
           {[
             {
@@ -398,13 +458,18 @@ export default function CRM() {
                 "tasks",
                 "schedule",
                 "reports",
+                "maintenance",
               ],
             },
             { id: "management", label: "الإدارة", items: ["branches", "qr", "users", "settings"] },
           ].map((group) => {
             const items = group.items
               .map((id) => navigation.find((item) => item.id === id)!)
-              .filter((item) => canOpenView(item.id, data.permissions, data.me.role));
+              .filter(
+                (item) =>
+                  appOf(item.id) === currentApp &&
+                  canOpenView(item.id, data.permissions, data.me.role),
+              );
             if (!items.length) return null;
             return (
               <div className="sidebar-nav-group" key={group.id}>
@@ -498,7 +563,7 @@ export default function CRM() {
             >
               <Menu />
             </button>
-            <span>مساحة العمل</span>
+            <span>{appLabels[currentApp]}</span>
             <ChevronLeft size={14} />
             <b>{title}</b>
           </div>
@@ -625,13 +690,14 @@ export default function CRM() {
             </div>
           </div>
 
-          {!["reports", "settings"].includes(view) && data.ticketCount > data.tickets.length && (
-            <div className="notice">
-              تُعرض آخر {n(data.tickets.length)} حالة من أصل {n(data.ticketCount)} ضمن نطاقك.
-              المؤشرات للسجلات المحمّلة فقط.
-            </div>
-          )}
-          {!permit("read") && (
+          {!["reports", "settings", "maintenance"].includes(view) &&
+            data.ticketCount > data.tickets.length && (
+              <div className="notice">
+                تُعرض آخر {n(data.tickets.length)} حالة من أصل {n(data.ticketCount)} ضمن نطاقك.
+                المؤشرات للسجلات المحمّلة فقط.
+              </div>
+            )}
+          {!permit("read") && currentApp === "cs" && (
             <div className="notice">
               هذا الحساب لا يملك صلاحية عرض البلاغات. يمكنك إدارة الفروع والرموز أو الجدولة حسب
               دورك.
@@ -672,16 +738,18 @@ export default function CRM() {
                   <span>•</span> Asia/Riyadh
                 </span>
               )}
-              <button
-                className="text-btn refresh"
-                onClick={() => {
-                  load();
-                  setToast("تم تحديث البيانات");
-                }}
-              >
-                <RefreshCw size={14} />
-                تحديث
-              </button>
+              {view !== "maintenance" && (
+                <button
+                  className="text-btn refresh"
+                  onClick={() => {
+                    load();
+                    setToast("تم تحديث البيانات");
+                  }}
+                >
+                  <RefreshCw size={14} />
+                  تحديث
+                </button>
+              )}
             </div>
           )}
           {isAgent && ["overview", "tickets"].includes(view) && (
@@ -975,6 +1043,7 @@ export default function CRM() {
             </section>
           )}
           {view === "schedule" && <ScheduleWorkspace data={data} mutate={mutate} busy={busy} />}
+          {view === "maintenance" && <MaintenanceWorkspace data={data} brand={brand} />}
           {view === "reports" && (
             <ReportsWorkspace data={data} brand={brand} onBrandChange={setBrand} />
           )}

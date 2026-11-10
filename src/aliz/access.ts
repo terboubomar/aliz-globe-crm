@@ -10,7 +10,23 @@ const viewPermissions: Record<string, string[]> = {
   reports: ["report"],
   users: ["users.manage"],
   settings: [],
+  maintenance: ["mnt.view"],
 };
+
+/*
+ * The CRM holds two apps: Customer Service (complaints, refunds…) and
+ * Maintenance. Each person sees the apps their role opens; with both, they
+ * pick one after signing in and can switch from the sidebar.
+ */
+export type AppId = "cs" | "maintenance";
+export const appLabels: Record<AppId, string> = { cs: "خدمة العملاء", maintenance: "الصيانة" };
+export const appOf = (view: string): AppId => (view === "maintenance" ? "maintenance" : "cs");
+export function appsFor(permissions: string[], role: string): AppId[] {
+  const views = Object.keys(viewPermissions).filter(
+    (v) => v !== "settings" && canOpenView(v, permissions, role),
+  );
+  return (["cs", "maintenance"] as const).filter((app) => views.some((v) => appOf(v) === app));
+}
 export const agentViewLabels: Record<string, string> = {
   overview: "مساحة عملي",
   tickets: "الشكاوى",
@@ -64,7 +80,7 @@ export const roleWorkspaces: Record<
   OPERATIONS_MANAGER: {
     title: "التصعيدات المسندة إليّ",
     description: "عالج التصعيد المسند إليك ثم يتابع فريق خدمة العملاء التواصل مع العميل.",
-    views: ["overview", "tickets", "refunds", "reports"],
+    views: ["overview", "tickets", "refunds", "reports", "maintenance"],
     labels: {
       overview: "مساحة العمليات",
       tickets: "تصعيداتي",
@@ -75,7 +91,7 @@ export const roleWorkspaces: Record<
   CEO: {
     title: "نظرة تنفيذية للمجموعة",
     description: "مؤشرات تجربة العملاء والتصعيد والاسترجاع عبر العلامات المصرح بها.",
-    views: ["overview", "reports", "tickets", "refunds", "branches"],
+    views: ["overview", "reports", "tickets", "refunds", "branches", "maintenance"],
     labels: { overview: "النظرة التنفيذية", tickets: "سجل الشكاوى", refunds: "متابعة الاسترجاع" },
   },
   IT_MANAGER: {
@@ -84,10 +100,28 @@ export const roleWorkspaces: Record<
     views: ["refunds"],
     labels: { refunds: "طلبات الاسترجاع" },
   },
+  BRANCH_MANAGER: {
+    title: "شكاوى فرعي",
+    description: "تابع شكاوى العملاء على فرعك، واطلب الصيانة وأكّد الإصلاح.",
+    views: ["overview", "tickets", "maintenance"],
+    labels: { overview: "شكاوى فرعي", tickets: "سجل شكاوى الفرع", maintenance: "طلبات الصيانة" },
+  },
+  MAINTENANCE_MANAGER: {
+    title: "طلبات الصيانة",
+    description: "استلم طلبات الفروع وأسندها للفنيين وتابع المهل.",
+    views: ["maintenance"],
+    labels: { maintenance: "طلبات الصيانة" },
+  },
+  TECHNICIAN: {
+    title: "أعمالي",
+    description: "أعمال الصيانة المسندة إليك.",
+    views: ["maintenance"],
+    labels: { maintenance: "أعمالي" },
+  },
   OWNER: {
     title: "أداء علاماتي",
     description: "تابع تجربة العملاء والحالات المفتوحة والطلبات المالية لعلاماتك.",
-    views: ["overview", "reports", "tickets", "refunds", "branches"],
+    views: ["overview", "reports", "tickets", "refunds", "branches", "maintenance"],
     labels: {
       overview: "أداء علاماتي",
       tickets: "سجل الشكاوى",
@@ -138,6 +172,11 @@ export const permissionLabels: Record<string, string> = {
   "directory.activate": "تفعيل وتعليق العلامات والفروع",
   "evidence.view": "عرض الإثباتات المالية",
   "evidence.attach": "إرفاق الإثباتات المالية",
+  "mnt.view": "عرض طلبات الصيانة",
+  "mnt.request": "طلب صيانة وتأكيد الإصلاح",
+  "mnt.assign": "إسناد طلبات الصيانة",
+  "mnt.work": "تنفيذ أعمال الصيانة",
+  "mnt.configure": "أنواع الأعطال ومهل الصيانة",
 };
 export const roleDescriptions: Record<string, string> = {
   SUPER_ADMIN: "جميع صلاحيات النظام وجميع العلامات والفروع، بما فيها إدارة المستخدمين.",
@@ -157,7 +196,11 @@ export const roleDescriptions: Record<string, string> = {
   AREA_MANAGER: "متابعة فروع المنطقة والعمل على الشكاوى المصعّدة إليه فقط.",
   BRAND_OPERATIONS_MANAGER: "متابعة العلامات المحددة والعمل على التصعيد المسند إليه.",
   GROUP_OPERATIONS_MANAGER: "متابعة عمليات العلامات المحددة والعمل على التصعيد المسند إليه.",
-  BRANCH_MANAGER: "عرض شكاوى الفروع المحددة وإضافة ملاحظات؛ لا تُسند إليه المعالجة الاعتيادية.",
+  BRANCH_MANAGER:
+    "عرض شكاوى فرعه دون بيانات العميل وإضافة ملاحظات، وطلب الصيانة وتأكيد الإصلاح. يُحدد فرعه في نطاق الفروع.",
+  MAINTENANCE_MANAGER:
+    "تطبيق الصيانة فقط: يرى جميع طلبات الصيانة ضمن نطاقه ويسندها للفنيين ويدير أنواع الأعطال والمهل؛ دون الوصول إلى الشكاوى.",
+  TECHNICIAN: "تطبيق الصيانة فقط: يرى أعمال الصيانة المسندة إليه ويبدأها ويوثّق الإصلاح بالصور.",
   FINANCE_APPROVER: "مراجعة الاسترجاع والموافقة والتحقق المالي مع فصل التنفيذ عن التحقق.",
   REFUND_PROCESSOR: "توثيق تنفيذ الاسترجاع خارج النظام وإبلاغ العميل؛ دون الموافقة المالية.",
   QA_REVIEWER: "مراجعة جودة معالجة الشكاوى وإضافة التقييمات.",
