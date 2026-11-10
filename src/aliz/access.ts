@@ -8,8 +8,6 @@ const viewPermissions: Record<string, string[]> = {
   tasks: ["task"],
   schedule: ["schedule", "schedule.self"],
   reports: ["report"],
-  reviews: ["contact", "configure"],
-  inbox: ["contact", "configure"],
   users: ["users.manage"],
   settings: [],
 };
@@ -42,21 +40,19 @@ export const roleWorkspaces: Record<
       "tasks",
       "schedule",
       "reports",
-      "reviews",
-      "inbox",
     ],
     labels: { overview: "تجربة العملاء", tickets: "شكاوى العملاء" },
   },
   SHIFT_LEAD: {
     title: "لوحة قيادة الفريق",
     description: "أسند الشكاوى وتابع عبء العمل والحالات التي تحتاج تدخلك.",
-    views: ["overview", "tickets", "refunds", "branches", "customers", "tasks", "reviews", "inbox"],
+    views: ["overview", "tickets", "refunds", "branches", "customers", "tasks"],
     labels: { overview: "قيادة الفريق", tickets: "الاستقبال والإسناد", tasks: "متابعات الفريق" },
   },
   AGENT: {
     title: "مساحة عملي",
     description: "ابحث في شكاوى العملاء، وتابع عملك وطلبات الاسترجاع.",
-    views: ["overview", "tickets", "refunds", "tasks", "schedule", "reviews", "inbox"],
+    views: ["overview", "tickets", "refunds", "tasks", "schedule"],
     labels: {
       overview: "مساحة عملي",
       tickets: "الشكاوى",

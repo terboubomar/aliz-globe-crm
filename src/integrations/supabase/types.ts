@@ -119,7 +119,6 @@ export type Database = {
           code: string
           created_at: string
           district: string | null
-          google_location: string | null
           id: string
           latitude: number | null
           longitude: number | null
@@ -135,7 +134,6 @@ export type Database = {
           code: string
           created_at?: string
           district?: string | null
-          google_location?: string | null
           id?: string
           latitude?: number | null
           longitude?: number | null
@@ -151,7 +149,6 @@ export type Database = {
           code?: string
           created_at?: string
           district?: string | null
-          google_location?: string | null
           id?: string
           latitude?: number | null
           longitude?: number | null
@@ -199,63 +196,6 @@ export type Database = {
         }
         Relationships: []
       }
-      google_reviews: {
-        Row: {
-          brand_id: string | null
-          branch_id: string | null
-          comment_enc: string | null
-          created_at: string
-          id: string
-          location: string
-          rating: number
-          replied_at: string | null
-          replied_by: string | null
-          reply_enc: string | null
-          reply_source: string | null
-          reply_state: string
-          reviewer_enc: string | null
-          synced_at: string
-          ticket_id: string | null
-          updated_at: string
-        }
-        Insert: {
-          brand_id?: string | null
-          branch_id?: string | null
-          comment_enc?: string | null
-          created_at: string
-          id: string
-          location: string
-          rating: number
-          replied_at?: string | null
-          replied_by?: string | null
-          reply_enc?: string | null
-          reply_source?: string | null
-          reply_state?: string
-          reviewer_enc?: string | null
-          synced_at?: string
-          ticket_id?: string | null
-          updated_at: string
-        }
-        Update: {
-          brand_id?: string | null
-          branch_id?: string | null
-          comment_enc?: string | null
-          created_at?: string
-          id?: string
-          location?: string
-          rating?: number
-          replied_at?: string | null
-          replied_by?: string | null
-          reply_enc?: string | null
-          reply_source?: string | null
-          reply_state?: string
-          reviewer_enc?: string | null
-          synced_at?: string
-          ticket_id?: string | null
-          updated_at?: string
-        }
-        Relationships: []
-      }
       idempotency: {
         Row: {
           expires_at: string
@@ -274,120 +214,6 @@ export type Database = {
           key?: string
           request_hash?: string
           response_enc?: string
-        }
-        Relationships: []
-      }
-      meta_messages: {
-        Row: {
-          attachments: Json
-          created_at: string
-          direction: string
-          id: string
-          sent_by: string | null
-          text_enc: string | null
-          thread_id: string
-        }
-        Insert: {
-          attachments?: Json
-          created_at: string
-          direction: string
-          id: string
-          sent_by?: string | null
-          text_enc?: string | null
-          thread_id: string
-        }
-        Update: {
-          attachments?: Json
-          created_at?: string
-          direction?: string
-          id?: string
-          sent_by?: string | null
-          text_enc?: string | null
-          thread_id?: string
-        }
-        Relationships: []
-      }
-      meta_pages: {
-        Row: {
-          brand_id: string | null
-          connected_at: string
-          ig_id: string | null
-          ig_username: string | null
-          name: string
-          page_id: string
-          subscribed: boolean
-          token_enc: string
-        }
-        Insert: {
-          brand_id?: string | null
-          connected_at?: string
-          ig_id?: string | null
-          ig_username?: string | null
-          name: string
-          page_id: string
-          subscribed?: boolean
-          token_enc: string
-        }
-        Update: {
-          brand_id?: string | null
-          connected_at?: string
-          ig_id?: string | null
-          ig_username?: string | null
-          name?: string
-          page_id?: string
-          subscribed?: boolean
-          token_enc?: string
-        }
-        Relationships: []
-      }
-      meta_threads: {
-        Row: {
-          brand_id: string | null
-          created_at: string
-          customer_id: string
-          customer_name_enc: string | null
-          id: string
-          last_customer_at: string | null
-          last_message_at: string
-          last_text_enc: string | null
-          page_id: string
-          platform: string
-          status: string
-          taken_by: string | null
-          ticket_id: string | null
-          unread: number
-        }
-        Insert: {
-          brand_id?: string | null
-          created_at?: string
-          customer_id: string
-          customer_name_enc?: string | null
-          id: string
-          last_customer_at?: string | null
-          last_message_at: string
-          last_text_enc?: string | null
-          page_id: string
-          platform: string
-          status?: string
-          taken_by?: string | null
-          ticket_id?: string | null
-          unread?: number
-        }
-        Update: {
-          brand_id?: string | null
-          created_at?: string
-          customer_id?: string
-          customer_name_enc?: string | null
-          id?: string
-          last_customer_at?: string | null
-          last_message_at?: string
-          last_text_enc?: string | null
-          page_id?: string
-          platform?: string
-          status?: string
-          taken_by?: string | null
-          ticket_id?: string | null
-          unread?: number
         }
         Relationships: []
       }

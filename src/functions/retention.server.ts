@@ -93,33 +93,5 @@ export async function runRetention(now = new Date()) {
     .like("key", "intake-ip:%")
     .lt("created_at", c.markers.toISOString());
 
-  // 4. Reviewer names and review text kept from Google, after 2 years.
-  await db
-    .from("google_reviews")
-    .update({ reviewer_enc: null, comment_enc: null })
-    .lt("created_at", c.personal.toISOString())
-    .not("reviewer_enc", "is", null);
-
-  // 5. Instagram/Messenger messages older than 2 years, and the names on
-  // conversations that have been quiet that long.
-  await db.from("meta_messages").delete().lt("created_at", c.personal.toISOString());
-  await db
-    .from("meta_threads")
-    .update({ customer_name_enc: null, last_text_enc: null })
-    .lt("last_message_at", c.personal.toISOString())
-    .not("customer_name_enc", "is", null);
-
-  // 6. Expired Google and Meta connection attempts.
-  await db
-    .from("outbox")
-    .delete()
-    .like("key", "ggstate:%")
-    .lt("created_at", c.markers.toISOString());
-  await db
-    .from("outbox")
-    .delete()
-    .like("key", "mtstate:%")
-    .lt("created_at", c.markers.toISOString());
-
   return { anonymised, photos };
 }

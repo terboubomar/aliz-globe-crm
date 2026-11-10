@@ -36,6 +36,13 @@
       "when": 1793836800000,
       "tag": "0004_meta_inbox",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1794268800000,
+      "tag": "0005_remove_google_meta",
+      "breakpoints": true
     }
   ]
 }

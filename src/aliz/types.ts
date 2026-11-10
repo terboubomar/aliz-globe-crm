@@ -71,23 +71,6 @@ export type Ticket = {
   tasks: Task[];
   attachments: { id: string; status: string }[];
   reviews: { score: number; note: string; reviewer: string }[];
-  /** The Google review behind a complaint that came from Google. */
-  google?: GoogleReview | null;
-};
-export type GoogleReview = {
-  id: string;
-  branchId: string | null;
-  brandId: string | null;
-  rating: number;
-  reviewer: string;
-  comment: string;
-  createdAt: string;
-  reply: string;
-  replyState: string;
-  replySource: string | null;
-  repliedAt: string | null;
-  ticketId: string | null;
-  ticketNumber: string | null;
 };
 export type Refund = {
   id: string;
@@ -165,7 +148,6 @@ export type Data = {
     slaPolicy?: Record<string, number | string | boolean> | null;
   };
 };
-import { categories as catalogLabels } from "./catalog-state";
 export {
   categories,
   lists,
@@ -216,9 +198,6 @@ export const roleNames: Record<string, string> = {
 export const eventNames: Record<string, string> = {
   PHONE_CREATED: "تسجيل شكوى هاتفية",
   QR_CREATED: "استقبال بلاغ QR",
-  GOOGLE_REVIEW_CREATED: "استقبال تقييم Google",
-  GOOGLE_REPLIED: "الرد على تقييم Google",
-  SOCIAL_DM_CREATED: "تحويل محادثة إنستغرام/ماسنجر إلى شكوى",
   DEMO_CREATED: "إنشاء حالة تجريبية",
   TRIAGE: "فرز البلاغ",
   ASSIGN: "إسناد البلاغ",
@@ -310,7 +289,3 @@ export function risk(t: Ticket) {
       ? "soon"
       : "ok";
 }
-
-/** A complaint's subject: its reason, or "Google review" for complaints from Google. */
-export const subject = (t: { source: string; category: string }) =>
-  t.source === "GOOGLE_REVIEW" ? "تقييم Google" : (catalogLabels[t.category] ?? t.category);

@@ -399,7 +399,7 @@ function ticketLines(info: Info) {
   return [
     `<code>${ticketNumber(t.sequence, t.created_at)}</code>`,
     `🏷 ${esc(info.brand)} · 📍 ${esc(info.branch)}`,
-    `📂 ${esc(info.category)} · ${urgent(t) ? "🔴" : "⚪️"} ${esc(t.priority)} · ${t.source === "PUBLIC_QR" ? "QR" : t.source === "GOOGLE_REVIEW" ? "Google" : t.source === "SOCIAL_DM" ? "إنستغرام/ماسنجر" : "الهاتف"}`,
+    `📂 ${esc(info.category)} · ${urgent(t) ? "🔴" : "⚪️"} ${esc(t.priority)} · ${t.source === "PUBLIC_QR" ? "QR" : "الهاتف"}`,
     `🕒 استُقبلت ${clock(t.received_at)}`,
   ];
 }

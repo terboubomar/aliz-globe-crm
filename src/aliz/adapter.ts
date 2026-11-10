@@ -14,30 +14,6 @@ import {
 } from "@/functions/complaints.functions";
 import { listRefunds, refundAction, requestRefund } from "@/functions/refunds.functions";
 import {
-  googleConnect,
-  googleDisconnect,
-  googleLinkLocation,
-  googleLocations,
-  googleReply,
-  googleReviews,
-  googleSaveRules,
-  googleStatus,
-  googleSuggest,
-  googleSyncNow,
-} from "@/functions/google.functions";
-import {
-  inboxConvert,
-  inboxReply,
-  inboxSet,
-  inboxThread,
-  inboxThreads,
-  inboxUnread,
-  metaConnect,
-  metaDisconnectPage,
-  metaPageBrand,
-  metaStatus,
-} from "@/functions/meta.functions";
-import {
   cancelShift,
   createStaff,
   evidenceLink,
@@ -839,58 +815,6 @@ async function route(
   if (is("integrations", "whatsapp") || is("integrations", "email"))
     return receiptChannelStatus({ data: { channel: at(1) as "whatsapp" | "email" } });
   if (is("integrations", "telegram")) return telegramStatus();
-
-  // Google Business Profile reviews
-  if (is("integrations", "google")) return googleStatus();
-  if (is("integrations", "google", "connect")) return googleConnect();
-  if (is("integrations", "google", "disconnect")) return googleDisconnect();
-  if (is("integrations", "google", "locations")) return googleLocations();
-  if (is("integrations", "google", "link"))
-    return googleLinkLocation({
-      data: {
-        branchId: String(body["branchId"] ?? ""),
-        location: (body["location"] as string) || null,
-      },
-    });
-  if (is("integrations", "google", "sync")) return googleSyncNow();
-  if (is("settings", "google")) return googleSaveRules({ data: body as never });
-  if (is("reviews") && method === "GET")
-    return googleReviews({
-      data: {
-        filter: (params.get("filter") || "unanswered") as "pending" | "unanswered" | "all",
-        ...(params.get("brandId") ? { brandId: params.get("brandId")! } : {}),
-        limit: 100,
-      },
-    });
-  if (is("reviews", "reply"))
-    return googleReply({
-      data: { id: String(body["id"] ?? ""), text: String(body["text"] ?? "") },
-    });
-  if (is("reviews", "suggest")) return googleSuggest({ data: { id: String(body["id"] ?? "") } });
-
-  // Meta inbox (Instagram + Messenger)
-  if (is("integrations", "meta")) return metaStatus();
-  if (is("integrations", "meta", "connect")) return metaConnect();
-  if (is("integrations", "meta", "brand"))
-    return metaPageBrand({
-      data: { pageId: String(body["pageId"] ?? ""), brandId: (body["brandId"] as string) || null },
-    });
-  if (is("integrations", "meta", "disconnect"))
-    return metaDisconnectPage({ data: { pageId: String(body["pageId"] ?? "") } });
-  if (is("inbox") && method === "GET")
-    return inboxThreads({
-      data: {
-        filter: (params.get("filter") || "open") as "open" | "unread" | "mine" | "closed",
-        ...(params.get("brandId") ? { brandId: params.get("brandId")! } : {}),
-      },
-    });
-  if (is("inbox", "unread")) return inboxUnread();
-  if (is("inbox", "thread")) return inboxThread({ data: { id: String(body["id"] ?? "") } });
-  if (is("inbox", "reply"))
-    return inboxReply({ data: { id: String(body["id"] ?? ""), text: String(body["text"] ?? "") } });
-  if (is("inbox", "set"))
-    return inboxSet({ data: { id: String(body["id"] ?? ""), change: body["change"] as never } });
-  if (is("inbox", "convert")) return inboxConvert({ data: body as never });
   throw new Error(NOT_YET);
 }
 
