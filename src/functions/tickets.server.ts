@@ -13,7 +13,8 @@ export const ticketInput = z.object({
   unknownReason: z.string().max(300).optional(),
   category: z.string().regex(/^[A-Z][A-Z0-9_]{1,39}$/, "اختر سبب الشكوى"),
   priority: z.enum(["P1", "P2", "P3"]),
-  description: z.string().trim().min(10, "الوصف 10 أحرف على الأقل").max(4000),
+  // Free text: the customer writes as much or as little as they like.
+  description: z.string().trim().max(4000).default(""),
   // When the reason is "Other": what the problem is, in a few words.
   otherDetail: z.string().trim().max(120).optional(),
   name: z.string().trim().max(100).optional(),
