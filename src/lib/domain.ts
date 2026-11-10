@@ -10,6 +10,9 @@ export const assignableRoles = [
   "CEO",
   "OWNER",
   "IT_MANAGER",
+  "BRANCH_MANAGER",
+  "MAINTENANCE_MANAGER",
+  "TECHNICIAN",
 ] as const;
 export type AssignableRole = (typeof assignableRoles)[number];
 
@@ -22,6 +25,9 @@ export const roleLabels: Record<string, string> = {
   CEO: "الرئيس التنفيذي",
   OWNER: "المالك",
   IT_MANAGER: "مدير تقنية المعلومات",
+  BRANCH_MANAGER: "مدير الفرع",
+  MAINTENANCE_MANAGER: "مدير الصيانة",
+  TECHNICIAN: "فني صيانة",
 };
 
 export const financeDuties = ["NONE", "APPROVER", "PROCESSOR", "VERIFIER"] as const;
@@ -54,7 +60,11 @@ const rights: Record<string, string[]> = {
   SHIFT_LEAD: ["brands.manage", "branches.manage", "read", "pii", "create", "comment", "contact", "task", "refund.request", "assign", "triage", "close", "escalate", "investigate", "resolve", "qa"],
   CUSTOMER_SERVICE_MANAGER: ["brands.manage", "branches.manage", "read", "pii", "create", "comment", "contact", "task", "refund.request", "assign", "triage", "close", "escalate", "investigate", "resolve", "report"],
   AREA_MANAGER: ["read", "comment", "report", "investigate", "resolve", "escalate"],
-  BRANCH_MANAGER: ["read", "comment"],
+  // Sees their branch's complaints (no customer details) and requests maintenance.
+  BRANCH_MANAGER: ["read", "comment", "mnt.view", "mnt.request"],
+  // Maintenance: the manager sees every request and assigns it; a technician works the jobs assigned to them.
+  MAINTENANCE_MANAGER: ["mnt.view", "mnt.assign", "mnt.work", "mnt.configure"],
+  TECHNICIAN: ["mnt.view", "mnt.work"],
   BRAND_OPERATIONS_MANAGER: ["read", "comment", "escalate", "report", "investigate", "resolve"],
   GROUP_OPERATIONS_MANAGER: ["read", "comment", "escalate", "report", "investigate", "resolve"],
   FINANCE_APPROVER: ["read", "comment", "refund.decide", "refund.verify", "evidence.view"],
@@ -65,9 +75,9 @@ const rights: Record<string, string[]> = {
   PRIVACY_OFFICER: ["read", "pii", "privacy", "audit"],
 };
 rights["MARKETING_MANAGER"] = [...(rights["CUSTOMER_SERVICE_MANAGER"] ?? []), "qa", "schedule", "configure"];
-rights["OPERATIONS_MANAGER"] = ["read", "comment", "report", "investigate", "resolve", "escalate"];
-rights["CEO"] = ["read", "report"];
-rights["OWNER"] = ["read", "report"];
+rights["OPERATIONS_MANAGER"] = ["read", "comment", "report", "investigate", "resolve", "escalate", "mnt.view"];
+rights["CEO"] = ["read", "report", "mnt.view"];
+rights["OWNER"] = ["read", "report", "mnt.view"];
 // Refunds only: sees and handles refund requests, nothing about complaints.
 rights["IT_MANAGER"] = ["refund.view", "refund.execute", "refund.notify", "evidence.view", "evidence.attach"];
 rights["SUPER_ADMIN"] = [...new Set([...Object.values(rights).flat(), "users.manage", "directory.activate", "evidence.view"])];
