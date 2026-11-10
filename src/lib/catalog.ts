@@ -26,6 +26,17 @@ export const DEFAULT_CATEGORIES: CategoryItem[] = [
   { id: "OTHER", label: "أخرى", active: true, urgent: false },
 ];
 
+/**
+ * Suggestions from the customer form are saved like complaints with this fixed
+ * reason. It is always available and not part of the list the team edits.
+ */
+export const SUGGESTION: CategoryItem = {
+  id: "SUGGESTION",
+  label: "اقتراح",
+  active: true,
+  urgent: false,
+};
+
 /** "Other": the person picking it is asked to say what the problem is. */
 export const asksDetail = (c: { id: string; label: string }) =>
   c.id === "OTHER" || c.label.trim() === "أخرى";
@@ -79,7 +90,13 @@ const clean = (s: unknown, max: number) =>
 export function toCatalog(categories: unknown, platforms: unknown): Catalog {
   const saved = Array.isArray(categories)
     ? (categories as Partial<CategoryItem>[])
-        .filter((c) => typeof c?.id === "string" && CATEGORY_ID.test(c.id) && clean(c.label, 60))
+        .filter(
+          (c) =>
+            typeof c?.id === "string" &&
+            c.id !== SUGGESTION.id &&
+            CATEGORY_ID.test(c.id) &&
+            clean(c.label, 60),
+        )
         .map((c) => ({
           id: c.id!,
           label: clean(c.label, 60),
@@ -90,6 +107,7 @@ export function toCatalog(categories: unknown, platforms: unknown): Catalog {
   const cats = saved.length ? saved : DEFAULT_CATEGORIES.map((c) => ({ ...c }));
   for (const d of DEFAULT_CATEGORIES)
     if (!cats.some((c) => c.id === d.id)) cats.push({ ...d, active: false });
+  cats.push({ ...SUGGESTION });
   const plats = Array.isArray(platforms)
     ? (platforms as Partial<PlatformItem>[])
         .filter((p) => clean(p?.label, 60))
