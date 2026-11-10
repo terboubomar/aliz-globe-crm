@@ -129,7 +129,6 @@ export default function PublicIntake({ code }: { code: string }) {
       if (choosing && !region) return "اختر المنطقة";
       if (choosing && !city) return "اختر المدينة";
       if (choosing && !branchId) return "اختر الفرع";
-      if (description.trim().length < 10) return "اكتب تفاصيل المشكلة (10 أحرف على الأقل)";
     }
     if (step === 2) {
       if (contact === "email" && !/^\S+@\S+\.\S+$/.test(email.trim()))
@@ -413,7 +412,6 @@ export default function PublicIntake({ code }: { code: string }) {
                   placeholder="مثال: وصل الطلب بعد ساعة وكان البرقر بارد وناقص البطاطس."
                 />
                 <div className="qf-counter">
-                  <span>10 أحرف على الأقل</span>
                   <span dir="ltr">{description.length} / 4000</span>
                 </div>
               </div>
