@@ -7871,7 +7871,7 @@ th {
   font-weight: 700;
 }
 
-/* Brand QR form: where the customer ordered from (region → city → branch). */
+/* Brand QR form: where the customer ordered from (region → branch). */
 .qf-branch {
   display: grid;
   gap: 10px;
@@ -7912,4 +7912,70 @@ th {
 .branch-location-cell small.warn,
 .qr-branch-info .warn {
   color: var(--amber);
+}
+
+/* QR form start: the customer picks a complaint or a suggestion. */
+.qf-kinds {
+  display: grid;
+  gap: 12px;
+  margin-top: 6px;
+}
+.qf-kind {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 84px;
+  padding: 16px;
+  background: var(--paper);
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  color: var(--muted);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+}
+.qf-kind:hover,
+.qf-kind:focus-visible {
+  border-color: var(--burgundy);
+  outline: none;
+}
+.qf-kind:active {
+  background: #fbf3f2;
+}
+.qf-kind > span:nth-child(2) {
+  flex: 1;
+  display: grid;
+  gap: 2px;
+}
+.qf-kind b {
+  font-size: 17px;
+  color: var(--ink);
+}
+.qf-kind small {
+  font-size: 13.5px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.qf-kind-icon {
+  flex-shrink: 0;
+  width: 50px;
+  height: 50px;
+  border-radius: 13px;
+  display: grid;
+  place-items: center;
+}
+.qf-kind-icon.complaint {
+  background: #f8e9e9;
+  color: var(--burgundy);
+}
+.qf-kind-icon.suggestion {
+  background: #e6f3ef;
+  color: var(--green);
+}
+.qf-actions .secondary svg {
+  vertical-align: middle;
 }

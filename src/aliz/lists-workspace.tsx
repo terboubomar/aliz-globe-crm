@@ -6,6 +6,7 @@ import {
   type Catalog,
   type CategoryItem,
   type PlatformItem,
+  SUGGESTION,
 } from "@/lib/catalog";
 import { api, lists, n } from "./types";
 
@@ -69,7 +70,8 @@ const withKeys = (list: PlatformItem[]): PlatformRow[] => list.map((p) => ({ ...
 /** Complaint reasons and order platforms, managed in Settings → Lists. */
 export function ListsPanel() {
   const [cats, setCats] = useState<(CategoryItem & { fresh?: boolean })[]>(() =>
-      lists.categories.map((c) => ({ ...c })),
+      // Suggestions use a fixed reason that is not edited here.
+      lists.categories.filter((c) => c.id !== SUGGESTION.id).map((c) => ({ ...c })),
     ),
     [plats, setPlats] = useState<PlatformRow[]>(() => withKeys(lists.platforms)),
     [newCat, setNewCat] = useState(""),
@@ -124,7 +126,7 @@ export function ListsPanel() {
         categories: cats.map(({ id, label, active, urgent }) => ({ id, label, active, urgent })),
         platforms: plats.map(({ label, active }) => ({ label, active })),
       });
-      setCats(saved.categories.map((c) => ({ ...c })));
+      setCats(saved.categories.filter((c) => c.id !== SUGGESTION.id).map((c) => ({ ...c })));
       setPlats(withKeys(saved.platforms));
       setNotice("تم حفظ القوائم. تظهر الآن في نموذج الشكوى ونموذج QR وطلبات الاسترجاع.");
     } catch (e) {

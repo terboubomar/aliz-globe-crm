@@ -6,6 +6,7 @@ import {
   categoryLabel,
   asksDetail,
   SUGGESTED_CATEGORIES,
+  SUGGESTION,
   newCategoryId,
   toCatalog,
 } from "@/lib/catalog";
@@ -13,9 +14,18 @@ import {
 describe("complaint reasons and order platforms", () => {
   it("starts from the default lists, with food safety urgent", () => {
     const c = toCatalog(undefined, undefined);
-    expect(c.categories.map((x) => x.id)).toEqual(DEFAULT_CATEGORIES.map((x) => x.id));
+    expect(c.categories.map((x) => x.id)).toEqual([
+      ...DEFAULT_CATEGORIES.map((x) => x.id),
+      SUGGESTION.id,
+    ]);
     expect(c.categories.find((x) => x.id === "SAFETY")?.urgent).toBe(true);
     expect(c.platforms).toEqual(DEFAULT_PLATFORMS);
+  });
+
+  it("always offers the suggestion reason, even if saved switched off", () => {
+    const c = toCatalog([{ id: "SUGGESTION", label: "x", active: false }], undefined);
+    expect(c.categories.filter((x) => x.id === "SUGGESTION")).toEqual([SUGGESTION]);
+    expect(c.categories.find((x) => x.id === "DELAY")?.active).toBe(true);
   });
 
   it("keeps the team's reasons and still knows built-in ones for older complaints", () => {
