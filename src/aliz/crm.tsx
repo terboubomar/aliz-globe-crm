@@ -35,6 +35,7 @@ import {
   Home,
   MoreHorizontal,
   Wrench,
+  ScanLine,
   Headset,
   ArrowLeftRight,
 } from "lucide-react";
@@ -72,6 +73,7 @@ import {
 } from "./access";
 import { MaintenanceWorkspace } from "./maintenance-workspace";
 import { MaintenanceReports } from "./maintenance-reports";
+import { QrStatsWorkspace } from "./qr-stats-workspace";
 import { AppLauncher } from "./app-launcher";
 import { AgentWorkspace } from "./agent-workspace";
 import { agentInvolved } from "./workflow";
@@ -98,6 +100,7 @@ const navigation = [
   { id: "tasks", label: "المهام والمتابعة", icon: ListTodo },
   { id: "schedule", label: "جدولة الفريق", icon: CalendarDays },
   { id: "reports", label: "التقارير", icon: Activity },
+  { id: "qr-stats", label: "إحصائيات QR", icon: ScanLine },
   { id: "users", label: "المستخدمون والصلاحيات", icon: ShieldCheck },
   { id: "settings", label: "الإعدادات", icon: Settings },
   { id: "maintenance", label: "طلبات الصيانة", icon: Wrench },
@@ -468,6 +471,7 @@ export default function CRM() {
                 "tasks",
                 "schedule",
                 "reports",
+                "qr-stats",
                 "maintenance",
                 "maintenance-reports",
               ],
@@ -1055,6 +1059,7 @@ export default function CRM() {
             </section>
           )}
           {view === "schedule" && <ScheduleWorkspace data={data} mutate={mutate} busy={busy} />}
+          {view === "qr-stats" && <QrStatsWorkspace data={data} brand={brand} />}
           {view === "maintenance" && <MaintenanceWorkspace data={data} brand={brand} />}
           {view === "maintenance-reports" && <MaintenanceReports data={data} brand={brand} />}
           {view === "reports" && (
