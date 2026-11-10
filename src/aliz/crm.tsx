@@ -134,7 +134,9 @@ export default function CRM() {
     [notifications, setNotifications] = useState(false),
     [access, setAccess] = useState<AccessError["code"] | null>(null),
     // Customer Service or Maintenance; people with both pick one after signing in.
-    [app, setApp] = useState<AppId | null>(null);
+    [app, setApp] = useState<AppId | null>(null),
+    // Bumped by the phone quick bar to open a new maintenance request.
+    [newMaintenance, setNewMaintenance] = useState(0);
   const load = useCallback(async () => {
     const epoch = authEpoch.current;
     try {
@@ -583,14 +585,16 @@ export default function CRM() {
             <b>{title}</b>
           </div>
           <div className="top-tools">
-            <button
-              className="icon-btn notification-btn"
-              aria-label="التنبيهات"
-              onClick={() => setNotifications(!notifications)}
-            >
-              <Bell size={20} />
-              {late.length > 0 && <i />}
-            </button>
+            {currentApp === "cs" && (
+              <button
+                className="icon-btn notification-btn"
+                aria-label="التنبيهات"
+                onClick={() => setNotifications(!notifications)}
+              >
+                <Bell size={20} />
+                {late.length > 0 && <i />}
+              </button>
+            )}
             <button
               className="avatar small profile-trigger"
               type="button"
@@ -649,7 +653,7 @@ export default function CRM() {
             </div>
           </div>
         </header>
-        {notifications && (
+        {notifications && currentApp === "cs" && (
           <section className="notification-panel">
             <div className="panel-head">
               <h3>تحتاج إلى انتباهك</h3>
@@ -1060,7 +1064,9 @@ export default function CRM() {
           )}
           {view === "schedule" && <ScheduleWorkspace data={data} mutate={mutate} busy={busy} />}
           {view === "qr-stats" && <QrStatsWorkspace data={data} brand={brand} />}
-          {view === "maintenance" && <MaintenanceWorkspace data={data} brand={brand} />}
+          {view === "maintenance" && (
+            <MaintenanceWorkspace data={data} brand={brand} newRequest={newMaintenance} />
+          )}
           {view === "maintenance-reports" && <MaintenanceReports data={data} brand={brand} />}
           {view === "reports" && (
             <ReportsWorkspace data={data} brand={brand} onBrandChange={setBrand} />
@@ -1115,7 +1121,24 @@ export default function CRM() {
             </button>
           );
         })}
-        {permit("create") && (
+        {currentApp === "maintenance" && (permit("mnt.request") || permit("mnt.assign")) && (
+          <button
+            type="button"
+            className="quick-bar-primary"
+            aria-label="طلب صيانة جديد"
+            onClick={() => {
+              setMenu(false);
+              if (view !== "maintenance") go("maintenance");
+              setNewMaintenance((k) => k + 1);
+            }}
+          >
+            <span className="quick-bar-icon">
+              <Plus size={24} strokeWidth={2.2} />
+            </span>
+            <span className="quick-bar-label">طلب صيانة</span>
+          </button>
+        )}
+        {currentApp === "cs" && permit("create") && (
           <button
             type="button"
             className="quick-bar-primary"
@@ -1131,7 +1154,7 @@ export default function CRM() {
             <span className="quick-bar-label">شكوى جديدة</span>
           </button>
         )}
-        {permit("read") && (
+        {currentApp === "cs" && permit("read") && (
           <button
             type="button"
             className={notifications ? "active" : ""}
