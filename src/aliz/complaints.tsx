@@ -11,10 +11,8 @@ import {
   List,
   AlertTriangle,
   CheckCircle2,
-  Star,
 } from "lucide-react";
-import { Data, Ticket, categories, states, date, n, risk, subject } from "./types";
-import { SourceIcon, sourceLabel } from "./source-label";
+import { Data, Ticket, categories, states, date, n, risk } from "./types";
 import { complaintStages, complaintStage, nextComplaintAction, elapsed } from "./workflow";
 import { Empty } from "./ui";
 export function ComplaintsWorkspace({
@@ -45,7 +43,7 @@ export function ComplaintsWorkspace({
         (channel === "all" || t.source === channel) &&
         (branch === "all" || t.branchId === branch) &&
         (!search ||
-          [t.number, t.branch?.name, t.brand.name, t.externalOrder, subject(t)]
+          [t.number, t.branch?.name, t.brand.name, t.externalOrder, categories[t.category]]
             .join(" ")
             .includes(search)) &&
         (queue === "all" ||
@@ -152,7 +150,6 @@ export function ComplaintsWorkspace({
             { id: "all", name: "كل المصادر" },
             { id: "PUBLIC_QR", name: "QR من العميل", icon: QrCode },
             { id: "PHONE_AGENT", name: "الهاتف / مركز الاتصال", icon: Phone },
-            { id: "GOOGLE_REVIEW", name: "تقييمات Google", icon: Star },
           ].map((c) => (
             <button
               key={c.id}
@@ -193,7 +190,7 @@ export function ComplaintsWorkspace({
                             <span dir="ltr">{t.number}</span>
                             <span className={"priority " + t.priority}>{t.priority}</span>
                           </span>
-                          <b className="work-card-subject">{subject(t)}</b>
+                          <b className="work-card-subject">{categories[t.category]}</b>
                           <span className="work-card-branch">
                             <MapPin size={14} />
                             {t.branch?.name ?? "بانتظار تحديد الفرع"}
@@ -202,7 +199,12 @@ export function ComplaintsWorkspace({
                             <img src={"/logos/" + t.brand.logo} alt="" />
                             {t.brand.name}
                             <span className="work-source">
-                              <SourceIcon source={t.source} /> {sourceLabel(t.source)}
+                              {t.source === "PUBLIC_QR" ? (
+                                <QrCode size={13} />
+                              ) : (
+                                <Phone size={13} />
+                              )}{" "}
+                              {t.source === "PUBLIC_QR" ? "QR" : "الهاتف"}
                             </span>
                           </span>
                           <span className="work-card-time">
@@ -277,14 +279,14 @@ export function ComplaintsWorkspace({
                     <td>
                       <button className="ticket-link" onClick={() => onOpen(t.id)}>
                         <span dir="ltr">{t.number}</span>
-                        <b>{subject(t)}</b>
+                        <b>{categories[t.category]}</b>
                       </button>
                     </td>
                     <td>
                       <b>{t.branch?.name ?? "غير محدد"}</b>
                       <small className="block">{t.brand.name}</small>
                     </td>
-                    <td>{sourceLabel(t.source, "team")}</td>
+                    <td>{t.source === "PUBLIC_QR" ? "QR من العميل" : "مركز الاتصال"}</td>
                     <td>
                       <time dateTime={t.receivedAt}>{date(t.receivedAt)}</time>
                     </td>
@@ -315,9 +317,8 @@ export function ComplaintJourney({ ticket: t }: { ticket: Ticket }) {
     { label: "استقبال الشكوى", time: t.receivedAt },
     {
       label: "الإسناد",
-      time: t.events
-        .filter((e) => ["ASSIGN", "AUTO_ASSIGNED", "ESCALATION_ROUTED"].includes(e.type))
-        .at(-1)?.createdAt,
+      time: t.events.filter((e) => ["ASSIGN", "AUTO_ASSIGNED", "ESCALATION_ROUTED"].includes(e.type)).at(-1)
+        ?.createdAt,
     },
     { label: "جارٍ العمل", time: t.acknowledgedAt },
     {

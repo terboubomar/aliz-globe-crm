@@ -1,7 +1,7 @@
 import type { ComponentType } from "react";
 import { AlertTriangle, ArrowLeft, Clock } from "lucide-react";
 import { ago, deadlineLabel, greeting, nextDeadline } from "@/lib/dashboard";
-import { categories, n, type Ticket, subject } from "./types";
+import { categories, n, type Ticket } from "./types";
 
 /*
  * Shared pieces of the staff overview: the greeting header, the number cards,
@@ -99,7 +99,7 @@ export function AttentionStrip({
         {urgent.slice(0, 3).map((t) => (
           <button key={t.id} type="button" onClick={() => onOpen(t.id)}>
             <span>
-              <b dir="ltr">{t.number}</b> · {subject(t)}
+              <b dir="ltr">{t.number}</b> · {categories[t.category]}
             </span>
             <small>
               {t.brand.name} — {t.branch?.name ?? "فرع غير محدد"}
@@ -134,7 +134,7 @@ export function CaseRow({
           <span className="badge neutral">{status}</span>
           <DeadlineChip t={t} />
         </div>
-        <h3>{subject(t)}</h3>
+        <h3>{categories[t.category]}</h3>
         <p>
           {t.brand.name} — {t.branch?.name ?? "فرع غير محدد"} · {ago(t.receivedAt)}
           {t.externalOrder ? " · الطلب " + t.externalOrder : ""}

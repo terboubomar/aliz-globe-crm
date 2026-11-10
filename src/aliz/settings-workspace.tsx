@@ -17,7 +17,6 @@ import {
   ListChecks,
   ShieldCheck,
   Clock,
-  Star,
 } from "lucide-react";
 import { CATALOG_ROLES } from "@/lib/catalog";
 import { ListsPanel } from "./lists-workspace";
@@ -28,7 +27,6 @@ import { Field, Empty } from "./ui";
 import { canOpenView } from "./access";
 import { EmailIntegration, WhatsAppIntegration } from "./whatsapp-integration";
 import { TelegramIntegration } from "./telegram-integration";
-import { GoogleIntegration } from "./google-reviews";
 
 type Section = "general" | "lists" | "templates" | "integrations" | "audit";
 export function SettingsWorkspace({
@@ -43,7 +41,7 @@ export function SettingsWorkspace({
   onMutate: (path: string, body?: unknown) => Promise<unknown>;
 }) {
   const [section, setSection] = useState<Section>("general"),
-    [channel, setChannel] = useState<"whatsapp" | "email" | "telegram" | "google">("whatsapp");
+    [channel, setChannel] = useState<"whatsapp" | "email" | "telegram">("whatsapp");
   const sections = [
     { id: "general" as const, label: "عام", icon: Building2 },
     ...(CATALOG_ROLES.includes(data.me.role)
@@ -256,23 +254,11 @@ export function SettingsWorkspace({
                 </span>
                 <ChevronLeft size={18} />
               </button>
-              <button aria-pressed={channel === "google"} onClick={() => setChannel("google")}>
-                <span className="settings-channel-icon">
-                  <Star size={24} />
-                </span>
-                <span>
-                  <b>تقييمات Google</b>
-                  <small>شكاوى وردود تلقائية</small>
-                </span>
-                <ChevronLeft size={18} />
-              </button>
             </div>
             {channel === "whatsapp" ? (
               <WhatsAppIntegration />
             ) : channel === "email" ? (
               <EmailIntegration />
-            ) : channel === "google" ? (
-              <GoogleIntegration data={data} />
             ) : (
               <TelegramIntegration />
             )}

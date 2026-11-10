@@ -135,7 +135,6 @@ export function ReportsWorkspace({
               <option value="">جميع المصادر</option>
               <option value="PUBLIC_QR">QR</option>
               <option value="PHONE_AGENT">الهاتف</option>
-              <option value="GOOGLE_REVIEW">Google</option>
             </select>
           </Field>
           <Field label="الأولوية">
@@ -298,11 +297,7 @@ export function ReportsWorkspace({
                     title="مصادر الشكاوى"
                     rows={report.sources}
                     total={report.summary.total}
-                    labels={{
-                      PUBLIC_QR: "رمز الفرع QR",
-                      PHONE_AGENT: "الهاتف",
-                      GOOGLE_REVIEW: "تقييم Google",
-                    }}
+                    labels={{ PUBLIC_QR: "رمز الفرع QR", PHONE_AGENT: "الهاتف" }}
                   />
                   <div className="report-grid">
                     <Breakdown
