@@ -125,6 +125,7 @@ export type Database = {
           maps_url: string | null
           name: string
           phone: string | null
+          region: string | null
         }
         Insert: {
           active?: boolean
@@ -140,6 +141,7 @@ export type Database = {
           maps_url?: string | null
           name: string
           phone?: string | null
+          region?: string | null
         }
         Update: {
           active?: boolean
@@ -155,6 +157,7 @@ export type Database = {
           maps_url?: string | null
           name?: string
           phone?: string | null
+          region?: string | null
         }
         Relationships: [
           {
@@ -247,7 +250,8 @@ export type Database = {
       qrs: {
         Row: {
           active: boolean
-          branch_id: string
+          branch_id: string | null
+          brand_id: string | null
           code_enc: string
           created_at: string
           hash: string
@@ -258,7 +262,8 @@ export type Database = {
         }
         Insert: {
           active?: boolean
-          branch_id: string
+          branch_id?: string | null
+          brand_id?: string | null
           code_enc: string
           created_at?: string
           hash: string
@@ -269,7 +274,8 @@ export type Database = {
         }
         Update: {
           active?: boolean
-          branch_id?: string
+          branch_id?: string | null
+          brand_id?: string | null
           code_enc?: string
           created_at?: string
           hash?: string

@@ -21,6 +21,7 @@ import {
   listShifts,
   listStaff,
   qrForBranch,
+  qrForBrand,
   retireQr,
   runReport,
   saveBranch,
@@ -84,7 +85,7 @@ type Row = Record<string, unknown>;
 type BootstrapOk = Extract<Awaited<ReturnType<typeof getBootstrap>>, { status: "OK" }>;
 
 let directory: { brands: Brand[]; branches: Branch[] } = { brands: [], branches: [] };
-let qrCache: { id: string; branchId: string }[] = [];
+let qrCache: { id: string; branchId: string | null; brandId: string | null }[] = [];
 
 function toBranch(b: Row): Branch {
   return {
@@ -92,6 +93,7 @@ function toBranch(b: Row): Branch {
     brandId: String(b["brand_id"]),
     name: String(b["name"]),
     city: String(b["city"] ?? ""),
+    region: (b["region"] as string) ?? null,
     district: (b["district"] as string) ?? null,
     address: (b["address"] as string) ?? null,
     mapsUrl: (b["maps_url"] as string) ?? null,
@@ -348,6 +350,7 @@ const branchFields = (b: Row) => ({
   name: String(b["name"] ?? ""),
   code: String(b["code"] ?? ""),
   city: String(b["city"] ?? ""),
+  region: ((b["region"] as string) || null) as never,
   district: (b["district"] as string) || null,
   address: (b["address"] as string) || null,
   mapsUrl: (b["mapsUrl"] as string) || null,
@@ -588,7 +591,7 @@ async function route(
     return saveBranch({ data: { id: at(1), fields: branchFields(body) } });
   if (is("qrs") && method === "GET") {
     const list = await listQrs();
-    qrCache = list.map((q) => ({ id: q.id, branchId: q.branchId }));
+    qrCache = list.map((q) => ({ id: q.id, branchId: q.branchId, brandId: q.brandId }));
     return list.map((q) => ({
       ...q,
       placement: "استلام الطلبات",
@@ -597,20 +600,25 @@ async function route(
       reusable: true,
     }));
   }
+  // A QR belongs to a brand (one per brand) or, for older codes, to a branch.
+  const qrLink = (q: { branchId: string | null; brandId: string | null }) =>
+    q.brandId
+      ? qrForBrand({ data: { brandId: q.brandId, origin: window.location.origin } })
+      : qrForBranch({ data: { branchId: q.branchId!, origin: window.location.origin } });
   if (is("qrs") && method === "POST")
-    return qrForBranch({
-      data: { branchId: String(body["branchId"]), origin: window.location.origin },
+    return qrLink({
+      brandId: (body["brandId"] as string) || null,
+      branchId: (body["branchId"] as string) || null,
     });
   if (is("qrs", "*", "link")) {
-    const branchId = qrCache.find((q) => q.id === at(1))?.branchId;
-    if (!branchId) throw new Error("حدّث القائمة ثم أعد المحاولة");
-    return qrForBranch({ data: { branchId, origin: window.location.origin } });
+    const q = qrCache.find((x) => x.id === at(1));
+    if (!q) throw new Error("حدّث القائمة ثم أعد المحاولة");
+    return qrLink(q);
   }
   if (is("qrs", "*", "*")) {
-    const branchId = qrCache.find((q) => q.id === at(1))?.branchId;
+    const q = qrCache.find((x) => x.id === at(1));
     await retireQr({ data: { id: at(1), rotate: at(2) === "rotate" } });
-    if (at(2) === "rotate" && branchId)
-      return qrForBranch({ data: { branchId, origin: window.location.origin } });
+    if (at(2) === "rotate" && q) return qrLink(q);
     return { ok: true };
   }
 
@@ -727,6 +735,8 @@ async function route(
       emailAvailable: info.emailAvailable,
       categories: info.categories,
       platforms: info.platforms,
+      // Brand QR codes: the customer picks region, city and branch.
+      branches: info.branches,
     };
   }
   if (is("public", "q", "*")) {
@@ -749,6 +759,7 @@ async function route(
           email: (body["email"] as string) || undefined,
           whatsappConsent: body["whatsappConsent"] === true,
           emailConsent: body["emailConsent"] === true,
+          branchId: (body["branchId"] as string) || undefined,
         },
       },
     });

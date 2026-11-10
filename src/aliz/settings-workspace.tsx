@@ -75,7 +75,7 @@ export function SettingsWorkspace({
   const shortcuts = [
     { view: "users", label: "المستخدمون والصلاحيات", icon: Users },
     { view: "branches", label: "العلامات والفروع", icon: Building2 },
-    { view: "qr", label: "رموز الفروع QR", icon: QrCode },
+    { view: "qr", label: "رموز QR", icon: QrCode },
     { view: "schedule", label: "جدولة الفريق", icon: CalendarDays },
   ].filter((item) => canOpenView(item.view, data.permissions, data.me.role));
   return (

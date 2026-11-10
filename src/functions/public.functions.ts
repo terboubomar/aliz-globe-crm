@@ -11,16 +11,22 @@ async function resolveQr(c: string, countVisit: boolean) {
   const s = await core.settings();
   if (!s.publicIntake) throw new DomainError("INTAKE_DISABLED", 403, "استقبال البلاغات العامة لم يفعّل بعد");
   const db = await core.admin();
-  const { data: q } = await db
-    .from("qrs")
-    .select("id,active,scans,branch_id, branches!inner(id,name,active,brand_id, brands!inner(id,name,logo,color,status))")
-    .eq("hash", await keyedHash("qr:" + c))
-    .maybeSingle();
-  const br = q?.branches as unknown as { id: string; name: string; active: boolean; brand_id: string; brands: { id: string; name: string; logo: string; color: string; status: string } } | undefined;
-  if (!q?.active || !br?.active || br.brands.status !== "ACTIVE")
-    throw new DomainError("QR_RETIRED", 404, "رابط الفرع غير متاح؛ تواصل مع فريق خدمة العملاء");
+  const { data: q } = await db.from("qrs").select("id,active,scans,branch_id,brand_id").eq("hash", await keyedHash("qr:" + c)).maybeSingle();
+  const retired = () => new DomainError("QR_RETIRED", 404, "رابط الفرع غير متاح؛ تواصل مع فريق خدمة العملاء");
+  if (!q?.active) throw retired();
+  // A branch QR (older codes) fixes the branch; a brand QR lets the customer choose it.
+  const { data: br } = q.branch_id ? await db.from("branches").select("id,name,active,brand_id").eq("id", q.branch_id).maybeSingle() : { data: null };
+  if (q.branch_id && !br?.active) throw retired();
+  const brandId = br?.brand_id ?? q.brand_id;
+  const { data: brand } = brandId ? await db.from("brands").select("id,name,logo,status").eq("id", brandId).maybeSingle() : { data: null };
+  if (!brand || brand.status !== "ACTIVE") throw retired();
+  const { data: list } = br ? { data: [] } : await db.from("branches").select("id,name,city,region").eq("brand_id", brand.id).eq("active", true).order("name");
+  if (!br && !list?.length) throw retired();
   if (countVisit) await db.from("qrs").update({ scans: q.scans + 1 }).eq("id", q.id);
-  return { qrId: q.id, branchId: br.id, branchName: br.name, brandId: br.brand_id, brandName: br.brands.name, logo: br.brands.logo };
+  return {
+    qrId: q.id, branchId: br?.id ?? null, branchName: br?.name ?? "", brandId: brand.id, brandName: brand.name, logo: brand.logo,
+    branches: (list ?? []).map((b) => ({ id: b.id, name: b.name, city: b.city, region: b.region })),
+  };
 }
 
 export const publicQrInfo = createServerFn({ method: "POST" })
@@ -32,6 +38,7 @@ export const publicQrInfo = createServerFn({ method: "POST" })
       const lists = await (await import("./core.server")).catalog();
       return {
         ok: true as const, brandName: q.brandName, branchName: q.branchName, logo: q.logo, whatsappAvailable: live.whatsapp, emailAvailable: live.email,
+        branches: q.branches,
         // Only what the form needs: active reasons and platforms.
         categories: lists.categories.filter((c) => c.active).map((c) => ({ id: c.id, label: c.label })),
         platforms: lists.platforms.filter((p) => p.active).map((p) => p.label),
@@ -49,19 +56,23 @@ export const publicCreate = createServerFn({ method: "POST" })
         description: z.string(), category: z.string(), name: z.string().optional(), phone: z.string().optional(),
         externalOrder: z.string().optional(), platform: z.string().optional(), consent: z.literal(true), otherDetail: z.string().optional(),
         email: z.string().optional(), whatsappConsent: z.boolean().optional(), emailConsent: z.boolean().optional(),
+        branchId: z.string().uuid().optional(),
       }),
     }).parse(d),
   )
   .handler(async ({ data }) => {
     const q = await resolveQr(data.code, false);
+    const { consent: _c, branchId: picked, ...rest } = data.input;
+    // Brand QR: the branch the customer chose must be an active branch of that brand.
+    const branchId = q.branchId ?? q.branches.find((b) => b.id === picked)?.id;
+    if (!branchId) throw new DomainError("BRANCH_REQUIRED", 400, "اختر المنطقة والمدينة والفرع");
     const limit = await intakeLimit(q.qrId);
     const t = await import("./tickets.server");
-    const { consent: _c, ...rest } = data.input;
     const res = await t.createTicketCore(
       `QR:${q.qrId}`,
-      { ...rest, whatsappConsent: !!rest.whatsappConsent, emailConsent: !!rest.emailConsent, brandId: q.brandId, branchId: q.branchId, priority: "P3" },
+      { ...rest, whatsappConsent: !!rest.whatsappConsent, emailConsent: !!rest.emailConsent, brandId: q.brandId, branchId, priority: "P3" },
       data.key,
-      { brandId: q.brandId, branchId: q.branchId, qrId: q.qrId },
+      { brandId: q.brandId, branchId, qrId: q.qrId },
     );
     if ("id" in res && res.id) await limit.record(res.id);
     return { number: res.number, trackingToken: res.trackingToken, confirmationStatus: res.confirmationStatus, emailStatus: res.emailStatus ?? "NOT_REQUESTED" };

@@ -15,13 +15,23 @@ import { api, Brand, Branch, Data, date, n } from "./types";
 import { Empty, Field, Modal, Submit } from "./ui";
 export type BranchQR = {
   id: string;
-  branchId: string;
+  branchId: string | null;
+  brandId: string | null;
   placement: string;
   active: boolean;
   scans: number;
   createdAt: string;
   revokedAt: string | null;
   reusable: boolean;
+};
+/** What a QR code opens: a brand's form (one per brand) or, for older codes, one branch's form. */
+export type QRTarget = {
+  kind: "brand" | "branch";
+  id: string;
+  title: string;
+  subtitle: string;
+  fileName: string;
+  active: boolean;
 };
 export function QRWorkspace({
   data,
@@ -37,11 +47,7 @@ export function QRWorkspace({
   const [qrs, setQrs] = useState<BranchQR[]>([]),
     [loading, setLoading] = useState(true),
     [error, setError] = useState(""),
-    [search, setSearch] = useState(""),
-    [status, setStatus] = useState("all"),
-    [selected, setSelected] = useState(""),
-    [choosing, setChoosing] = useState(false),
-    [branchId, setBranchId] = useState("");
+    [selected, setSelected] = useState<{ target: QRTarget; brand: Brand } | null>(null);
   const permitted = data.permissions.includes("configure");
   const load = useCallback(async () => {
     setLoading(true);
@@ -57,32 +63,28 @@ export function QRWorkspace({
   useEffect(() => {
     if (permitted) void load();
   }, [load, permitted]);
-  const branches = data.brands
-    .filter((b) => brand === "all" || b.id === brand)
-    .flatMap((b) => b.branches.map((branch) => ({ ...branch, brand: b })));
-  const visible = branches.filter((b) => {
-    const active = qrs.some((q) => q.branchId === b.id && q.active);
-    return (
-      (!search || [b.name, b.city, b.code, b.brand.name].join(" ").includes(search.trim())) &&
-      (status === "all" ||
-        (status === "ready" && active && b.active) ||
-        (status === "missing" && !active && b.active) ||
-        (status === "inactive" && !b.active))
-    );
+  const brands = data.brands.filter((b) => brand === "all" || b.id === brand);
+  // Older per-branch codes still work until they are stopped.
+  const branchCodes = brands.flatMap((b) =>
+    b.branches
+      .filter((br) => qrs.some((q) => q.branchId === br.id && q.active))
+      .map((br) => ({ ...br, brand: b })),
+  );
+  const brandTarget = (b: Brand): QRTarget => ({
+    kind: "brand",
+    id: b.id,
+    title: b.name,
+    subtitle: `${n(b.branches.filter((x) => x.active).length)} فرع نشط · يختار العميل المنطقة والمدينة والفرع`,
+    fileName: b.id,
+    active: b.status === "ACTIVE",
   });
-  const selectedBranch = data.brands
-    .flatMap((b) => b.branches.map((branch) => ({ ...branch, brand: b })))
-    .find((b) => b.id === selected);
-  const activeBranches = branches.filter((b) => b.active);
-  const ready = activeBranches.filter((b) =>
-    qrs.some((q) => q.branchId === b.id && q.active),
-  ).length;
+  const ready = brands.filter((b) => qrs.some((q) => q.brandId === b.id && q.active)).length;
   if (!permitted)
     return (
       <section className="panel">
         <Empty
           title="إدارة رموز QR متاحة لمسؤول النظام"
-          detail="تواصل مع المسؤول لإنشاء رمز أو تحديثه لفرعك."
+          detail="تواصل مع المسؤول لإنشاء رمز أو تحديثه لعلامتك."
         />
       </section>
     );
@@ -105,61 +107,34 @@ export function QRWorkspace({
         <div className="panel-head">
           <div>
             <h2>رموز استقبال الشكاوى</h2>
+            <p className="hint">رمز واحد لكل علامة؛ يختار العميل المنطقة ثم المدينة ثم الفرع.</p>
           </div>
-          <button
-            className="primary"
-            disabled={!activeBranches.length || loading || !!error}
-            onClick={() => {
-              setBranchId(activeBranches[0]?.id ?? "");
-              setChoosing(true);
-            }}
-          >
-            <Plus size={17} />
-            رمز QR للفرع
+          <button className="secondary" disabled={loading} onClick={load}>
+            <RefreshCw size={16} />
+            تحديث الرموز
           </button>
         </div>
-        <div className="qr-summary" aria-label="ملخص رموز الفروع">
+        <div className="qr-summary" aria-label="ملخص رموز العلامات">
           <span>
-            <b>{n(ready)}</b> فروع برموز نشطة
+            <b>{n(ready)}</b> علامات برموز نشطة
           </span>
           <span>
-            <b>{n(activeBranches.length - ready)}</b> فروع تحتاج رمزاً
+            <b>{n(brands.length - ready)}</b> علامات تحتاج رمزاً
           </span>
           <span>
             <b>
               {n(
                 qrs
-                  .filter((q) => branches.some((b) => b.id === q.branchId))
+                  .filter(
+                    (q) =>
+                      brands.some((b) => b.id === q.brandId) ||
+                      branchCodes.some((b) => b.id === q.branchId),
+                  )
                   .reduce((s, q) => s + q.scans, 0),
               )}
             </b>{" "}
             فتح لنماذج العملاء
           </span>
-        </div>
-        <div className="qr-controls">
-          <label className="qr-search">
-            <Search size={18} />
-            <input
-              aria-label="البحث عن فرع"
-              placeholder="ابحث باسم الفرع أو المدينة أو الرمز"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </label>
-          <select
-            aria-label="حالة رمز الفرع"
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-          >
-            <option value="all">جميع الفروع</option>
-            <option value="ready">برمز نشط</option>
-            <option value="missing">تحتاج رمزاً</option>
-            <option value="inactive">فروع غير نشطة</option>
-          </select>
-          <button className="secondary" disabled={loading} onClick={load}>
-            <RefreshCw size={16} />
-            تحديث الرموز
-          </button>
         </div>
         {error ? (
           <div className="padded" role="alert">
@@ -172,92 +147,127 @@ export function QRWorkspace({
           <p className="padded" role="status">
             جارٍ تحميل الرموز…
           </p>
-        ) : !visible.length ? (
+        ) : !brands.length ? (
           <Empty
-            title={branches.length ? "لا توجد فروع تطابق البحث" : "أضف فرعاً لإنشاء رمزه"}
-            detail={
-              branches.length
-                ? "غيّر البحث أو حالة الرمز لعرض الفروع."
-                : "اربط الفرع بعلامته التجارية أولاً."
-            }
+            title="أضف علامة تجارية لإنشاء رمزها"
             action={
-              !branches.length ? (
-                <button className="secondary" onClick={onDirectory}>
-                  العلامات والفروع
-                </button>
-              ) : undefined
+              <button className="secondary" onClick={onDirectory}>
+                العلامات والفروع
+              </button>
             }
           />
         ) : (
           <div className="qr-branch-list">
-            {visible.map((b) => {
-              const codes = qrs.filter((q) => q.branchId === b.id),
-                active = codes.filter((q) => q.active);
+            {brands.map((b) => {
+              const codes = qrs.filter((q) => q.brandId === b.id),
+                active = codes.filter((q) => q.active),
+                liveBranches = b.branches.filter((x) => x.active),
+                noRegion = liveBranches.filter((x) => !x.region).length;
               return (
                 <article className="qr-branch-item" key={b.id}>
-                  <img
-                    className="qr-brand-logo"
-                    src={"/logos/" + b.brand.logo}
-                    alt={b.brand.name}
-                  />
+                  <img className="qr-brand-logo" src={"/logos/" + b.logo} alt={b.name} />
                   <div className="qr-branch-info">
-                    <small>{b.brand.name}</small>
+                    <small>رمز العلامة</small>
                     <h3>{b.name}</h3>
                     <p>
                       <MapPin size={13} />
-                      {b.city}
-                      <span dir="ltr">{b.code}</span>
+                      {n(liveBranches.length)} فرع نشط
+                      {noRegion > 0 && <span className="warn"> · {n(noRegion)} بدون منطقة</span>}
                     </p>
                   </div>
                   <div className="qr-branch-status">
-                    <span className={"badge " + (b.active && active.length ? "green" : "neutral")}>
-                      {!b.active
-                        ? "الفرع غير نشط"
-                        : active.length
-                          ? "رمز الاستلام نشط"
-                          : "يحتاج رمزاً"}
+                    <span
+                      className={
+                        "badge " +
+                        (b.status === "ACTIVE" && active.length && liveBranches.length
+                          ? "green"
+                          : "neutral")
+                      }
+                    >
+                      {b.status !== "ACTIVE"
+                        ? "العلامة غير مفعلة"
+                        : !liveBranches.length
+                          ? "لا توجد فروع نشطة"
+                          : active.length
+                            ? "الرمز نشط"
+                            : "يحتاج رمزاً"}
                     </span>
                     <small>{n(codes.reduce((s, q) => s + q.scans, 0))} فتح للنموذج</small>
                   </div>
-                  <button className="secondary" onClick={() => setSelected(b.id)}>
+                  <button
+                    className="secondary"
+                    onClick={() => setSelected({ target: brandTarget(b), brand: b })}
+                  >
                     <QrCode size={17} />
-                    {active.length ? "إدارة الرمز" : b.active ? "إنشاء رمز" : "عرض السجل"}
+                    {active.length ? "إدارة الرمز" : "إنشاء رمز"}
                   </button>
                 </article>
               );
             })}
           </div>
         )}
+        {branchCodes.length > 0 && (
+          <div className="qr-legacy">
+            <h3>رموز فروع سابقة</h3>
+            <p className="hint">
+              ما زالت تعمل وتفتح نموذج الفرع مباشرة. أوقفها بعد تعليق رمز العلامة مكانها.
+            </p>
+            <div className="qr-branch-list">
+              {branchCodes.map((br) => {
+                const codes = qrs.filter((q) => q.branchId === br.id);
+                return (
+                  <article className="qr-branch-item" key={br.id}>
+                    <img
+                      className="qr-brand-logo"
+                      src={"/logos/" + br.brand.logo}
+                      alt={br.brand.name}
+                    />
+                    <div className="qr-branch-info">
+                      <small>{br.brand.name}</small>
+                      <h3>{br.name}</h3>
+                      <p>
+                        <MapPin size={13} />
+                        {br.city}
+                        <span dir="ltr">{br.code}</span>
+                      </p>
+                    </div>
+                    <div className="qr-branch-status">
+                      <span className="badge amber">رمز فرع</span>
+                      <small>{n(codes.reduce((s, q) => s + q.scans, 0))} فتح للنموذج</small>
+                    </div>
+                    <button
+                      className="secondary"
+                      onClick={() =>
+                        setSelected({
+                          brand: br.brand,
+                          target: {
+                            kind: "branch",
+                            id: br.id,
+                            title: br.name,
+                            subtitle: `${br.city} · ${br.code}`,
+                            fileName: br.code,
+                            active: br.active,
+                          },
+                        })
+                      }
+                    >
+                      <QrCode size={17} />
+                      إدارة الرمز
+                    </button>
+                  </article>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </section>
-      {choosing && (
-        <Modal title="اختيار الفرع" onClose={() => setChoosing(false)}>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              setSelected(branchId);
-              setChoosing(false);
-            }}
-          >
-            <Field label="الفرع والعلامة">
-              <select required value={branchId} onChange={(e) => setBranchId(e.target.value)}>
-                {activeBranches.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.brand.name} — {b.name} ({b.code})
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Submit busy={false}>متابعة</Submit>
-          </form>
-        </Modal>
-      )}
-      {selectedBranch && (
+      {selected && (
         <QRPanel
-          key={selectedBranch.id}
-          branch={selectedBranch}
-          brand={selectedBranch.brand}
+          key={selected.target.kind + selected.target.id}
+          target={selected.target}
+          brand={selected.brand}
           onClose={() => {
-            setSelected("");
+            setSelected(null);
             void load();
           }}
         />
@@ -266,14 +276,16 @@ export function QRWorkspace({
   );
 }
 export function QRPanel({
-  branch,
+  target,
   brand,
   onClose,
 }: {
-  branch: Branch;
+  target: QRTarget;
   brand: Brand;
   onClose: () => void;
 }) {
+  const mine = (q: BranchQR) =>
+    target.kind === "brand" ? q.brandId === target.id : q.branchId === target.id;
   const [qrs, setQrs] = useState<BranchQR[]>([]),
     [loading, setLoading] = useState(true),
     [preview, setPreview] = useState<{
@@ -292,11 +304,13 @@ export function QRPanel({
     } | null>(null);
   const load = useCallback(async () => {
     try {
-      setQrs((await api<BranchQR[]>("qrs")).filter((q) => q.branchId === branch.id));
+      setQrs((await api<BranchQR[]>("qrs")).filter(mine));
     } finally {
       setLoading(false);
     }
-  }, [branch.id]);
+    // mine depends only on the target, which is fixed for this panel.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [target.id]);
   useEffect(() => {
     load().catch((e) => setError(e.message));
   }, [load]);
@@ -307,14 +321,15 @@ export function QRPanel({
   }
   async function create(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const placement = "استلام الطلبات";
+    const placement = target.kind === "brand" ? "جميع الفروع" : "استلام الطلبات";
     setBusy(true);
     setError("");
     setNotice("");
     try {
-      const result = await api<{ id: string; url: string }>("qrs", {
-        branchId: branch.id,
-      });
+      const result = await api<{ id: string; url: string }>(
+        "qrs",
+        target.kind === "brand" ? { brandId: target.id } : { branchId: target.id },
+      );
       await show(result.id, result.url, placement);
       await load();
       setNotice("تم إنشاء الرمز. يمكنك العودة إليه وتنزيله في أي وقت.");
@@ -331,7 +346,7 @@ export function QRPanel({
     setPreview(null);
     try {
       const result = await api<{ url: string }>(`qrs/${qr.id}/link`);
-      await show(qr.id, result.url, "استلام الطلبات");
+      await show(qr.id, result.url, target.kind === "brand" ? "جميع الفروع" : "استلام الطلبات");
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -348,7 +363,12 @@ export function QRPanel({
       const result = await api<{ id?: string; url?: string }>(`qrs/${qr.id}/${action}`, {});
       setPreview(null);
       setConfirmation(null);
-      if (result.id && result.url) await show(result.id, result.url, "استلام الطلبات");
+      if (result.id && result.url)
+        await show(
+          result.id,
+          result.url,
+          target.kind === "brand" ? "جميع الفروع" : "استلام الطلبات",
+        );
       await load();
       setNotice(
         action === "rotate"
@@ -370,30 +390,35 @@ export function QRPanel({
     }
   }
   return (
-    <Modal title={"رمز QR — " + branch.name} onClose={onClose} wide>
+    <Modal title={"رمز QR — " + target.title} onClose={onClose} wide>
       <div className="qr-context">
         <img src={"/logos/" + brand.logo} alt={brand.name} />
         <div>
-          <b>
-            {brand.name} — {branch.name}
-          </b>
-          <small>
-            {branch.city} · <span dir="ltr">{branch.code}</span>
-          </small>
+          <b>{target.kind === "brand" ? brand.name : `${brand.name} — ${target.title}`}</b>
+          <small>{target.subtitle}</small>
         </div>
       </div>
-      {!branch.active && <p className="notice">الفرع غير نشط، ونماذجه لا تستقبل شكاوى جديدة.</p>}
+      {!target.active && (
+        <p className="notice">
+          {target.kind === "brand" ? "العلامة غير مفعلة" : "الفرع غير نشط"}، ونموذجه لا يستقبل شكاوى
+          جديدة.
+        </p>
+      )}
       <div className="qr-pickup-note">
         <QrCode size={22} />
         <div>
-          <b>استلام الطلبات</b>
+          <b>{target.kind === "brand" ? "رمز واحد لجميع فروع العلامة" : "رمز فرع (سابق)"}</b>
         </div>
       </div>
-      {branch.active && !loading && !error && !qrs.some((q) => q.active) && (
-        <form className="qr-create-form" onSubmit={create}>
-          <Submit busy={busy}>إنشاء رمز الفرع</Submit>
-        </form>
-      )}
+      {target.active &&
+        target.kind === "brand" &&
+        !loading &&
+        !error &&
+        !qrs.some((q) => q.active) && (
+          <form className="qr-create-form" onSubmit={create}>
+            <Submit busy={busy}>إنشاء رمز العلامة</Submit>
+          </form>
+        )}
       {error && (
         <p className="error qr-feedback" role="alert">
           {error}
@@ -407,11 +432,11 @@ export function QRPanel({
       {confirmation && (
         <div className="qr-confirm" role="group" aria-label="تأكيد تغيير الرمز">
           <b>
-            {confirmation.action === "rotate" ? "استبدال الرمز؟" : "إيقاف الرمز؟"} — {branch.name}
+            {confirmation.action === "rotate" ? "استبدال الرمز؟" : "إيقاف الرمز؟"} — {target.title}
           </b>
           <p>
             {confirmation.action === "rotate"
-              ? "سيتوقف الرابط القديم فوراً. ستحتاج إلى طباعة الرمز الجديد ووضعه في الفرع."
+              ? "سيتوقف الرابط القديم فوراً. ستحتاج إلى طباعة الرمز الجديد ووضعه في الفروع."
               : "لن يستقبل هذا الرمز شكاوى جديدة. ستبقى الشكاوى السابقة محفوظة."}
           </p>
           <div className="poster-actions">
@@ -428,10 +453,8 @@ export function QRPanel({
         <div className="qr-poster">
           <img className="poster-logo" src={"/logos/" + brand.logo} alt={brand.name} />
           <h2>شاركنا ملاحظتك</h2>
-          <p>
-            {brand.name} — {branch.name}
-          </p>
-          <img src={preview.img} alt={"رمز شكوى " + branch.name + " — " + preview.placement} />
+          <p>{target.kind === "brand" ? brand.name : `${brand.name} — ${target.title}`}</p>
+          <img src={preview.img} alt={"رمز شكوى " + target.title + " — " + preview.placement} />
           <p>امسح الرمز لإرسال شكوى لفريق خدمة العملاء</p>
           <small>{preview.placement}</small>
           <div className="poster-actions">
@@ -442,7 +465,7 @@ export function QRPanel({
             <a
               className="secondary"
               href={preview.img}
-              download={"qr-" + branch.code + "-" + preview.id + ".png"}
+              download={"qr-" + target.fileName + "-" + preview.id + ".png"}
             >
               <Download size={16} />
               تنزيل PNG
@@ -467,7 +490,9 @@ export function QRPanel({
       )}
       <div className="qr-list">
         <div className="qr-list-heading">
-          <h3>رمز الفرع والسجل السابق</h3>
+          <h3>
+            {target.kind === "brand" ? "رمز العلامة والسجل السابق" : "رمز الفرع والسجل السابق"}
+          </h3>
           <select
             aria-label="حالة الرموز"
             value={codeStatus}
@@ -482,8 +507,8 @@ export function QRPanel({
           <p role="status">جارٍ تحميل الرموز…</p>
         ) : !qrs.length ? (
           <Empty
-            title="لم يُنشأ رمز لهذا الفرع"
-            detail="أنشئ رمز استلام الطلبات باستخدام الزر أعلاه."
+            title={target.kind === "brand" ? "لم يُنشأ رمز لهذه العلامة" : "لا يوجد رمز لهذا الفرع"}
+            detail={target.kind === "brand" ? "أنشئ رمز العلامة باستخدام الزر أعلاه." : ""}
           />
         ) : !qrs.some(
             (q) => codeStatus === "all" || (codeStatus === "active" ? q.active : !q.active),
@@ -495,13 +520,19 @@ export function QRPanel({
             .map((q) => (
               <div className="qr-row" key={q.id}>
                 <span>
-                  <b>{q.active ? "رمز استلام الطلبات" : "رمز سابق"}</b>
+                  <b>
+                    {q.active
+                      ? target.kind === "brand"
+                        ? "رمز العلامة"
+                        : "رمز الفرع"
+                      : "رمز سابق"}
+                  </b>
                   {q.active && !q.reusable && (
                     <small>رمز قديم؛ استبدله لتتمكن من إعادة تنزيله</small>
                   )}
                   <small>
-                    {q.active ? (branch.active ? "نشط" : "متوقف مع الفرع") : "متوقف"} · {n(q.scans)}{" "}
-                    فتح للنموذج
+                    {q.active ? (target.active ? "نشط" : "متوقف") : "متوقف"} · {n(q.scans)} فتح
+                    للنموذج
                   </small>
                   <small>
                     أُنشئ {date(q.createdAt)}
@@ -510,7 +541,7 @@ export function QRPanel({
                 </span>
                 {q.active && (
                   <div className="qr-row-actions">
-                    {branch.active && (
+                    {target.active && (
                       <>
                         {q.reusable && (
                           <button className="secondary" disabled={busy} onClick={() => open(q)}>

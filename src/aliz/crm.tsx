@@ -79,7 +79,7 @@ const navigation = [
   { id: "tickets", label: "الشكاوى", icon: TicketIcon },
   { id: "refunds", label: "الاسترجاع والإلغاء", icon: Wallet },
   { id: "branches", label: "العلامات والفروع", icon: Building2 },
-  { id: "qr", label: "رموز الفروع QR", icon: QrCode },
+  { id: "qr", label: "رموز QR", icon: QrCode },
   { id: "customers", label: "العملاء", icon: Users },
   { id: "tasks", label: "المهام والمتابعة", icon: ListTodo },
   { id: "schedule", label: "جدولة الفريق", icon: CalendarDays },
@@ -1097,13 +1097,25 @@ export default function CRM() {
           }}
         />
       )}
-      {modal === "qr" && (
-        <QRPanel
-          branch={branches.find((b) => b.id === selected)!}
-          brand={data.brands.find((b) => b.branches.some((x) => x.id === selected))!}
-          onClose={() => setModal(null)}
-        />
-      )}
+      {modal === "qr" &&
+        (() => {
+          // From a branch row: QR codes are per brand, so open that branch's brand code.
+          const qrBrand = data.brands.find((b) => b.branches.some((x) => x.id === selected));
+          return qrBrand ? (
+            <QRPanel
+              target={{
+                kind: "brand",
+                id: qrBrand.id,
+                title: qrBrand.name,
+                subtitle: "رمز واحد لجميع فروع العلامة",
+                fileName: qrBrand.id,
+                active: qrBrand.status === "ACTIVE",
+              }}
+              brand={qrBrand}
+              onClose={() => setModal(null)}
+            />
+          ) : null;
+        })()}
       {modal === "passkeys" && (
         <Modal title="Face ID / Touch ID" onClose={() => setModal(null)}>
           <PasskeyAccount />
