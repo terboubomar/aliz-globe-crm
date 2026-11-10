@@ -10,8 +10,8 @@ const branches = [
 ];
 
 describe("branch regions", () => {
-  it("has Saudi Arabia's 13 regions with Arabic names", () => {
-    expect(REGIONS).toHaveLength(13);
+  it("has Saudi Arabia's 13 regions and Bahrain, with Arabic names", () => {
+    expect(REGIONS).toHaveLength(14);
     expect(regionLabel("EASTERN")).toBe("المنطقة الشرقية");
     expect(regionLabel("NOPE")).toBe("");
   });
@@ -28,5 +28,14 @@ describe("branch regions", () => {
   it("finds the branches in a city (more than one means the customer picks)", () => {
     expect(branchesIn(branches, "EASTERN", "الخبر").map((b) => b.id)).toEqual(["2", "3"]);
     expect(branchesIn(branches, "EASTERN", "سيهات").map((b) => b.id)).toEqual(["1"]);
+  });
+});
+
+describe("Bahrain", () => {
+  it("is offered as a region after the Saudi ones", () => {
+    const list = regionsWith([
+      { id: "9", name: "برجر واقف - جنوسان", city: "البديع", region: "BAHRAIN" },
+    ]);
+    expect(list.map((r) => r.label)).toEqual(["مملكة البحرين"]);
   });
 });

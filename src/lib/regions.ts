@@ -1,4 +1,4 @@
-/** Saudi Arabia's 13 administrative regions, as stored on each branch. */
+/** Saudi Arabia's 13 administrative regions, plus Bahrain, as stored on each branch. */
 export const REGIONS = [
   { id: "RIYADH", label: "منطقة الرياض" },
   { id: "MAKKAH", label: "منطقة مكة المكرمة" },
@@ -13,6 +13,7 @@ export const REGIONS = [
   { id: "NAJRAN", label: "منطقة نجران" },
   { id: "BAHA", label: "منطقة الباحة" },
   { id: "JOUF", label: "منطقة الجوف" },
+  { id: "BAHRAIN", label: "مملكة البحرين" },
 ] as const;
 
 export type RegionId = (typeof REGIONS)[number]["id"];
