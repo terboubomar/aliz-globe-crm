@@ -101,6 +101,8 @@ export type MaintenanceRequest = {
   brandId: string;
   branchId: string;
   category: string;
+  /** What the issue is, written by the requester when the fault type is "Other". */
+  categoryDetail: string | null;
   priority: MaintenancePriority;
   title: string;
   description: string;
@@ -191,3 +193,64 @@ export function maintenanceTransition(action: MaintenanceAction, now: Date) {
 }
 
 export const maintenanceNumber = (n: number) => "M-" + String(n).padStart(4, "0");
+
+/** "Other": the requester is asked to write what the issue is. */
+export const maintenanceAsksDetail = (c: { id: string; label: string }) =>
+  c.id === "OTHER" || c.label.trim() === "أخرى";
+
+/** Fault type as shown: "أخرى: <what the requester wrote>" for Other. */
+export function maintenanceCategoryText(
+  r: Pick<MaintenanceRequest, "category" | "categoryDetail">,
+  categories: MaintenanceCategory[],
+) {
+  const label = categories.find((c) => c.id === r.category)?.label ?? r.category;
+  return r.categoryDetail ? `${label}: ${r.categoryDetail}` : label;
+}
+
+const hoursBetween = (a: string, b: string) => (+new Date(b) - +new Date(a)) / 3600000;
+const median = (xs: number[]) => {
+  if (!xs.length) return null;
+  const s = [...xs].sort((a, b) => a - b),
+    m = Math.floor(s.length / 2);
+  return s.length % 2 ? s[m]! : (s[m - 1]! + s[m]!) / 2;
+};
+
+type Group = { key: string; total: number; open: number; fixed: number; late: number };
+
+/** Figures for the maintenance report over the given requests. */
+export function maintenanceSummary(rows: MaintenanceRequest[], now = Date.now()) {
+  const fixed = rows.filter((r) => r.doneAt && ["DONE", "CONFIRMED"].includes(r.state));
+  const fixHours = fixed.map((r) => hoursBetween(r.createdAt, r.doneAt!));
+  const startHours = rows
+    .filter((r) => r.startedAt)
+    .map((r) => hoursBetween(r.createdAt, r.startedAt!));
+  const onTime = fixed.filter((r) => !r.fixDueAt || +new Date(r.doneAt!) <= +new Date(r.fixDueAt));
+  const group = (keyOf: (r: MaintenanceRequest) => string): Group[] => {
+    const map = new Map<string, Group>();
+    for (const r of rows) {
+      const key = keyOf(r);
+      const g = map.get(key) ?? { key, total: 0, open: 0, fixed: 0, late: 0 };
+      g.total++;
+      if (!["DONE", "CONFIRMED", "CANCELLED"].includes(r.state)) g.open++;
+      if (["DONE", "CONFIRMED"].includes(r.state)) g.fixed++;
+      if (maintenanceLate(r, now)) g.late++;
+      map.set(key, g);
+    }
+    return [...map.values()].sort((a, b) => b.total - a.total);
+  };
+  return {
+    total: rows.length,
+    open: rows.filter((r) => !["DONE", "CONFIRMED", "CANCELLED"].includes(r.state)).length,
+    awaitingConfirm: rows.filter((r) => r.state === "DONE").length,
+    confirmed: rows.filter((r) => r.state === "CONFIRMED").length,
+    cancelled: rows.filter((r) => r.state === "CANCELLED").length,
+    late: rows.filter((r) => maintenanceLate(r, now)).length,
+    onTimeRate: fixed.length ? Math.round((onTime.length / fixed.length) * 100) : null,
+    medianStartHours: median(startHours),
+    medianFixHours: median(fixHours),
+    byCategory: group((r) => r.category),
+    byBranch: group((r) => r.branchId),
+    byTechnician: group((r) => r.assignee ?? "UNASSIGNED"),
+    byPriority: group((r) => r.priority),
+  };
+}

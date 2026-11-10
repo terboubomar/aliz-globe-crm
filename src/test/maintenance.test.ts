@@ -17,6 +17,7 @@ const req = (over: Partial<MaintenanceRequest> = {}): MaintenanceRequest => ({
   brandId: "waqf",
   branchId: "b1",
   category: "AC",
+  categoryDetail: null,
   priority: "NORMAL",
   title: "مكيف",
   description: "",
@@ -108,5 +109,49 @@ describe("deadlines", () => {
     });
     expect(s.categories.length).toBeGreaterThan(3);
     expect(s.sla.URGENT).toEqual({ respond: 2, fix: 5 });
+  });
+});
+
+describe("other fault type and report", () => {
+  it("asks what the issue is for Other and shows it", async () => {
+    const { maintenanceAsksDetail, maintenanceCategoryText, DEFAULT_MAINTENANCE_CATEGORIES } =
+      await import("@/lib/maintenance");
+    expect(maintenanceAsksDetail({ id: "OTHER", label: "أخرى" })).toBe(true);
+    expect(maintenanceAsksDetail({ id: "AC", label: "تكييف" })).toBe(false);
+    expect(
+      maintenanceCategoryText(
+        { category: "OTHER", categoryDetail: "باب المستودع" },
+        DEFAULT_MAINTENANCE_CATEGORIES,
+      ),
+    ).toBe("أخرى: باب المستودع");
+  });
+  it("counts the period's figures", async () => {
+    const { maintenanceSummary } = await import("@/lib/maintenance");
+    const t0 = "2026-11-01T08:00:00.000Z";
+    const s = maintenanceSummary([
+      req({
+        id: "a",
+        createdAt: t0,
+        state: "CONFIRMED",
+        startedAt: "2026-11-01T09:00:00.000Z",
+        doneAt: "2026-11-01T12:00:00.000Z",
+        fixDueAt: "2026-11-01T16:00:00.000Z",
+      }),
+      req({
+        id: "b",
+        createdAt: t0,
+        state: "DONE",
+        startedAt: "2026-11-01T10:00:00.000Z",
+        doneAt: "2026-11-02T08:00:00.000Z",
+        fixDueAt: "2026-11-01T16:00:00.000Z",
+      }),
+      req({ id: "c", createdAt: t0, state: "NEW", category: "PLUMBING" }),
+    ]);
+    expect(s.total).toBe(3);
+    expect(s.open).toBe(1);
+    expect(s.awaitingConfirm).toBe(1);
+    expect(s.onTimeRate).toBe(50);
+    expect(s.medianStartHours).toBe(1.5);
+    expect(s.byCategory[0]).toMatchObject({ key: "AC", total: 2 });
   });
 });

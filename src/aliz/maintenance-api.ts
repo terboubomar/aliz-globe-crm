@@ -6,6 +6,7 @@ import {
   maintenanceCreate,
   maintenanceDetail,
   maintenancePhoto,
+  maintenanceReport,
   maintenancePhotoLink,
   maintenanceSaveSettings,
 } from "@/functions/maintenance.functions";
@@ -70,6 +71,7 @@ export const maintenanceApi = {
   create: (input: {
     branchId: string;
     category: string;
+    categoryDetail: string;
     priority: MaintenancePriority;
     title: string;
     description: string;
@@ -88,6 +90,20 @@ export const maintenanceApi = {
     }
   },
   photoUrl: (id: string) => call(() => maintenancePhotoLink({ data: { id } })).then((r) => r.url),
+  report: (input: {
+    from: string;
+    to: string;
+    brandId?: string;
+    branchId?: string;
+    csv?: boolean;
+  }) =>
+    call(
+      () =>
+        maintenanceReport({ data: { csv: false, ...input } }) as Promise<{
+          requests: MaintenanceRequest[];
+          csv: string | null;
+        }>,
+    ),
   saveSettings: (s: MaintenanceSettings) =>
     call(() => maintenanceSaveSettings({ data: s }) as Promise<MaintenanceSettings>),
 };
