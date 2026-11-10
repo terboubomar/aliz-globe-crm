@@ -138,7 +138,7 @@ export default function PublicIntake({ code }: { code: string }) {
   }
   function checkStep(): string {
     if (step === 0) {
-      if (!suggesting && !picked) return "اختر سبب البلاغ";
+      if (!suggesting && !picked) return "اختر سبب التواصل";
       if (!suggesting && picked && asksDetail(picked) && otherDetail.trim().length < 3)
         return "اكتب نوع المشكلة";
       if (choosing && !region) return "اختر المنطقة";
@@ -389,11 +389,11 @@ export default function PublicIntake({ code }: { code: string }) {
                   <p className="qf-lead">
                     {suggesting
                       ? "اختر الفرع واكتب فكرتك أو ملاحظتك، يهمنا نسمع منك."
-                      : "اختر سبب البلاغ واكتب لنا وش صار، ونتواصل معك بأسرع وقت."}
+                      : "اختر سبب التواصل واكتب لنا وش صار، ونتواصل معك بأسرع وقت."}
                   </p>
                   {!suggesting && (
                     <div className="qf-card">
-                      <span className="qf-label">سبب البلاغ</span>
+                      <span className="qf-label">سبب التواصل</span>
                       <ReasonCards reasons={reasons} value={category} onChange={setCategory} />
                       {picked && asksDetail(picked) && (
                         <input

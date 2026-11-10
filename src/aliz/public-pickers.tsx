@@ -72,7 +72,7 @@ export function ReasonCards({
   onChange: (id: string) => void;
 }) {
   return (
-    <div className="qf-reasons" role="radiogroup" aria-label="سبب البلاغ">
+    <div className="qf-reasons" role="radiogroup" aria-label="سبب التواصل">
       {reasons.map((r) => {
         const Icon = reasonIcon(r);
         const on = value === r.id;
