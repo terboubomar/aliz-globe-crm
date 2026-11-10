@@ -7,6 +7,7 @@ import {
 
 import { MANAGE_ROLES, type ReplyTemplate } from "@/lib/reply-templates";
 import { WORD_KEYS, MAX_WORD_LENGTH } from "@/lib/telegram-words";
+import { REGION_IDS } from "@/lib/regions";
 const core = () => import("./core.server");
 
 /* ---------------- Directory: brands & pickup-only branches ---------------- */
@@ -32,6 +33,7 @@ const branchFields = z.object({
   name: z.string().trim().min(2).max(100),
   code: z.string().regex(/^[A-Z0-9_-]{2,30}$/, "الرمز بأحرف إنجليزية كبيرة وأرقام"),
   city: z.string().trim().min(2).max(80),
+  region: z.enum(REGION_IDS, { message: "اختر المنطقة" }),
   district: z.string().trim().max(80).optional().nullable(),
   address: z.string().trim().max(200).optional().nullable(),
   mapsUrl: z.string().trim().url().max(500).optional().nullable().or(z.literal("")),
@@ -51,7 +53,7 @@ export const saveBranch = createServerFn({ method: "POST" })
     if (!data.id && a.branchIds.length) throw new DomainError("FORBIDDEN", 403, "إنشاء الفروع يتطلب نطاق علامة كامل");
     const db = await c.admin();
     const row = {
-      brand_id: f.brandId, name: f.name, code: f.code, city: f.city, district: f.district || null, address: f.address || null,
+      brand_id: f.brandId, name: f.name, code: f.code, city: f.city, region: f.region, district: f.district || null, address: f.address || null,
       maps_url: f.mapsUrl || null, latitude: f.latitude ?? null, longitude: f.longitude ?? null, phone: f.phone || null,
     };
     if (data.id) {
@@ -85,7 +87,7 @@ export const setBranchActive = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-/* ---------------- QR: one active code per pickup branch ---------------- */
+/* ---------------- QR: one active code per brand (older codes per branch) ---------------- */
 export const listQrs = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
@@ -93,10 +95,10 @@ export const listQrs = createServerFn({ method: "POST" })
     const a = await c.requireActor(context as never);
     if (!can(a, "configure")) return [];
     const db = await c.admin();
-    const { data } = await db.from("qrs").select("id,branch_id,active,scans,created_at,revoked_at, branches!inner(brand_id)").eq("active", true);
+    const { data } = await db.from("qrs").select("id,branch_id,brand_id,active,scans,created_at,revoked_at, branches(brand_id)").eq("active", true);
     return (data ?? [])
-      .filter((q) => inScope(a, { brandId: (q.branches as { brand_id: string }).brand_id, branchId: q.branch_id }))
-      .map((q) => ({ id: q.id, branchId: q.branch_id, scans: q.scans, createdAt: q.created_at }));
+      .filter((q) => inScope(a, { brandId: q.brand_id ?? (q.branches as { brand_id: string } | null)?.brand_id ?? "", branchId: q.branch_id }))
+      .map((q) => ({ id: q.id, branchId: q.branch_id, brandId: q.brand_id, scans: q.scans, createdAt: q.created_at }));
   });
 
 export const qrForBranch = createServerFn({ method: "POST" })
@@ -117,6 +119,24 @@ export const qrForBranch = createServerFn({ method: "POST" })
     return { id: out.id, url: `${new URL(data.origin).origin}/q/${await decrypt(out.code_enc)}` };
   });
 
+export const qrForBrand = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ brandId: z.string().min(1).max(60), origin: z.string().url() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const c = await core();
+    const { encrypt, decrypt, keyedHash, randomToken } = await import("./crypto.server");
+    const a = await c.requireActor(context as never);
+    authorize(a, "configure", { brandId: data.brandId, branchId: null });
+    const db = await c.admin();
+    const { data: brand } = await db.from("brands").select("status").eq("id", data.brandId).maybeSingle();
+    if (!brand || brand.status !== "ACTIVE") throw new DomainError("NOT_FOUND", 404, "العلامة غير متاحة أو غير مفعلة");
+    const code = randomToken();
+    const { data: res, error } = await db.rpc("qr_ensure_brand" as never, { _brand: data.brandId, _hash: await keyedHash("qr:" + code), _code_enc: await encrypt(code), _actor: a.id } as never);
+    c.rpcError(error);
+    const out = res as unknown as { id: string; code_enc: string };
+    return { id: out.id, url: `${new URL(data.origin).origin}/q/${await decrypt(out.code_enc)}` };
+  });
+
 export const retireQr = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid(), rotate: z.boolean() }).parse(d))
@@ -126,8 +146,9 @@ export const retireQr = createServerFn({ method: "POST" })
     const a = await c.requireActor(context as never);
     authorize(a, "configure");
     const db = await c.admin();
-    const { data: q } = await db.from("qrs").select("branch_id, branches!inner(brand_id)").eq("id", data.id).maybeSingle();
-    if (!q || !inScope(a, { brandId: (q.branches as { brand_id: string }).brand_id, branchId: q.branch_id })) throw new DomainError("NOT_FOUND", 404, "غير متاح");
+    const { data: q } = await db.from("qrs").select("branch_id, brand_id, branches(brand_id)").eq("id", data.id).maybeSingle();
+    const qBrand = q?.brand_id ?? (q?.branches as { brand_id: string } | null)?.brand_id;
+    if (!q || !qBrand || !inScope(a, { brandId: qBrand, branchId: q.branch_id })) throw new DomainError("NOT_FOUND", 404, "غير متاح");
     const code = data.rotate ? randomToken() : null;
     const { error } = await db.rpc("qr_retire", {
       _id: data.id, _actor: a.id, _new_hash: (code ? await keyedHash("qr:" + code) : null) as never, _new_code_enc: (code ? await encrypt(code) : null) as never,

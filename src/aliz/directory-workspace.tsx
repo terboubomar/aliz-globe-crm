@@ -11,6 +11,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { Data, Brand, Branch, n } from "./types";
+import { REGIONS, regionLabel } from "@/lib/regions";
 import { Modal, Field, Submit, Empty } from "./ui";
 type Mutation = (path: string, body?: unknown) => Promise<unknown>;
 const parse = (e: FormEvent<HTMLFormElement>) => {
@@ -251,7 +252,7 @@ export function DirectoryWorkspace({
                   <th>اسم الفرع</th>
                   <th>العلامة المرتبطة</th>
                   <th>رمز الفرع</th>
-                  <th>المدينة</th>
+                  <th>المنطقة والمدينة</th>
                   <th>الحالة</th>
                   <th>الربط والإدارة</th>
                 </tr>
@@ -275,6 +276,9 @@ export function DirectoryWorkspace({
                           {b.city}
                           {b.district ? `، ${b.district}` : ""}
                         </b>
+                        <small className={b.region ? "" : "warn"}>
+                          {b.region ? regionLabel(b.region) : "المنطقة غير محددة"}
+                        </small>
                         {b.address && <small>{b.address}</small>}
                         {(b.mapsUrl || (b.latitude != null && b.longitude != null)) && (
                           <a
@@ -601,6 +605,21 @@ export function DirectoryWorkspace({
               </h3>
 
               <div className="form-grid">
+                <Field label="المنطقة">
+                  <select
+                    name="region"
+                    aria-label="المنطقة"
+                    defaultValue={editingBranch?.region ?? ""}
+                    required
+                  >
+                    <option value="">اختر المنطقة</option>
+                    {REGIONS.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
                 <Field label="المدينة">
                   <input
                     name="city"

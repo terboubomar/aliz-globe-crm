@@ -7870,3 +7870,46 @@ th {
   color: var(--burgundy);
   font-weight: 700;
 }
+
+/* Brand QR form: where the customer ordered from (region → city → branch). */
+.qf-branch {
+  display: grid;
+  gap: 10px;
+}
+.qf-branch select {
+  width: 100%;
+  appearance: none;
+  border: 1.5px solid var(--border);
+  border-radius: 11px;
+  background: #fff
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path d='M1 1l5 5 5-5' fill='none' stroke='%236f645e' stroke-width='1.8'/></svg>")
+    no-repeat left 14px center;
+  padding: 12px 14px 12px 36px;
+  font: inherit;
+  font-size: 16px;
+  color: var(--ink);
+  outline: none;
+}
+.qf-branch select:focus {
+  border-color: var(--burgundy);
+}
+.qf-branch-picked {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--green);
+  font-weight: 600;
+}
+.qr-legacy {
+  border-top: 1px solid var(--border);
+  margin-top: 8px;
+  padding: 14px 16px 4px;
+}
+.qr-legacy h3 {
+  margin: 0 0 4px;
+  font-size: 15px;
+}
+.branch-location-cell small.warn,
+.qr-branch-info .warn {
+  color: var(--amber);
+}

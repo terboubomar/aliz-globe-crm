@@ -18,6 +18,7 @@ import { api, activeCategories, activePlatforms } from "./types";
 import { PlatformTiles, ReasonCards } from "./public-pickers";
 import { HelpWidget } from "./public-help";
 import { orderHint, platformKind } from "@/lib/public-form";
+import { branchesIn, citiesIn, regionsWith, type PickBranch } from "@/lib/regions";
 
 type Context = {
   brand: string;
@@ -28,6 +29,8 @@ type Context = {
   emailAvailable?: boolean;
   categories?: { id: string; label: string }[];
   platforms?: string[];
+  /** Brand QR codes: the brand's active branches, to pick region → city → branch. */
+  branches?: PickBranch[];
 };
 type Result = {
   id: string;
@@ -68,7 +71,10 @@ export default function PublicIntake({ code }: { code: string }) {
     [busy, setBusy] = useState(false),
     [receipt, setReceipt] = useState<Result | null>(null),
     [uploadError, setUploadError] = useState(""),
-    [copied, setCopied] = useState(false);
+    [copied, setCopied] = useState(false),
+    [region, setRegion] = useState(""),
+    [city, setCity] = useState(""),
+    [branchId, setBranchId] = useState("");
   const fileInput = useRef<HTMLInputElement>(null);
   const top = useRef<HTMLElement>(null);
 
@@ -86,6 +92,24 @@ export default function PublicIntake({ code }: { code: string }) {
   );
   const platforms = context?.platforms ?? activePlatforms();
   const picked = reasons.find((r) => r.id === category);
+  // Brand QR: the customer chooses where they ordered from. Single choices are pre-filled.
+  const pickList = context?.branches ?? [];
+  const choosing = pickList.length > 0;
+  const regionOptions = regionsWith(pickList);
+  const cityOptions = region ? citiesIn(pickList, region) : [];
+  const branchOptions = region && city ? branchesIn(pickList, region, city) : [];
+  useEffect(() => {
+    if (choosing && !region && regionOptions.length === 1) setRegion(regionOptions[0]!.id);
+  }, [choosing, region, regionOptions]);
+  useEffect(() => {
+    if (region && !city && cityOptions.length === 1) setCity(cityOptions[0]!);
+  }, [region, city, cityOptions]);
+  useEffect(() => {
+    if (city && !branchId && branchOptions.length === 1) setBranchId(branchOptions[0]!.id);
+  }, [city, branchId, branchOptions]);
+  const branchName = choosing
+    ? (pickList.find((b) => b.id === branchId)?.name ?? "")
+    : (context?.branch ?? "");
   // All three ways are always offered: the phone or email is saved with the
   // complaint either way; the automatic confirmation is sent only when that
   // channel is switched on.
@@ -102,6 +126,9 @@ export default function PublicIntake({ code }: { code: string }) {
     if (step === 0) {
       if (!picked) return "اختر سبب البلاغ";
       if (asksDetail(picked) && otherDetail.trim().length < 3) return "اكتب نوع المشكلة";
+      if (choosing && !region) return "اختر المنطقة";
+      if (choosing && !city) return "اختر المدينة";
+      if (choosing && !branchId) return "اختر الفرع";
       if (description.trim().length < 10) return "اكتب تفاصيل المشكلة (10 أحرف على الأقل)";
     }
     if (step === 2) {
@@ -146,6 +173,7 @@ export default function PublicIntake({ code }: { code: string }) {
           consent: true,
           whatsappConsent: contact === "whatsapp",
           emailConsent: contact === "email",
+          ...(choosing ? { branchId } : {}),
         },
         { headers: { "Idempotency-Key": requestKey } },
       );
@@ -275,7 +303,11 @@ export default function PublicIntake({ code }: { code: string }) {
             <img src={"/logos/" + context.logo} alt="" />
             <div>
               <b>{context.brand}</b>
-              <small>{context.demo ? "فرع تجريبي • لا تدخل بيانات حقيقية" : context.branch}</small>
+              <small>
+                {context.demo
+                  ? "فرع تجريبي • لا تدخل بيانات حقيقية"
+                  : branchName || "اختر الفرع في الخطوة الأولى"}
+              </small>
             </div>
           </div>
           <div className="qf-progress" aria-hidden="true">
@@ -311,6 +343,63 @@ export default function PublicIntake({ code }: { code: string }) {
                   />
                 )}
               </div>
+              {choosing && (
+                <div className="qf-card qf-branch">
+                  <span className="qf-label">تفاصيل الفرع</span>
+                  <select
+                    aria-label="المنطقة"
+                    value={region}
+                    onChange={(e) => {
+                      setRegion(e.target.value);
+                      setCity("");
+                      setBranchId("");
+                    }}
+                  >
+                    <option value="">اختر المنطقة</option>
+                    {regionOptions.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.label}
+                      </option>
+                    ))}
+                  </select>
+                  {region && (
+                    <select
+                      aria-label="المدينة"
+                      value={city}
+                      onChange={(e) => {
+                        setCity(e.target.value);
+                        setBranchId("");
+                      }}
+                    >
+                      <option value="">اختر المدينة</option>
+                      {cityOptions.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  {city && branchOptions.length > 1 && (
+                    <select
+                      aria-label="الفرع"
+                      value={branchId}
+                      onChange={(e) => setBranchId(e.target.value)}
+                    >
+                      <option value="">اختر الفرع</option>
+                      {branchOptions.map((b) => (
+                        <option key={b.id} value={b.id}>
+                          {b.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  {branchId && (
+                    <small className="qf-branch-picked">
+                      <Check size={14} /> {branchName}
+                    </small>
+                  )}
+                </div>
+              )}
               <div className="qf-card">
                 <label className="qf-label" htmlFor="qf-desc">
                   تفاصيل المشكلة
@@ -494,6 +583,7 @@ export default function PublicIntake({ code }: { code: string }) {
                         ? otherDetail.trim()
                         : (picked?.label ?? "—"),
                     ],
+                    ...(choosing ? [["الفرع", branchName || "—"]] : []),
                     ["التفاصيل", description.trim() || "—"],
                     ["المنصة", platform || "—"],
                     ["رقم الطلب", externalOrder.trim() || "—"],
@@ -557,7 +647,7 @@ export default function PublicIntake({ code }: { code: string }) {
       {context && (
         <HelpWidget
           raised={!receipt}
-          greeting={`مرحباً، عندي مشكلة في طلب من ${context.brand} - ${context.branch}`}
+          greeting={`مرحباً، عندي مشكلة في طلب من ${context.brand}${branchName ? " - " + branchName : ""}`}
         />
       )}
       <div className="public-footer">

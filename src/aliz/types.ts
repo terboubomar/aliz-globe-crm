@@ -13,6 +13,8 @@ export type Branch = {
   brandId: string;
   name: string;
   city: string;
+  /** Saudi region code (see lib/regions); null for branches not yet updated. */
+  region?: string | null;
   district?: string | null;
   address?: string | null;
   mapsUrl?: string | null;
