@@ -24,7 +24,9 @@
 
 WhatsApp and email confirmations to the customer live in
 `src/functions/receipts.server.ts`; setup and rules are in
-`docs/CUSTOMER_RECEIPTS.md`. Delivery state uses the existing `outbox` table
+`docs/CUSTOMER_RECEIPTS.md`. WhatsApp goes through Bevatel when
+`BEVATEL_API_KEY` is set (received, resolved and closed messages), otherwise
+through Meta directly. Delivery state uses the existing `outbox` table
 (no schema change). Both channels stay off until a super admin switches them on
 in Settings, which is refused while any required secret is missing.
 

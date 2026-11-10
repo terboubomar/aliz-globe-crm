@@ -76,9 +76,12 @@ vi.mock("@/functions/core.server", () => {
 
 import {
   applyWhatsAppStatuses,
+  bevatelParams,
   emailContent,
   missingConfig,
   queueAndSend,
+  queueUpdate,
+  resetBevatelCache,
   runQueue,
 } from "@/functions/receipts.server";
 
@@ -122,6 +125,8 @@ const config = {
   EMAIL_SENDER_DOMAIN: "notify.example.com",
 };
 beforeEach(() => {
+  delete process.env["BEVATEL_API_KEY"];
+  delete process.env["BEVATEL_CHANNEL_ID"];
   db.tables = {};
   db.settings = { whatsapp: true, emailReceipts: true };
   for (const [k, v] of Object.entries(config)) process.env[k] = v;
@@ -266,5 +271,126 @@ describe("email receipt", () => {
 
   it("builds a right-to-left Arabic message", () => {
     expect(emailContent(receipt).html).toContain('dir="rtl"');
+  });
+});
+
+describe("WhatsApp through Bevatel", () => {
+  type Call = { url: string; method: string; body: Record<string, unknown> | null };
+  /** A fake Bevatel API; `exists` makes contact creation fail as a duplicate. */
+  function bevatel(opts: { exists?: boolean; sendStatus?: number } = {}) {
+    const calls: Call[] = [];
+    const fetcher = vi.fn(async (url: string, init: RequestInit) => {
+      const body = init.body ? (JSON.parse(String(init.body)) as Record<string, unknown>) : null;
+      calls.push({ url, method: init.method ?? "GET", body });
+      const ok = (data: unknown, status = 200) =>
+        new Response(JSON.stringify({ success_code: status, message: "OK", details: {}, data }), {
+          status,
+        });
+      if (url.includes("/conversations/channels"))
+        return ok([
+          { id: "ch-web", channel_type: "website", is_active: true },
+          { id: "ch-wa", channel_type: "whatsapp_api", is_active: true },
+        ]);
+      if (url.includes("/messages/whatsapp/templates")) {
+        const name = new URL(url).searchParams.get("name");
+        return ok([{ _id: "tpl-" + name, name, status: "APPROVED" }]);
+      }
+      if (url.endsWith("/contacts") && init.method === "POST")
+        return opts.exists
+          ? new Response(JSON.stringify({ error_code: 422, message: "taken" }), { status: 422 })
+          : ok({ id: "ct-new" }, 201);
+      if (url.includes("/contacts?page="))
+        return ok([{ id: "ct-old", phone_number: "+966500000001" }]);
+      if (url.endsWith("/messages/whatsapp/template"))
+        return opts.sendStatus && opts.sendStatus >= 400
+          ? new Response("{}", { status: opts.sendStatus })
+          : ok({ _id: "msg-1" }, 201);
+      return new Response("{}", { status: 404 });
+    });
+    return { fetcher: fetcher as unknown as typeof fetch, calls };
+  }
+  beforeEach(() => {
+    process.env["BEVATEL_API_KEY"] = "test-bevatel-key";
+    for (const k of ["WHATSAPP_ACCESS_TOKEN", "WHATSAPP_PHONE_NUMBER_ID", "WHATSAPP_APP_SECRET"])
+      delete process.env[k];
+    resetBevatelCache();
+  });
+
+  it("needs only the Bevatel key and an approved template", () => {
+    expect(missingConfig("whatsapp")).toEqual([]);
+    delete process.env["WHATSAPP_TEMPLATE_APPROVED"];
+    expect(missingConfig("whatsapp")).toEqual(["WHATSAPP_TEMPLATE_APPROVED"]);
+  });
+
+  it("sends the received template on the WhatsApp channel to a new contact", async () => {
+    const { fetcher, calls } = bevatel();
+    const id = ticket();
+    expect(await queueAndSend(id, { whatsapp: "966500000001" }, fetcher)).toEqual({
+      whatsapp: "ACCEPTED",
+    });
+    const send = calls.find((c) => c.url.endsWith("/messages/whatsapp/template"))!;
+    expect(send.url).toBe("https://api.bevatel.com/v1/messages/whatsapp/template");
+    expect(send.body).toMatchObject({
+      contactId: "ct-new",
+      channelId: "ch-wa",
+      whatsappTemplateId: "tpl-aliz_complaint_received",
+    });
+    const params = (send.body!["whatsAppContent"] as { body_params: string[] }).body_params;
+    expect(params).toHaveLength(8);
+    expect(params[0]).toBe("AG-2026-000007");
+    expect(params[7]).toBe("https://crm.example.com/track/abcdefghijklmnopqrstuvwx");
+    const created = calls.find((c) => c.url.endsWith("/contacts"))!;
+    expect(created.body).toMatchObject({ phone_number: "+966500000001", type: "external" });
+    expect(outbox(`receipt:whatsapp:${id}`)?.["status"]).toBe("ACCEPTED");
+  });
+
+  it("finds an existing contact and remembers it", async () => {
+    const { fetcher, calls } = bevatel({ exists: true });
+    await queueAndSend(ticket(), { whatsapp: "966500000001" }, fetcher);
+    await queueAndSend(ticket(), { whatsapp: "966500000001" }, fetcher);
+    const sends = calls.filter((c) => c.url.endsWith("/messages/whatsapp/template"));
+    expect(sends.map((c) => c.body!["contactId"])).toEqual(["ct-old", "ct-old"]);
+    expect(calls.filter((c) => c.url.endsWith("/contacts")).length).toBe(1);
+  });
+
+  it("sends resolved and closed updates only to customers who asked for WhatsApp", async () => {
+    const { fetcher, calls } = bevatel();
+    const asked = ticket();
+    await queueAndSend(asked, { whatsapp: "966500000001" }, fetcher);
+    expect(await queueUpdate(asked, "resolved", fetcher)).toBe("ACCEPTED");
+    expect(await queueUpdate(asked, "closed", fetcher)).toBe("ACCEPTED");
+    expect(await queueUpdate(asked, "closed", fetcher)).toBe("DUPLICATE");
+    const ids = calls
+      .filter((c) => c.url.endsWith("/messages/whatsapp/template"))
+      .map((c) => c.body!["whatsappTemplateId"]);
+    expect(ids).toEqual([
+      "tpl-aliz_complaint_received",
+      "tpl-aliz_complaint_resolved",
+      "tpl-aliz_complaint_closed",
+    ]);
+    const silent = ticket("966500000002");
+    expect(await queueUpdate(silent, "resolved", fetcher)).toBe("NOT_REQUESTED");
+  });
+
+  it("retries when Bevatel is busy and never resends an unclear send", async () => {
+    const id = ticket();
+    expect(
+      (await queueAndSend(id, { whatsapp: "966500000001" }, bevatel({ sendStatus: 429 }).fetcher))
+        .whatsapp,
+    ).toBe("QUEUED");
+    const down = ticket("966500000003");
+    expect(
+      (await queueAndSend(down, { whatsapp: "966500000003" }, bevatel({ sendStatus: 502 }).fetcher))
+        .whatsapp,
+    ).toBe("UNKNOWN");
+  });
+
+  it("orders the update variables as the templates expect", () => {
+    expect(bevatelParams("resolved", receipt)).toEqual([
+      "AG-2026-000007",
+      "واقف",
+      "https://crm.example.com/track/abcdefghijklmnopqrstuvwx",
+    ]);
+    expect(bevatelParams("closed", receipt)).toEqual(["AG-2026-000007", "واقف"]);
   });
 });

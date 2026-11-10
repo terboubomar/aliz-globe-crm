@@ -280,5 +280,9 @@ export async function ticketActionCore(ctx: Ctx, a: Actor, id: string, action: s
   const newOwner = patch["resolution_owner"];
   if (typeof newOwner === "string" && newOwner !== t.resolution_owner)
     await (await import("./telegram.server")).notifyAssigned(id, newOwner);
+  // WhatsApp update to the customer when the complaint is resolved or closed (if they asked for WhatsApp).
+  const reached = patch["state"];
+  if ((reached === "RESOLVED" || reached === "CLOSED") && reached !== t.state)
+    await (await import("./receipts.server")).queueUpdate(id, reached === "RESOLVED" ? "resolved" : "closed");
   return { ok: true };
 }

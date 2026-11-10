@@ -23,6 +23,73 @@ channel is live.
 - No phone numbers, emails or message text are stored outside the complaint's
   encrypted fields, and nothing personal is logged.
 
+## WhatsApp through Bevatel (in use)
+
+When the secret `BEVATEL_API_KEY` is set, WhatsApp messages go through Bevatel
+(https://developers.bevatel.com) instead of Meta directly, so they also appear
+in the Bevatel inbox and agents can carry on the chat there. A customer who
+chose WhatsApp on the form gets three messages:
+
+| When | Template (default name) | Variables |
+| --- | --- | --- |
+| The complaint or suggestion is received | `aliz_complaint_received` | 1 number, 2 brand, 3 branch, 4 time received (Riyadh), 5 reason, 6 order number, 7 details, 8 tracking link |
+| It is resolved | `aliz_complaint_resolved` | 1 number, 2 brand, 3 tracking link |
+| It is closed | `aliz_complaint_closed` | 1 number, 2 brand |
+
+How it sends: the CRM finds the active WhatsApp channel (or uses
+`BEVATEL_CHANNEL_ID`), looks up the approved template by name, creates the
+customer as a Bevatel contact once (remembered by a keyed hash of the number),
+then calls `POST /v1/messages/whatsapp/template` with the variables in order.
+Each update is sent once per complaint; the same retry, expiry and
+"never resend an unclear send" rules apply.
+
+### Templates to create in Bevatel (Business Chat → WhatsApp templates)
+
+Category **Utility**, language **Arabic**, numbered variables.
+
+`aliz_complaint_received`
+
+```
+شكراً لتواصلك معنا، تم استلام طلبك رقم {{1}}.
+العلامة: {{2}}
+الفرع: {{3}}
+وقت الاستلام: {{4}}
+السبب: {{5}}
+رقم الطلب: {{6}}
+التفاصيل: {{7}}
+تابع حالة طلبك من هنا:
+{{8}}
+```
+
+Samples: `AG-2026-000123`, `برجر واقف`, `برجر واقف - الدمام`, `11/11/2026 09:30`,
+`تأخر الطلب`, `482915`, `وصل الطلب بعد ساعة`, `https://crm.example.com/track/sample`.
+
+`aliz_complaint_resolved`
+
+```
+تحديث على طلبك رقم {{1}} لدى {{2}}:
+تمت معالجة الطلب، وسيتواصل معك فريقنا للتأكد من رضاك.
+تفاصيل الحالة:
+{{3}}
+```
+
+`aliz_complaint_closed`
+
+```
+تم إغلاق طلبك رقم {{1}} لدى {{2}}.
+شكراً لتواصلك معنا، يسعدنا خدمتك دائماً.
+```
+
+### Secrets for Bevatel
+
+| Secret | What it is |
+| --- | --- |
+| `BEVATEL_API_KEY` | The access token from Bevatel (Settings → API) |
+| `WHATSAPP_TEMPLATE_APPROVED` | `true`, once the three templates show as Approved in Bevatel |
+| `PUBLIC_APP_ORIGIN` | The public https address of the CRM (for the tracking link) |
+| `BEVATEL_CHANNEL_ID` | Optional: only if Bevatel has more than one WhatsApp channel |
+| `BEVATEL_TEMPLATE_RECEIVED` / `_RESOLVED` / `_CLOSED` | Optional: other template names |
+
 ## Secrets to add in Lovable Cloud (Project → Cloud → Secrets)
 
 Add values there only, never in chat or in the repository.
