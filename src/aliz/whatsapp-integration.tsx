@@ -6,6 +6,7 @@ type Status = {
   ready: boolean;
   missing: string[];
   statuses: Record<string, number>;
+  provider?: string;
 };
 export function WhatsAppIntegration() {
   return <ReceiptChannel channel="whatsapp" />;
@@ -75,6 +76,9 @@ function ReceiptChannel({ channel }: { channel: "whatsapp" | "email" }) {
             <span className={"badge " + (status.ready ? "green" : "neutral")}>
               {status.ready ? "جاهز للإرسال" : "غير متصل"}
             </span>
+            {!email && status.provider === "bevatel" && (
+              <span className="badge blue">عبر Bevatel</span>
+            )}
             <div className="whatsapp-counts">
               {[
                 [
@@ -103,7 +107,9 @@ function ReceiptChannel({ channel }: { channel: "whatsapp" | "email" }) {
               ))}
             </div>
             <p className="hint">
-              يُرسل للعميل تأكيد واحد لكل شكوى، فقط إذا وافق على ذلك في النموذج.
+              {email
+                ? "يُرسل للعميل تأكيد واحد لكل شكوى، فقط إذا وافق على ذلك في النموذج."
+                : "فقط للعملاء الذين اختاروا واتساب في النموذج: تفاصيل الشكوى ورابط المتابعة عند الاستلام، ثم رسالة عند الحل وأخرى عند الإغلاق."}
             </p>
             {status.enabled ? (
               <button className="secondary" disabled={busy} onClick={() => void toggle(false)}>
