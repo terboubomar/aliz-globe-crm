@@ -45,7 +45,7 @@ Each update is sent once per complaint; the same retry, expiry and
 
 ### Templates to create in Bevatel (Business Chat → WhatsApp templates)
 
-Category **Utility**, language **Arabic**, numbered variables.
+Category **Utility**, language **Arabic**, numbered variables. Meta does not allow a variable at the very start or end, so templates 1 and 2 end with a short thank-you line.
 
 `aliz_complaint_received`
 
@@ -59,6 +59,7 @@ Category **Utility**, language **Arabic**, numbered variables.
 التفاصيل: {{7}}
 تابع حالة طلبك من هنا:
 {{8}}
+شكراً لك.
 ```
 
 Samples: `AG-2026-000123`, `برجر واقف`, `برجر واقف - الدمام`, `11/11/2026 09:30`,
@@ -71,6 +72,7 @@ Samples: `AG-2026-000123`, `برجر واقف`, `برجر واقف - الدما�
 تمت معالجة الطلب، وسيتواصل معك فريقنا للتأكد من رضاك.
 تفاصيل الحالة:
 {{3}}
+شكراً لتواصلك معنا.
 ```
 
 `aliz_complaint_closed`
