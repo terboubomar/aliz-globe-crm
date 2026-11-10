@@ -1,7 +1,7 @@
 import { z } from "zod";
 import {
   type Actor, DomainError, authorize, can, canWorkComplaint, inScope,
-  isComplaintParticipant, normalizePhone, saudiMobile, slaMilestones, supportRoles, escalationRoles,
+  isComplaintParticipant, normalizePhone, saudiMobile, slaMilestones, hasDeadlines, supportRoles, escalationRoles,
   ticketNumber, transition, briefHasPersonalData,
 } from "@/lib/domain";
 import { admin, catalog, rpcError, settings, type Ctx } from "./core.server";
@@ -122,7 +122,7 @@ export async function createTicketCore(
       communications_owner: publicQr ? "UNASSIGNED" : actorId, creator: publicQr ? "PUBLIC_QR" : actorId,
       received_at: received.toISOString(), sla_policy: policy, actor: actorId,
       event_type: publicQr ? "QR_CREATED" : "PHONE_CREATED",
-      timers: slaMilestones(priority, received, policy),
+      timers: hasDeadlines(body.category) ? slaMilestones(priority, received, policy) : [],
       access_hash: access ? await keyedHash("track:" + access) : null,
       response_enc: await encrypt(JSON.stringify(response)),
     },
@@ -264,7 +264,7 @@ export async function ticketActionCore(ctx: Ctx, a: Actor, id: string, action: s
   }
   if (escalating) evts.push({ type: "ESCALATION_ROUTED" });
   if (!["comment", "escalate"].includes(action)) timers.push({ op: "complete", milestone: "FIRST_ACTION" });
-  if (action === "assign" || escalating) {
+  if ((action === "assign" || escalating) && hasDeadlines(t.category)) {
     const pol = (t.sla_policy as never) ?? (await settings()).sla;
     const ack = slaMilestones(t.priority, new Date(t.received_at), pol, new Date()).find((m) => m.milestone === "ACKNOWLEDGMENT")!;
     timers.push({ op: "upsert", ...ack });

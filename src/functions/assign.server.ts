@@ -1,4 +1,4 @@
-import { inScope, slaMilestones } from "@/lib/domain";
+import { hasDeadlines, inScope, slaMilestones } from "@/lib/domain";
 import { admin, settings } from "./core.server";
 
 /*
@@ -45,7 +45,7 @@ export async function autoAssign(ticketId: string, now = new Date()) {
     const { data: t } = await db
       .from("tickets")
       .select(
-        "id,brand_id,branch_id,state,version,priority,received_at,resolution_owner,sla_policy",
+        "id,brand_id,branch_id,state,version,priority,category,received_at,resolution_owner,sla_policy",
       )
       .eq("id", ticketId)
       .maybeSingle();
@@ -118,12 +118,11 @@ export async function autoAssign(ticketId: string, now = new Date()) {
     // Assigned straight away: only the "start work" deadline is new. After
     // waiting for a shift: every deadline restarts from now.
     const waited = +now - +new Date(t.received_at) > WAITED_MS;
-    const timers = slaMilestones(
-      t.priority,
-      waited ? now : new Date(t.received_at),
-      policy,
-      now,
-    ).filter((m) => waited || m.milestone === "ACKNOWLEDGMENT");
+    const timers = hasDeadlines(t.category)
+      ? slaMilestones(t.priority, waited ? now : new Date(t.received_at), policy, now).filter(
+          (m) => waited || m.milestone === "ACKNOWLEDGMENT",
+        )
+      : [];
     const { error } = await db.rpc("apply_ticket_action", {
       _id: t.id,
       _version: t.version,

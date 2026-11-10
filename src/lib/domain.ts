@@ -196,6 +196,9 @@ export type SlaPolicy = {
   p1First: number; p1Ack: number; p1Remedy?: number; p2First: number; p2Ack: number; p2Remedy: number;
   p3First: number; p3Ack: number; p3Remedy: number;
 };
+/** Customer suggestions have no deadlines and never escalate; only complaints do. */
+export const hasDeadlines = (category: string) => category !== "SUGGESTION";
+
 export function slaMilestones(priority: string, received: Date, p: SlaPolicy, assigned?: Date) {
   const key = priority.toLowerCase() as "p1" | "p2" | "p3";
   const first = p[`${key}First` as keyof SlaPolicy] as number;
