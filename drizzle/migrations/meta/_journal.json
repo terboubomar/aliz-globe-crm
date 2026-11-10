@@ -57,6 +57,13 @@
       "when": 1794787200000,
       "tag": "0007_waqf_branches",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1794873600000,
+      "tag": "0008_waqf_najran",
+      "breakpoints": true
     }
   ]
 }
