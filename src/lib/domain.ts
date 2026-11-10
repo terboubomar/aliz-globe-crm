@@ -63,7 +63,7 @@ const rights: Record<string, string[]> = {
   // Sees their branch's complaints (no customer details) and requests maintenance.
   BRANCH_MANAGER: ["read", "comment", "mnt.view", "mnt.request"],
   // Maintenance: the manager sees every request and assigns it; a technician works the jobs assigned to them.
-  MAINTENANCE_MANAGER: ["mnt.view", "mnt.assign", "mnt.work", "mnt.configure"],
+  MAINTENANCE_MANAGER: ["mnt.view", "mnt.assign", "mnt.work", "mnt.configure", "mnt.report"],
   TECHNICIAN: ["mnt.view", "mnt.work"],
   BRAND_OPERATIONS_MANAGER: ["read", "comment", "escalate", "report", "investigate", "resolve"],
   GROUP_OPERATIONS_MANAGER: ["read", "comment", "escalate", "report", "investigate", "resolve"],
@@ -75,9 +75,9 @@ const rights: Record<string, string[]> = {
   PRIVACY_OFFICER: ["read", "pii", "privacy", "audit"],
 };
 rights["MARKETING_MANAGER"] = [...(rights["CUSTOMER_SERVICE_MANAGER"] ?? []), "qa", "schedule", "configure"];
-rights["OPERATIONS_MANAGER"] = ["read", "comment", "report", "investigate", "resolve", "escalate", "mnt.view"];
-rights["CEO"] = ["read", "report", "mnt.view"];
-rights["OWNER"] = ["read", "report", "mnt.view"];
+rights["OPERATIONS_MANAGER"] = ["read", "comment", "report", "investigate", "resolve", "escalate", "mnt.view", "mnt.report"];
+rights["CEO"] = ["read", "report", "mnt.view", "mnt.report"];
+rights["OWNER"] = ["read", "report", "mnt.view", "mnt.report"];
 // Refunds only: sees and handles refund requests, nothing about complaints.
 rights["IT_MANAGER"] = ["refund.view", "refund.execute", "refund.notify", "evidence.view", "evidence.attach"];
 rights["SUPER_ADMIN"] = [...new Set([...Object.values(rights).flat(), "users.manage", "directory.activate", "evidence.view"])];

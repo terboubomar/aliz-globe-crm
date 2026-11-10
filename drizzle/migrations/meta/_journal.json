@@ -71,6 +71,13 @@
       "when": 1794960000000,
       "tag": "0009_maintenance",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1795046400000,
+      "tag": "0010_maintenance_other_detail",
+      "breakpoints": true
     }
   ]
 }

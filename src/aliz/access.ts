@@ -11,6 +11,7 @@ const viewPermissions: Record<string, string[]> = {
   users: ["users.manage"],
   settings: [],
   maintenance: ["mnt.view"],
+  "maintenance-reports": ["mnt.report"],
 };
 
 /*
@@ -20,7 +21,8 @@ const viewPermissions: Record<string, string[]> = {
  */
 export type AppId = "cs" | "maintenance";
 export const appLabels: Record<AppId, string> = { cs: "خدمة العملاء", maintenance: "الصيانة" };
-export const appOf = (view: string): AppId => (view === "maintenance" ? "maintenance" : "cs");
+export const appOf = (view: string): AppId =>
+  view.startsWith("maintenance") ? "maintenance" : "cs";
 export function appsFor(permissions: string[], role: string): AppId[] {
   const views = Object.keys(viewPermissions).filter(
     (v) => v !== "settings" && canOpenView(v, permissions, role),
@@ -80,7 +82,7 @@ export const roleWorkspaces: Record<
   OPERATIONS_MANAGER: {
     title: "التصعيدات المسندة إليّ",
     description: "عالج التصعيد المسند إليك ثم يتابع فريق خدمة العملاء التواصل مع العميل.",
-    views: ["overview", "tickets", "refunds", "reports", "maintenance"],
+    views: ["overview", "tickets", "refunds", "reports", "maintenance", "maintenance-reports"],
     labels: {
       overview: "مساحة العمليات",
       tickets: "تصعيداتي",
@@ -91,7 +93,15 @@ export const roleWorkspaces: Record<
   CEO: {
     title: "نظرة تنفيذية للمجموعة",
     description: "مؤشرات تجربة العملاء والتصعيد والاسترجاع عبر العلامات المصرح بها.",
-    views: ["overview", "reports", "tickets", "refunds", "branches", "maintenance"],
+    views: [
+      "overview",
+      "reports",
+      "tickets",
+      "refunds",
+      "branches",
+      "maintenance",
+      "maintenance-reports",
+    ],
     labels: { overview: "النظرة التنفيذية", tickets: "سجل الشكاوى", refunds: "متابعة الاسترجاع" },
   },
   IT_MANAGER: {
@@ -109,7 +119,7 @@ export const roleWorkspaces: Record<
   MAINTENANCE_MANAGER: {
     title: "طلبات الصيانة",
     description: "استلم طلبات الفروع وأسندها للفنيين وتابع المهل.",
-    views: ["maintenance"],
+    views: ["maintenance", "maintenance-reports"],
     labels: { maintenance: "طلبات الصيانة" },
   },
   TECHNICIAN: {
@@ -121,7 +131,15 @@ export const roleWorkspaces: Record<
   OWNER: {
     title: "أداء علاماتي",
     description: "تابع تجربة العملاء والحالات المفتوحة والطلبات المالية لعلاماتك.",
-    views: ["overview", "reports", "tickets", "refunds", "branches", "maintenance"],
+    views: [
+      "overview",
+      "reports",
+      "tickets",
+      "refunds",
+      "branches",
+      "maintenance",
+      "maintenance-reports",
+    ],
     labels: {
       overview: "أداء علاماتي",
       tickets: "سجل الشكاوى",
@@ -177,6 +195,7 @@ export const permissionLabels: Record<string, string> = {
   "mnt.assign": "إسناد طلبات الصيانة",
   "mnt.work": "تنفيذ أعمال الصيانة",
   "mnt.configure": "أنواع الأعطال ومهل الصيانة",
+  "mnt.report": "تقارير الصيانة",
 };
 export const roleDescriptions: Record<string, string> = {
   SUPER_ADMIN: "جميع صلاحيات النظام وجميع العلامات والفروع، بما فيها إدارة المستخدمين.",

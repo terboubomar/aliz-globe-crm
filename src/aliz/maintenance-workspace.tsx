@@ -17,6 +17,8 @@ import {
   MAINTENANCE_PRIORITIES,
   maintenanceActionLabels,
   maintenanceActions,
+  maintenanceAsksDetail,
+  maintenanceCategoryText,
   maintenanceLate,
   maintenanceNumber,
   maintenancePriorityLabels,
@@ -123,8 +125,8 @@ export function MaintenanceWorkspace({ data, brand }: { data: Data; brand: strin
         : (board?.people.find((p) => p.id === id)?.name ??
           data.users.find((u) => u.id === id)?.name ??
           "موظف");
-  const categoryLabel = (id: string) =>
-    board?.settings.categories.find((c) => c.id === id)?.label ?? id;
+  const categoryText = (r: MaintenanceRequest) =>
+    maintenanceCategoryText(r, board?.settings.categories ?? []);
 
   const all = (board?.requests ?? []).filter((r) => brand === "all" || r.brandId === brand);
   const active = all.filter((r) => !["CONFIRMED", "CANCELLED"].includes(r.state));
@@ -147,7 +149,7 @@ export function MaintenanceWorkspace({ data, brand }: { data: Data; brand: strin
     .filter(
       (r) =>
         !search.trim() ||
-        [maintenanceNumber(r.number), r.title, branchName(r.branchId), categoryLabel(r.category)]
+        [maintenanceNumber(r.number), r.title, branchName(r.branchId), categoryText(r)]
           .join(" ")
           .includes(search.trim()),
     )
@@ -294,7 +296,7 @@ export function MaintenanceWorkspace({ data, brand }: { data: Data; brand: strin
                     </div>
                     <h3>{r.title}</h3>
                     <p>
-                      {categoryLabel(r.category)} · {branchName(r.branchId)} · {ago(r.createdAt)}
+                      {categoryText(r)} · {branchName(r.branchId)} · {ago(r.createdAt)}
                       {!technician && " · " + personName(r.assignee)}
                     </p>
                   </div>
@@ -343,7 +345,7 @@ export function MaintenanceWorkspace({ data, brand }: { data: Data; brand: strin
           permissions={permissions}
           people={board.people}
           branchName={branchName}
-          categoryLabel={categoryLabel}
+          categoryText={categoryText}
           personName={personName}
           onClose={() => setOpenId(null)}
           onChanged={(msg) => {
@@ -389,6 +391,7 @@ function NewRequest({
 }) {
   const [branchId, setBranchId] = useState(branches.length === 1 ? branches[0]!.id : ""),
     [category, setCategory] = useState(""),
+    [categoryDetail, setCategoryDetail] = useState(""),
     [priority, setPriority] = useState<MaintenancePriority>("NORMAL"),
     [title, setTitle] = useState(""),
     [description, setDescription] = useState(""),
@@ -397,15 +400,25 @@ function NewRequest({
     [error, setError] = useState("");
   const input = useRef<HTMLInputElement>(null);
   const brands = [...new Set(branches.map((b) => b.brandName))];
+  const picked = settings.categories.find((c) => c.id === category);
+  const asksDetail = !!picked && maintenanceAsksDetail(picked);
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (!branchId) return setError("اختر الفرع");
     if (!category) return setError("اختر نوع العطل");
+    if (asksDetail && categoryDetail.trim().length < 3) return setError("اكتب نوع العطل");
     if (title.trim().length < 3) return setError("اكتب عنواناً قصيراً للعطل");
     setBusy(true);
     setError("");
     try {
-      const res = await maintenanceApi.create({ branchId, category, priority, title, description });
+      const res = await maintenanceApi.create({
+        branchId,
+        category,
+        categoryDetail: asksDetail ? categoryDetail.trim() : "",
+        priority,
+        title,
+        description,
+      });
       let warning = "";
       if (files.length)
         await maintenanceApi.photos(res.id, "BEFORE", files).catch((err: Error) => {
@@ -448,6 +461,17 @@ function NewRequest({
               ))}
           </select>
         </Field>
+        {asksDetail && (
+          <Field label="ما نوع العطل؟" full>
+            <input
+              value={categoryDetail}
+              onChange={(e) => setCategoryDetail(e.target.value)}
+              maxLength={120}
+              autoFocus
+              placeholder="اكتب نوع العطل بكلمات قليلة، مثال: باب المستودع لا يقفل"
+            />
+          </Field>
+        )}
         <Field label="الأولوية" full>
           <div className="mnt-priorities" role="radiogroup" aria-label="الأولوية">
             {MAINTENANCE_PRIORITIES.map((p) => (
@@ -586,7 +610,7 @@ function RequestDetail({
   permissions,
   people,
   branchName,
-  categoryLabel,
+  categoryText,
   personName,
   onClose,
   onChanged,
@@ -596,7 +620,7 @@ function RequestDetail({
   permissions: string[];
   people: MaintenanceBoard["people"];
   branchName: (id: string) => string;
-  categoryLabel: (id: string) => string;
+  categoryText: (r: MaintenanceRequest) => string;
   personName: (id: string | null) => string;
   onClose: () => void;
   onChanged: (message: string) => void;
@@ -721,7 +745,7 @@ function RequestDetail({
           </div>
           <div>
             <dt>نوع العطل</dt>
-            <dd>{categoryLabel(r.category)}</dd>
+            <dd>{categoryText(r)}</dd>
           </div>
           <div>
             <dt>طلبه</dt>

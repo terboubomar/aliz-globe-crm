@@ -71,6 +71,7 @@ import {
   type AppId,
 } from "./access";
 import { MaintenanceWorkspace } from "./maintenance-workspace";
+import { MaintenanceReports } from "./maintenance-reports";
 import { AppLauncher } from "./app-launcher";
 import { AgentWorkspace } from "./agent-workspace";
 import { agentInvolved } from "./workflow";
@@ -100,6 +101,7 @@ const navigation = [
   { id: "users", label: "المستخدمون والصلاحيات", icon: ShieldCheck },
   { id: "settings", label: "الإعدادات", icon: Settings },
   { id: "maintenance", label: "طلبات الصيانة", icon: Wrench },
+  { id: "maintenance-reports", label: "تقارير الصيانة", icon: Activity },
 ];
 function form(e: FormEvent<HTMLFormElement>) {
   e.preventDefault();
@@ -387,7 +389,15 @@ export default function CRM() {
   // Quick bar for phones and tablets: the main views this role can open (two
   // on phones, four on tablets), a new phone complaint (when allowed), alerts
   // and, on phones, "more" (the full menu; tablets keep the sidebar).
-  const quickViews = ["overview", "tickets", "refunds", "tasks", "schedule", "maintenance"]
+  const quickViews = [
+    "overview",
+    "tickets",
+    "refunds",
+    "tasks",
+    "schedule",
+    "maintenance",
+    "maintenance-reports",
+  ]
     .filter((id) => appOf(id) === currentApp && canOpenView(id, data.permissions, data.me.role))
     .slice(0, 4)
     .map((id) => navigation.find((item) => item.id === id)!);
@@ -459,6 +469,7 @@ export default function CRM() {
                 "schedule",
                 "reports",
                 "maintenance",
+                "maintenance-reports",
               ],
             },
             { id: "management", label: "الإدارة", items: ["branches", "qr", "users", "settings"] },
@@ -690,7 +701,8 @@ export default function CRM() {
             </div>
           </div>
 
-          {!["reports", "settings", "maintenance"].includes(view) &&
+          {!["reports", "settings"].includes(view) &&
+            appOf(view) === "cs" &&
             data.ticketCount > data.tickets.length && (
               <div className="notice">
                 تُعرض آخر {n(data.tickets.length)} حالة من أصل {n(data.ticketCount)} ضمن نطاقك.
@@ -738,7 +750,7 @@ export default function CRM() {
                   <span>•</span> Asia/Riyadh
                 </span>
               )}
-              {view !== "maintenance" && (
+              {appOf(view) === "cs" && (
                 <button
                   className="text-btn refresh"
                   onClick={() => {
@@ -1044,6 +1056,7 @@ export default function CRM() {
           )}
           {view === "schedule" && <ScheduleWorkspace data={data} mutate={mutate} busy={busy} />}
           {view === "maintenance" && <MaintenanceWorkspace data={data} brand={brand} />}
+          {view === "maintenance-reports" && <MaintenanceReports data={data} brand={brand} />}
           {view === "reports" && (
             <ReportsWorkspace data={data} brand={brand} onBrandChange={setBrand} />
           )}

@@ -18,8 +18,8 @@ describe("roles", () => {
     for (const r of assignableRoles) expect(can(actor(r), "assign")).toBe(["SUPER_ADMIN", "MARKETING_MANAGER", "SHIFT_LEAD"].includes(r));
   });
   it("CEO and OWNER are read + report only (and can view maintenance)", () => {
-    expect(permissionsForRole("CEO").sort()).toEqual(["mnt.view", "read", "report"]);
-    expect(permissionsForRole("OWNER").sort()).toEqual(["mnt.view", "read", "report"]);
+    expect(permissionsForRole("CEO").sort()).toEqual(["mnt.report", "mnt.view", "read", "report"]);
+    expect(permissionsForRole("OWNER").sort()).toEqual(["mnt.report", "mnt.view", "read", "report"]);
   });
   it("agents can request refunds but never decide, execute or verify without a duty", () => {
     const a = actor("AGENT");
