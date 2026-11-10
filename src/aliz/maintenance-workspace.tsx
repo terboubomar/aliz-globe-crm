@@ -72,7 +72,16 @@ const dateTime = (iso: string) =>
 
 type Queue = "open" | "new" | "working" | "done" | "late" | "closed";
 
-export function MaintenanceWorkspace({ data, brand }: { data: Data; brand: string }) {
+export function MaintenanceWorkspace({
+  data,
+  brand,
+  newRequest = 0,
+}: {
+  data: Data;
+  brand: string;
+  /** Changes when the phone quick bar asks for a new request. */
+  newRequest?: number;
+}) {
   const [board, setBoard] = useState<MaintenanceBoard | null>(null),
     [closed, setClosed] = useState(false),
     [queue, setQueue] = useState<Queue>("open"),
@@ -102,6 +111,9 @@ export function MaintenanceWorkspace({ data, brand }: { data: Data; brand: strin
   useEffect(() => {
     load();
   }, [load]);
+  useEffect(() => {
+    if (newRequest) setCreating(true);
+  }, [newRequest]);
   useEffect(() => {
     if (!toast) return;
     const t = setTimeout(() => setToast(""), 4000);
