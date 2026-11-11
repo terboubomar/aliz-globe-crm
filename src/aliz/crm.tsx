@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, FormEvent } from "react";
+import { WhatsAppLog } from "./whatsapp-log";
 import {
   LayoutDashboard,
   Ticket as TicketIcon,
@@ -1720,6 +1721,7 @@ function TicketDetail({
               </article>
             ))}
           </div>
+          <WhatsAppLog ticketId={t.id} />
         </>
       )}
       {tab === "evidence" && (

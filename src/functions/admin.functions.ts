@@ -473,6 +473,12 @@ export const updateSetting = createServerFn({ method: "POST" })
       const { missingConfig } = await import("./receipts.server");
       if (data.value && missingConfig(data.key === "whatsapp_enabled" ? "whatsapp" : "email").length)
         throw new DomainError("NOT_CONFIGURED", 409, "أكمل إعدادات القناة قبل تفعيل الإرسال");
+      // Bevatel: automatic sending only after a test message reached a phone.
+      if (data.value && data.key === "whatsapp_enabled") {
+        const w = await import("./whatsapp.server");
+        if (w.bevatelConfigured() && !(await w.testConfirmed()))
+          throw new DomainError("TEST_REQUIRED", 409, "أرسل رسالة تجريبية وأكّد وصولها قبل تفعيل الإرسال التلقائي");
+      }
     }
     if (data.key === "telegram_enabled" && data.value) {
       if (a.role !== "SUPER_ADMIN") throw new DomainError("FORBIDDEN", 403, "متاح لمدير النظام فقط");

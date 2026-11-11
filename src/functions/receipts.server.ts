@@ -3,6 +3,7 @@ import { receiptTime } from "@/aliz/complaint-receipt";
 import { admin, settings } from "./core.server";
 import { decrypt, keyedHash, sha256 } from "./crypto.server";
 import type { Receipt } from "./tickets.server";
+import { missingBevatel } from "./whatsapp.server";
 
 /*
  * Customer receipts: one WhatsApp message and/or one email per complaint, only
@@ -13,10 +14,10 @@ import type { Receipt } from "./tickets.server";
  *   wamid:<sha256(messageId)>      maps a WhatsApp delivery report back to its complaint
  *   limit:<channel>:<hash>:<id>    counts receipts per phone/email for the hourly limit
  *   update:whatsapp:<event>:<id>   one row per complaint update (resolved, closed) sent on WhatsApp
- *   bvcontact:<hash>               the Bevatel contact id (in status) for a phone number
  *
- * WhatsApp goes through Bevatel when BEVATEL_API_KEY is set (messages then also
- * show in the Bevatel inbox), otherwise straight to Meta's Cloud API.
+ * WhatsApp goes through Bevatel's Chatwoot API when BEVATEL_API_TOKEN is set (see
+ * whatsapp.server, which also logs every attempt in whatsapp_messages), otherwise
+ * straight to Meta's Cloud API.
  * The recipient and message are rebuilt from the complaint's encrypted fields at
  * send time, so no personal data is stored in the outbox.
  */
@@ -35,15 +36,7 @@ const env = (k: string) => process.env[k] ?? "";
 
 /** Messages a customer can get on WhatsApp for one complaint. */
 export type WhatsAppEvent = "received" | "resolved" | "closed";
-export const provider = () => (env("BEVATEL_API_KEY") ? "bevatel" : "meta");
-const BEVATEL_TEMPLATES: Record<WhatsAppEvent, [string, string]> = {
-  received: ["BEVATEL_TEMPLATE_RECEIVED", "aliz_complaint_received"],
-  resolved: ["BEVATEL_TEMPLATE_RESOLVED", "aliz_complaint_resolved"],
-  closed: ["BEVATEL_TEMPLATE_CLOSED", "aliz_complaint_closed"],
-};
-export const bevatelTemplate = (event: WhatsAppEvent) =>
-  env(BEVATEL_TEMPLATES[event][0]) || BEVATEL_TEMPLATES[event][1];
-
+export const provider = () => (env("BEVATEL_API_TOKEN") ? "bevatel" : "meta");
 function publicOrigin() {
   try {
     const u = new URL(env("PUBLIC_APP_ORIGIN"));
@@ -57,12 +50,10 @@ function publicOrigin() {
 /** What is still missing before a channel can send. Names only, never values. */
 export function missingConfig(channel: Channel) {
   const missing: string[] = [];
+  // Bevatel builds its own tracking links (PUBLIC_APP_ORIGIN or the lovable.app address).
+  if (channel === "whatsapp" && provider() === "bevatel") return missingBevatel(true);
   if (!publicOrigin()) missing.push("PUBLIC_HTTPS_APP_ORIGIN");
-  if (channel === "whatsapp" && provider() === "bevatel") {
-    if (env("WHATSAPP_TEMPLATE_APPROVED") !== "true") missing.push("WHATSAPP_TEMPLATE_APPROVED");
-    for (const event of ["received", "resolved", "closed"] as const)
-      if (!/^[a-z0-9_]{1,512}$/.test(bevatelTemplate(event))) missing.push("VALID_TEMPLATE_NAME");
-  } else if (channel === "whatsapp") {
+  if (channel === "whatsapp") {
     for (const k of [
       "WHATSAPP_ACCESS_TOKEN",
       "WHATSAPP_PHONE_NUMBER_ID",
@@ -204,7 +195,7 @@ async function deliverKey(
     const result =
       channel === "whatsapp"
         ? provider() === "bevatel"
-          ? await sendBevatel(ticketId, event, customer, receipt, fetcher)
+          ? await sendBevatel(ticketId, event, fetcher)
           : await sendWhatsApp(ticketId, customer.phone ?? "", receipt, fetcher, event)
         : await sendEmail(ticketId, customer.email ?? "", receipt, fetcher);
     if (result.ok) {
@@ -315,155 +306,13 @@ async function sendWhatsApp(
   return { ok: false, retry: res.status === 429, ambiguous: res.ok || res.status >= 500 };
 }
 
-/*
- * Bevatel (https://developers.bevatel.com): the customer is a Bevatel contact,
- * and the message is an approved WhatsApp template sent on the WhatsApp channel,
- * so it also appears in the Bevatel inbox. Template variables are positional:
- *   received: number, brand, branch, received_at, category, order, summary, tracking_url
- *   resolved: number, brand, tracking_url
- *   closed:   number, brand
- */
-const BEVATEL = "https://api.bevatel.com/v1";
-
-export function bevatelParams(event: WhatsAppEvent, r: Receipt) {
-  if (event === "resolved") return [r.number, text(r.brand), trackingUrl(r)];
-  if (event === "closed") return [r.number, text(r.brand)];
-  return [
-    r.number,
-    text(r.brand),
-    text(r.branch),
-    receiptTime(r.receivedAt),
-    text(r.category),
-    text(r.externalOrder),
-    text(r.description, 180),
-    trackingUrl(r),
-  ];
-}
-
-type BevatelBody = { data?: unknown; details?: { data?: unknown } };
-/** Lists come back under `details.data` in Bevatel's schema and under `data` in its examples. */
-const listOf = (b: BevatelBody) =>
-  (Array.isArray(b.data) ? b.data : Array.isArray(b.details?.data) ? b.details.data : []) as Record<
-    string,
-    unknown
-  >[];
-
-async function bevatel(path: string, fetcher: typeof fetch, body?: unknown) {
-  const res = await fetcher(BEVATEL + path, {
-    method: body === undefined ? "GET" : "POST",
-    headers: {
-      Authorization: `Bearer ${env("BEVATEL_API_KEY")}`,
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    },
-    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-    signal: AbortSignal.timeout(8000),
-  });
-  return { res, json: (await res.json().catch(() => ({}))) as BevatelBody };
-}
-
-let bevatelCache: { channel?: string; templates: Record<string, string> } = { templates: {} };
-export function resetBevatelCache() {
-  bevatelCache = { templates: {} };
-}
-
-/** The WhatsApp channel: BEVATEL_CHANNEL_ID, or the only active WhatsApp channel. */
-async function bevatelChannel(fetcher: typeof fetch) {
-  if (env("BEVATEL_CHANNEL_ID")) return env("BEVATEL_CHANNEL_ID");
-  if (bevatelCache.channel) return bevatelCache.channel;
-  const { res, json } = await bevatel("/conversations/channels?page=1&limit=100", fetcher);
-  if (!res.ok) return "";
-  const wa = listOf(json).filter(
-    (c) => c["is_active"] !== false && /whats/i.test(String(c["channel_type"] ?? "")),
-  );
-  if (wa.length !== 1) return "";
-  return (bevatelCache.channel = String(wa[0]!["id"] ?? ""));
-}
-
-async function bevatelTemplateId(name: string, channel: string, fetcher: typeof fetch) {
-  const cached = bevatelCache.templates[channel + ":" + name];
-  if (cached) return cached;
-  const q = new URLSearchParams({ channel_id: channel, name, page: "1", limit: "50" });
-  const { res, json } = await bevatel("/messages/whatsapp/templates?" + q, fetcher);
-  if (!res.ok) return "";
-  const t = listOf(json).find(
-    (x) => x["name"] === name && /approved/i.test(String(x["status"] ?? "")),
-  );
-  const id = String(t?.["_id"] ?? t?.["id"] ?? "");
-  if (id) bevatelCache.templates[channel + ":" + name] = id;
-  return id;
-}
-
-/** The customer's Bevatel contact, created once and remembered by phone hash. */
-async function bevatelContact(
-  ticketId: string,
-  phone: string,
-  name: string,
-  fetcher: typeof fetch,
-) {
-  const db = await admin();
-  const e164 = "+" + normalizePhone(phone);
-  const key = "bvcontact:" + (await keyedHash("bevatel:" + e164));
-  const { data: known } = await db.from("outbox").select("status").eq("key", key).maybeSingle();
-  if (known?.status) return known.status as string;
-  const { res, json } = await bevatel("/contacts", fetcher, {
-    full_name: name.trim().slice(0, 100) || "عميل " + e164.slice(-4),
-    phone_number: e164,
-    type: "external",
-  });
-  let id = res.ok ? String((json.data as { id?: string } | undefined)?.id ?? "") : "";
-  if (!id && res.status >= 400 && res.status < 500 && res.status !== 401 && res.status !== 429) {
-    // Already a contact: find it by phone (the API has no phone search).
-    const digits = e164.replace(/\D/g, "");
-    for (let page = 1; page <= 40 && !id; page++) {
-      const list = await bevatel(`/contacts?page=${page}&per_page=100`, fetcher);
-      if (!list.res.ok) break;
-      const rows = listOf(list.json);
-      const hit = rows.find((c) => String(c["phone_number"] ?? "").replace(/\D/g, "") === digits);
-      if (hit) id = String(hit["id"] ?? "");
-      if (rows.length < 100) break;
-    }
-  }
-  if (id)
-    await db
-      .from("outbox")
-      .insert({ key, type: "BEVATEL_CONTACT_REF", ticket_id: ticketId, status: id });
-  return id;
-}
-
-async function sendBevatel(
-  ticketId: string,
-  event: WhatsAppEvent,
-  customer: { name?: string; phone?: string },
-  r: Receipt,
-  fetcher: typeof fetch,
-): Promise<SendResult> {
-  if (!customer.phone || !r.trackingPath) return { ok: false };
-  // Lookups before the send are safe to retry: nothing has gone to the customer yet.
-  let channel: string, templateId: string, contactId: string;
-  try {
-    channel = await bevatelChannel(fetcher);
-    templateId = channel ? await bevatelTemplateId(bevatelTemplate(event), channel, fetcher) : "";
-    contactId = templateId
-      ? await bevatelContact(ticketId, customer.phone, customer.name ?? "", fetcher)
-      : "";
-  } catch {
-    return { ok: false, retry: true };
-  }
-  if (!channel || !templateId || !contactId) return { ok: false, retry: true };
-  const { res, json } = await bevatel("/messages/whatsapp/template", fetcher, {
-    contactId,
-    channelId: channel,
-    whatsappTemplateId: templateId,
-    whatsAppContent: { body_params: bevatelParams(event, r) },
-    virtualId: `${event}-${ticketId}`,
-  });
-  if (res.ok) {
-    const d = (json.data ?? {}) as { id?: string; _id?: string; messageId?: string };
-    const messageId = d.messageId ?? d._id ?? d.id;
-    return messageId ? { ok: true, messageId: String(messageId) } : { ok: true };
-  }
-  return { ok: false, retry: res.status === 429, ambiguous: res.status >= 500 };
+/** Bevatel (Chatwoot API): sent and logged by whatsapp.server, once per complaint and template. */
+async function sendBevatel(ticketId: string, event: WhatsAppEvent, fetcher: typeof fetch) {
+  const { sendForComplaint } = await import("./whatsapp.server");
+  const r = await sendForComplaint(ticketId, event, { actor: "SYSTEM", fetcher });
+  if (r.status === "sent") return { ok: true } as SendResult;
+  // A timeout may still have reached the customer: never resend it.
+  return { ok: false, ambiguous: !!r.error && r.error.includes("المهلة") } as SendResult;
 }
 
 /**

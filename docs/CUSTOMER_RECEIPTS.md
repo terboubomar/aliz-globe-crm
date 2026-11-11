@@ -25,23 +25,45 @@ channel is live.
 
 ## WhatsApp through Bevatel (in use)
 
-When the secret `BEVATEL_API_KEY` is set, WhatsApp messages go through Bevatel
-(https://developers.bevatel.com) instead of Meta directly, so they also appear
-in the Bevatel inbox and agents can carry on the chat there. A customer who
-chose WhatsApp on the form gets three messages:
+When the secret `BEVATEL_API_TOKEN` is set, WhatsApp messages go through
+Bevatel's chat API (https://chat.bevatel.com, which is built on Chatwoot)
+instead of Meta directly, so they also appear in the Bevatel inbox and agents
+can carry on the chat there. A customer who chose WhatsApp on the form gets
+three messages:
 
-| When | Template (default name) | Variables |
+| When | Template | Variables |
 | --- | --- | --- |
-| The complaint or suggestion is received | `aliz_complaint_received` | 1 number, 2 brand, 3 branch, 4 time received (Riyadh), 5 reason, 6 order number, 7 details, 8 tracking link |
+| The complaint or suggestion is received | `aliz_complaint_received` | 1 number, 2 brand, 3 branch, 4 time received (DD/MM/YYYY HH:mm, Riyadh), 5 reason, 6 order number, 7 details, 8 tracking link |
 | It is resolved | `aliz_complaint_resolved` | 1 number, 2 brand, 3 tracking link |
 | It is closed | `aliz_complaint_closed` | 1 number, 2 brand |
 
-How it sends: the CRM finds the active WhatsApp channel (or uses
-`BEVATEL_CHANNEL_ID`), looks up the approved template by name, creates the
-customer as a Bevatel contact once (remembered by a keyed hash of the number),
-then calls `POST /v1/messages/whatsapp/template` with the variables in order.
-Each update is sent once per complaint; the same retry, expiry and
-"never resend an unclear send" rules apply.
+How it sends (`src/functions/whatsapp.server.ts`, server only), under
+`${BEVATEL_BASE_URL}/api/v1/accounts/${BEVATEL_ACCOUNT_ID}` with the header
+`api_access_token`:
+
+1. The number is turned into `+9665XXXXXXXX` (05…, 5…, 9665…, 009665… are
+   accepted); anything else is logged as failed.
+2. `GET /contacts/search?q=<phone>`; if there is no exact match,
+   `POST /contacts {name, phone_number, inbox_id}`.
+3. `GET /contacts/{id}/conversations`: the newest open conversation in the
+   WhatsApp inbox gets `POST /conversations/{id}/messages`; otherwise
+   `POST /conversations {source_id, inbox_id, contact_id, message}`.
+4. The message is `{content, message_type: "outgoing", template_params: {name,
+   category: "UTILITY", language: "ar", processed_params: {"1": …}}}`. Each
+   value has line breaks removed, is cut at 900 characters, and is `-` when
+   empty.
+
+Every attempt is a row in `whatsapp_messages`: template, masked phone, Bevatel
+ids, status (sent, failed, skipped) and error. Template values and Bevatel's
+reply are stored encrypted; the full reply is kept for failures and tests.
+A template goes out automatically at most once per complaint (a unique index
+backs this). Admins can resend from the complaint's timeline; that is logged
+as a manual send. A timed-out send is never retried (it may have arrived).
+
+**Test first.** Settings → Integrations → WhatsApp has a «إرسال تجريبي» form:
+phone number + template, sent with sample values, showing Bevatel's raw reply.
+Automatic sending cannot be switched on until a test was sent and a super
+admin pressed «نعم، وصلتني الرسالة».
 
 ### Templates to create in Bevatel (Business Chat → WhatsApp templates)
 
@@ -86,11 +108,12 @@ Samples: `AG-2026-000123`, `برجر واقف`, `برجر واقف - الدما�
 
 | Secret | What it is |
 | --- | --- |
-| `BEVATEL_API_KEY` | The access token from Bevatel (Settings → API) |
-| `WHATSAPP_TEMPLATE_APPROVED` | `true`, once the three templates show as Approved in Bevatel |
-| `PUBLIC_APP_ORIGIN` | The public https address of the CRM (for the tracking link) |
-| `BEVATEL_CHANNEL_ID` | Optional: only if Bevatel has more than one WhatsApp channel |
-| `BEVATEL_TEMPLATE_RECEIVED` / `_RESOLVED` / `_CLOSED` | Optional: other template names |
+| `BEVATEL_API_TOKEN` | Access token of a Bevatel agent/admin (Profile settings → Access token) |
+| `BEVATEL_BASE_URL` | `https://chat.bevatel.com` |
+| `BEVATEL_ACCOUNT_ID` | The number after `/accounts/` in the Bevatel address |
+| `BEVATEL_INBOX_ID` | The WhatsApp inbox id (Settings → Inboxes) |
+| `WHATSAPP_TEMPLATE_APPROVED` | `true`, once Meta approved the three templates |
+| `PUBLIC_APP_ORIGIN` | Optional: the CRM address for tracking links (default `https://alizglobecrm.lovable.app`) |
 
 ## Secrets to add in Lovable Cloud (Project → Cloud → Secrets)
 
