@@ -117,13 +117,19 @@ export const renderTemplate = (template: Template, params: Record<string, string
 
 /** How template values are sent: Bevatel versions expect one or the other. */
 export type Format = "flat" | "body";
+/** "text": a plain message without the template, for tests only (WhatsApp delivers it only
+ * within 24 hours of the customer's last message). It shows whether Bevatel sends API
+ * messages at all. */
+export type SendFormat = Format | "text";
 export const isFormat = (v: unknown): v is Format => v === "flat" || v === "body";
 
 export function messagePayload(
   template: Template,
   params: Record<string, string>,
-  format: Format = "flat",
+  format: SendFormat = "flat",
 ) {
+  if (format === "text")
+    return { content: renderTemplate(template, params), message_type: "outgoing" };
   return {
     content: renderTemplate(template, params),
     message_type: "outgoing",
@@ -235,7 +241,7 @@ export async function sendToPhone(
   template: Template,
   params: Record<string, string>,
   fetcher: typeof fetch = fetch,
-  format: Format = "flat",
+  format: SendFormat = "flat",
 ): Promise<SendOutcome & { contactId?: string | undefined }> {
   let contactId: string | undefined;
   try {
@@ -296,7 +302,7 @@ async function log(row: {
   params?: Record<string, string>;
   outcome: SendOutcome & { contactId?: string | undefined };
   actor: string;
-  format?: Format;
+  format?: SendFormat;
 }) {
   const db = await admin();
   const keep = row.outcome.status === "failed" || row.isTest;
@@ -458,7 +464,7 @@ export async function sendTest(
   template: Template,
   actor: string,
   fetcher: typeof fetch = fetch,
-  format: Format = "flat",
+  format: SendFormat = "flat",
 ) {
   const missing = missingBevatel(false);
   if (missing.length)
@@ -517,6 +523,7 @@ export async function confirmTest(id: string) {
     .eq("id", id)
     .eq("is_test", true)
     .eq("status", "sent")
+    .neq("format", "text")
     .select("id,format");
   const row = (data as { format?: unknown }[] | null)?.[0];
   if (!row) return false;

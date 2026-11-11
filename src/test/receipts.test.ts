@@ -59,6 +59,7 @@ vi.mock("@/functions/core.server", () => {
       },
       eq: (k: string, v: unknown) => (filters.push((r) => r[k] === v), q),
       not: (k: string) => (filters.push((r) => r[k] != null), q),
+      neq: (k: string, v: unknown) => (filters.push((r) => r[k] !== v), q),
       in: (k: string, v: unknown[]) => (filters.push((r) => v.includes(r[k])), q),
       like: (k: string, v: string) => {
         const re = new RegExp(
@@ -558,6 +559,17 @@ describe("WhatsApp through Bevatel (Chatwoot API)", () => {
       template_params: { processed_params: Record<string, unknown> };
     };
     expect(Object.keys(auto.template_params.processed_params)).toEqual(["body"]);
+  });
+
+  it("sends a plain test message without the template, which cannot be confirmed", async () => {
+    const w = await import("@/functions/whatsapp.server");
+    const { fetcher, calls } = chatwoot();
+    const test = await w.sendTest("0500000009", "closed", "admin-1", fetcher, "text");
+    const sent = sends(calls)[0]!.body!["message"] as Record<string, unknown>;
+    expect(sent["template_params"]).toBeUndefined();
+    expect(sent["content"]).toContain("تم إغلاق طلبك رقم AG-2026-000123");
+    expect(await w.confirmTest(test.id!)).toBe(false);
+    expect(await w.testConfirmed()).toBe(false);
   });
 
   it("reports the inbox type and the test conversation's last messages", async () => {

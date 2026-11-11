@@ -39,7 +39,7 @@ export const whatsappSendTest = createServerFn({ method: "POST" })
       .object({
         phone: z.string().trim().min(9).max(20),
         template,
-        format: z.enum(["flat", "body"]).default("flat"),
+        format: z.enum(["flat", "body", "text"]).default("flat"),
       })
       .parse(d),
   )
