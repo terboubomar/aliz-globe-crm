@@ -86,6 +86,7 @@ import { TelegramAccount } from "./telegram-integration";
 import { TwoStepAccount } from "./two-step-account";
 import { CustomerCard } from "./customer-card";
 import { ReviewsWorkspace, TicketReview } from "./google-reviews";
+import { PlacesReviews } from "./places-reviews";
 import { PasskeyAccount } from "./passkey-account";
 import { PASSKEYS_ENABLED } from "@/lib/passkey-errors";
 import { SettingsWorkspace } from "./settings-workspace";
@@ -1028,7 +1029,10 @@ export default function CRM() {
             </section>
           )}
           {view === "reviews" && (
-            <ReviewsWorkspace data={data} brand={brand} onOpenTicket={openTicket} />
+            <>
+              <PlacesReviews data={data} brand={brand} />
+              <ReviewsWorkspace data={data} brand={brand} onOpenTicket={openTicket} />
+            </>
           )}
           {view === "tasks" && (
             <section className="panel">
