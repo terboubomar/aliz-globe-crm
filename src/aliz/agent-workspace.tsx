@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { AlertTriangle, Clock, Headphones, MessageSquare, Phone, Search } from "lucide-react";
-import { Data, Ticket, categories, n, risk, states, api } from "./types";
+import { Data, Ticket, categories, n, risk, states, api, subject } from "./types";
 import { Empty } from "./ui";
 import { AttentionStrip, CaseRow, DashHello, KpiCards } from "./dashboard-bits";
 import { riyadhDay } from "./schedule-time";
@@ -120,7 +120,7 @@ export function AgentWorkspace({
                 t.externalOrder,
                 t.customer?.name,
                 t.customer?.phone,
-                categories[t.category],
+                subject(t),
               ]
                 .join(" ")
                 .includes(search.trim())),

@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { authenticateCronRequest } from "@/integrations/supabase/cron-auth";
 
 // Every few minutes: complaints waiting because nobody was on shift go to the
-// agents whose shift has started. Once an hour it also applies the data
+// agents whose shift has started, and new Google reviews are fetched. Once an hour it also applies the data
 // retention promised in the privacy notice. Only callable with the cron secret.
 export const Route = createFileRoute("/api/public/cron/assign")({
   server: {
@@ -12,12 +12,16 @@ export const Route = createFileRoute("/api/public/cron/assign")({
         if (denied) return denied;
         const { assignWaiting } = await import("@/functions/assign.server");
         const assigned = await assignWaiting();
+        const { syncReviews } = await import("@/functions/google.server");
+        const google = await syncReviews().catch((e: Error) => ({
+          error: e.message.slice(0, 200),
+        }));
         let retention = null;
         if (new Date().getUTCMinutes() < 5) {
           const { runRetention } = await import("@/functions/retention.server");
           retention = await runRetention();
         }
-        return Response.json({ assigned, retention });
+        return Response.json({ assigned, google, retention });
       },
     },
   },
