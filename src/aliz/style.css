@@ -8597,3 +8597,21 @@ th {
   direction: ltr;
   unicode-bidi: isolate;
 }
+.bevatel-test-form {
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 0.8fr) auto;
+}
+.bevatel-delivery {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  flex-basis: 100%;
+}
+.bevatel-delivery details {
+  flex-basis: 100%;
+}
+@media (max-width: 640px) {
+  .bevatel-test-form {
+    grid-template-columns: 1fr;
+  }
+}
