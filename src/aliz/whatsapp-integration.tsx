@@ -3,6 +3,7 @@ import { CheckCircle2, Mail, MessageCircle, RefreshCw, Send } from "lucide-react
 import {
   whatsappCheckDelivery,
   whatsappConfirmTest,
+  whatsappDiagnose,
   whatsappSendTest,
   whatsappStatus,
 } from "@/functions/whatsapp.functions";
@@ -212,6 +213,7 @@ function BevatelTest({ onChange }: { onChange: () => void }) {
     [format, setFormat] = useState<Format | null>(null),
     [result, setResult] = useState<TestResult | null>(null),
     [delivery, setDelivery] = useState<{ id: string; d: Delivery } | null>(null),
+    [report, setReport] = useState<{ id: string; text: string } | null>(null),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
   const load = () =>
@@ -251,6 +253,16 @@ function BevatelTest({ onChange }: { onChange: () => void }) {
     }
     setBusy(false);
   }
+  async function diagnose(id: string) {
+    setBusy(true);
+    setError("");
+    try {
+      setReport({ id, text: (await whatsappDiagnose({ data: { id } })).report });
+    } catch (err) {
+      setError(errorText(err));
+    }
+    setBusy(false);
+  }
   const deliveryView = (id: string) =>
     delivery?.id === id && (
       <div className="bevatel-delivery">
@@ -265,6 +277,13 @@ function BevatelTest({ onChange }: { onChange: () => void }) {
           </details>
         )}
       </div>
+    );
+  const reportView = (id: string) =>
+    report?.id === id && (
+      <details className="bevatel-delivery" open>
+        <summary>تقرير التشخيص (أرسل لقطة منه للدعم الفني)</summary>
+        <pre dir="ltr">{report.text}</pre>
+      </details>
     );
   async function confirm() {
     if (!result?.id) return;
@@ -371,6 +390,14 @@ function BevatelTest({ onChange }: { onChange: () => void }) {
                   </button>
                 </div>
                 {deliveryView(result.id)}
+                <button
+                  className="text-btn"
+                  disabled={busy}
+                  onClick={() => void diagnose(result.id!)}
+                >
+                  تشخيص الربط
+                </button>
+                {reportView(result.id)}
               </>
             )}
           </div>
@@ -395,7 +422,17 @@ function BevatelTest({ onChange }: { onChange: () => void }) {
                       تحقق من التسليم
                     </button>
                   )}
+                  {r.is_test && r.status === "sent" && (
+                    <button
+                      className="text-btn"
+                      disabled={busy}
+                      onClick={() => void diagnose(r.id)}
+                    >
+                      تشخيص
+                    </button>
+                  )}
                   {deliveryView(r.id)}
+                  {reportView(r.id)}
                 </li>
               ))}
             </ul>
