@@ -71,6 +71,7 @@ import {
   appOf,
   appsFor,
   canOpenView,
+  hiddenViews,
   roleWorkspaces,
   viewLabel,
   type AppId,
@@ -86,7 +87,6 @@ import { TelegramAccount } from "./telegram-integration";
 import { TwoStepAccount } from "./two-step-account";
 import { CustomerCard } from "./customer-card";
 import { ReviewsWorkspace, TicketReview } from "./google-reviews";
-import { PlacesReviews } from "./places-reviews";
 import { PasskeyAccount } from "./passkey-account";
 import { PASSKEYS_ENABLED } from "@/lib/passkey-errors";
 import { SettingsWorkspace } from "./settings-workspace";
@@ -156,7 +156,7 @@ export default function CRM() {
         requestedTicket &&
         /^[a-zA-Z0-9-]{1,100}$/.test(requestedTicket) &&
         openedTelegramTicket.current !== requestedTicket &&
-        canOpenView("tickets", next.permissions, next.me.role)
+        canOpenView("tickets", next.permissions, next.me.role, hiddenViews(next))
       ) {
         openedTelegramTicket.current = requestedTicket;
         try {
@@ -181,9 +181,9 @@ export default function CRM() {
         current && apps.includes(current) ? current : apps.length === 1 ? apps[0]! : null,
       );
       setView((current) =>
-        canOpenView(current, next.permissions, next.me.role)
+        canOpenView(current, next.permissions, next.me.role, hiddenViews(next))
           ? current
-          : (navigation.find((i) => canOpenView(i.id, next.permissions, next.me.role))?.id ??
+          : (navigation.find((i) => canOpenView(i.id, next.permissions, next.me.role, hiddenViews(next)))?.id ??
             "settings"),
       );
       setBrand((current) =>
@@ -298,7 +298,7 @@ export default function CRM() {
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [menu]);
   function go(id: string) {
-    if (data && !canOpenView(id, data.permissions, data.me.role)) return;
+    if (data && !canOpenView(id, data.permissions, data.me.role, hiddenViews(data))) return;
     setApp(appOf(id));
     setView(id);
     setFilter("all");
@@ -327,10 +327,10 @@ export default function CRM() {
   const apps = appsFor(data.permissions, data.me.role);
   const openApp = (id: AppId) => {
     const first =
-      appOf(view) === id && canOpenView(view, data.permissions, data.me.role)
+      appOf(view) === id && canOpenView(view, data.permissions, data.me.role, hiddenViews(data))
         ? view
         : navigation.find(
-            (i) => appOf(i.id) === id && canOpenView(i.id, data.permissions, data.me.role),
+            (i) => appOf(i.id) === id && canOpenView(i.id, data.permissions, data.me.role, hiddenViews(data)),
           )?.id;
     if (first) go(first);
     else setApp(id);
@@ -410,7 +410,7 @@ export default function CRM() {
     "maintenance",
     "maintenance-reports",
   ]
-    .filter((id) => appOf(id) === currentApp && canOpenView(id, data.permissions, data.me.role))
+    .filter((id) => appOf(id) === currentApp && canOpenView(id, data.permissions, data.me.role, hiddenViews(data)))
     .slice(0, 4)
     .map((id) => navigation.find((item) => item.id === id)!);
   const exactOpenCount = summaryFor(data.ticketSummary, "all")?.active;
@@ -493,7 +493,7 @@ export default function CRM() {
               .filter(
                 (item) =>
                   appOf(item.id) === currentApp &&
-                  canOpenView(item.id, data.permissions, data.me.role),
+                  canOpenView(item.id, data.permissions, data.me.role, hiddenViews(data)),
               );
             if (!items.length) return null;
             return (
@@ -1029,10 +1029,7 @@ export default function CRM() {
             </section>
           )}
           {view === "reviews" && (
-            <>
-              <PlacesReviews data={data} brand={brand} />
-              <ReviewsWorkspace data={data} brand={brand} onOpenTicket={openTicket} />
-            </>
+            <ReviewsWorkspace data={data} brand={brand} onOpenTicket={openTicket} />
           )}
           {view === "tasks" && (
             <section className="panel">

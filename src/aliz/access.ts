@@ -157,7 +157,16 @@ export const roleWorkspaces: Record<
 export function viewLabel(id: string, role: string, fallback: string) {
   return roleWorkspaces[role]?.labels[id] ?? fallback;
 }
-export function canOpenView(id: string, permissions: string[], role?: string) {
+/** Views kept out of the menu until their integration is live (Google reviews: until connected). */
+export const hiddenViews = (d: { integrations?: { google?: boolean } }) =>
+  d.integrations?.google ? [] : ["reviews"];
+export function canOpenView(
+  id: string,
+  permissions: string[],
+  role?: string,
+  hidden: string[] = [],
+) {
+  if (hidden.includes(id)) return false;
   const profile = role ? roleWorkspaces[role] : undefined;
   if (profile && !profile.views.includes(id)) return false;
   const required = viewPermissions[id];

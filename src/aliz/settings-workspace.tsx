@@ -25,11 +25,10 @@ import { MANAGE_ROLES } from "@/lib/reply-templates";
 import { ReplyTemplatesPanel, TelegramWordsPanel } from "./templates-workspace";
 import { api, date, eventNames, n, roleNames, type Data } from "./types";
 import { Field, Empty } from "./ui";
-import { canOpenView } from "./access";
+import { canOpenView, hiddenViews } from "./access";
 import { EmailIntegration, WhatsAppIntegration } from "./whatsapp-integration";
 import { TelegramIntegration } from "./telegram-integration";
 import { GoogleIntegration } from "./google-reviews";
-import { PlacesLinking } from "./places-reviews";
 
 type Section = "general" | "lists" | "templates" | "integrations" | "audit";
 export function SettingsWorkspace({
@@ -80,7 +79,7 @@ export function SettingsWorkspace({
     { view: "branches", label: "العلامات والفروع", icon: Building2 },
     { view: "qr", label: "رموز QR", icon: QrCode },
     { view: "schedule", label: "جدولة الفريق", icon: CalendarDays },
-  ].filter((item) => canOpenView(item.view, data.permissions, data.me.role));
+  ].filter((item) => canOpenView(item.view, data.permissions, data.me.role, hiddenViews(data)));
   return (
     <div className="settings-workspace">
       <div className="settings-tabs" role="tablist" aria-label="أقسام الإعدادات">
@@ -273,10 +272,7 @@ export function SettingsWorkspace({
             ) : channel === "email" ? (
               <EmailIntegration />
             ) : channel === "google" ? (
-              <>
-                <PlacesLinking data={data} />
-                <GoogleIntegration data={data} />
-              </>
+              <GoogleIntegration data={data} />
             ) : (
               <TelegramIntegration />
             )}

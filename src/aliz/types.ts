@@ -156,7 +156,7 @@ export type Data = {
   leave: Leave[];
   permissions: string[];
   catalog?: Catalog;
-  integrations?: { whatsapp: boolean; email?: boolean };
+  integrations?: { whatsapp: boolean; email?: boolean; google?: boolean };
   policy: {
     sla: string;
     finance: boolean;
