@@ -25,17 +25,27 @@ export const whatsappStatus = createServerFn({ method: "POST" })
   .handler(async ({ context }) => {
     await superAdmin(context);
     const w = await wa();
-    return { configured: w.bevatelConfigured(), ...(await w.statusSummary()) };
+    return {
+      configured: w.bevatelConfigured(),
+      format: await w.savedFormat(),
+      ...(await w.statusSummary()),
+    };
   });
 
 export const whatsappSendTest = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
-    z.object({ phone: z.string().trim().min(9).max(20), template }).parse(d),
+    z
+      .object({
+        phone: z.string().trim().min(9).max(20),
+        template,
+        format: z.enum(["flat", "body"]).default("flat"),
+      })
+      .parse(d),
   )
   .handler(async ({ data, context }) => {
     const { c, a } = await superAdmin(context);
-    const result = await (await wa()).sendTest(data.phone, data.template, a.id);
+    const result = await (await wa()).sendTest(data.phone, data.template, a.id, fetch, data.format);
     const db = await c.admin();
     await db.rpc("write_audit", {
       _actor: a.id,
@@ -112,4 +122,13 @@ export const whatsappResend = createServerFn({ method: "POST" })
       _entity: data.id,
     });
     return { status: r.status, error: r.error ?? null };
+  });
+
+/** What Bevatel/WhatsApp finally did with a test message (sent, delivered, read or failed). */
+export const whatsappCheckDelivery = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    await superAdmin(context);
+    return (await wa()).deliveryStatus(data.id);
   });

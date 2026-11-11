@@ -115,7 +115,15 @@ export function templateParams(template: Template, r: Receipt) {
 export const renderTemplate = (template: Template, params: Record<string, string>) =>
   TEMPLATES[template].text.replace(/\{\{(\d+)\}\}/g, (_, n: string) => params[n] ?? "-");
 
-export function messagePayload(template: Template, params: Record<string, string>) {
+/** How template values are sent: Bevatel versions expect one or the other. */
+export type Format = "flat" | "body";
+export const isFormat = (v: unknown): v is Format => v === "flat" || v === "body";
+
+export function messagePayload(
+  template: Template,
+  params: Record<string, string>,
+  format: Format = "flat",
+) {
   return {
     content: renderTemplate(template, params),
     message_type: "outgoing",
@@ -123,7 +131,7 @@ export function messagePayload(template: Template, params: Record<string, string
       name: TEMPLATES[template].name,
       category: "UTILITY",
       language: "ar",
-      processed_params: params,
+      processed_params: format === "body" ? { body: params } : params,
     },
   };
 }
@@ -227,6 +235,7 @@ export async function sendToPhone(
   template: Template,
   params: Record<string, string>,
   fetcher: typeof fetch = fetch,
+  format: Format = "flat",
 ): Promise<SendOutcome & { contactId?: string | undefined }> {
   let contactId: string | undefined;
   try {
@@ -237,7 +246,7 @@ export async function sendToPhone(
       .filter((c) => Number(c["inbox_id"]) === inbox)
       .sort((a, b) => Number(b["id"]) - Number(a["id"]));
     const open = convs.find((c) => c["status"] !== "resolved") ?? convs[0];
-    const message = messagePayload(template, params);
+    const message = messagePayload(template, params, format);
     if (open) {
       const sent = await call(fetcher, "POST", `/conversations/${open["id"]}/messages`, message);
       return {
@@ -287,6 +296,7 @@ async function log(row: {
   params?: Record<string, string>;
   outcome: SendOutcome & { contactId?: string | undefined };
   actor: string;
+  format?: Format;
 }) {
   const db = await admin();
   const keep = row.outcome.status === "failed" || row.isTest;
@@ -296,6 +306,7 @@ async function log(row: {
       complaint_id: row.complaintId,
       template: row.template,
       is_test: !!row.isTest,
+      format: row.format ?? "flat",
       manual: !!row.manual,
       phone_masked: row.phone ? maskPhone(row.phone) : null,
       params_enc: row.params ? await encrypt(JSON.stringify(row.params)) : null,
@@ -401,7 +412,15 @@ export async function sendForComplaint(
       return { status: "failed", error };
     }
     const params = templateParams(template, receipt);
-    const outcome = await sendToPhone(phone, customer.name ?? "", template, params, fetcher);
+    const format = await savedFormat();
+    const outcome = await sendToPhone(
+      phone,
+      customer.name ?? "",
+      template,
+      params,
+      fetcher,
+      format,
+    );
     await log({
       complaintId,
       template,
@@ -410,6 +429,7 @@ export async function sendForComplaint(
       params,
       outcome,
       actor: opts.actor,
+      format,
     });
     return outcome;
   } catch (e) {
@@ -438,6 +458,7 @@ export async function sendTest(
   template: Template,
   actor: string,
   fetcher: typeof fetch = fetch,
+  format: Format = "flat",
 ) {
   const missing = missingBevatel(false);
   if (missing.length)
@@ -456,7 +477,7 @@ export async function sendTest(
       response: null,
     };
   const params = SAMPLE_PARAMS(template);
-  const outcome = await sendToPhone(phone, "اختبار CRM", template, params, fetcher);
+  const outcome = await sendToPhone(phone, "اختبار CRM", template, params, fetcher, format);
   const id = await log({
     complaintId: null,
     template,
@@ -465,6 +486,7 @@ export async function sendTest(
     params,
     outcome,
     actor,
+    format,
   });
   return {
     id,
@@ -474,7 +496,19 @@ export async function sendTest(
   };
 }
 
-/** The admin saw the test message arrive on their phone. */
+/** The layout of the last confirmed test; automatic sends use it. */
+export async function savedFormat(): Promise<Format> {
+  const db = await admin();
+  const { data } = await db
+    .from("app_settings")
+    .select("value")
+    .eq("key", "bevatel_template_format")
+    .maybeSingle();
+  const v = (data as { value?: unknown } | null)?.value;
+  return isFormat(v) ? v : "flat";
+}
+
+/** The admin saw the test message arrive on their phone: its layout becomes the one used. */
 export async function confirmTest(id: string) {
   const db = await admin();
   const { data } = await db
@@ -483,8 +517,70 @@ export async function confirmTest(id: string) {
     .eq("id", id)
     .eq("is_test", true)
     .eq("status", "sent")
-    .select("id");
-  return !!(data as unknown[] | null)?.length;
+    .select("id,format");
+  const row = (data as { format?: unknown }[] | null)?.[0];
+  if (!row) return false;
+  await db.from("app_settings").upsert({
+    key: "bevatel_template_format",
+    value: isFormat(row.format) ? row.format : "flat",
+    updated_at: new Date().toISOString(),
+  } as never);
+  return true;
+}
+
+/**
+ * Ask Bevatel what became of a sent message. Bevatel accepts a message first and
+ * hands it to WhatsApp afterwards, so a refusal (for example a template mismatch)
+ * only shows up here, as status "failed" with WhatsApp's error.
+ */
+export async function deliveryStatus(id: string, fetcher: typeof fetch = fetch) {
+  const db = await admin();
+  const { data } = await db
+    .from("whatsapp_messages" as never)
+    .select("bevatel_conversation_id,bevatel_message_id")
+    .eq("id", id)
+    .maybeSingle();
+  const row = data as { bevatel_conversation_id?: string; bevatel_message_id?: string } | null;
+  if (!row?.bevatel_conversation_id || !row.bevatel_message_id)
+    return { status: "unknown", error: "لا يوجد رقم رسالة لدى Bevatel لهذه المحاولة", raw: null };
+  try {
+    const conv = row.bevatel_conversation_id,
+      msg = row.bevatel_message_id;
+    const after = await call(
+      fetcher,
+      "GET",
+      `/conversations/${conv}/messages?after=${Number(msg) - 1}`,
+    );
+    let found = listIn(after).find((m) => String(m["id"]) === msg);
+    if (!found)
+      found = listIn(await call(fetcher, "GET", `/conversations/${conv}/messages`)).find(
+        (m) => String(m["id"]) === msg,
+      );
+    if (!found) return { status: "unknown", error: "لم تُعثر على الرسالة في المحادثة", raw: null };
+    const attrs = (found["content_attributes"] ?? {}) as Json;
+    const external = attrs["external_error"];
+    return {
+      status: String(found["status"] ?? "unknown"),
+      error: external ? String(external) : null,
+      raw: JSON.stringify(
+        {
+          id: found["id"],
+          status: found["status"],
+          content_attributes: found["content_attributes"],
+          additional_attributes: found["additional_attributes"],
+          source_id: found["source_id"],
+        },
+        null,
+        2,
+      ),
+    };
+  } catch (e) {
+    return {
+      status: "unknown",
+      error: e instanceof Error ? e.message : "تعذر الاتصال بـ Bevatel",
+      raw: e instanceof BevatelError ? JSON.stringify(e.response, null, 2) : null,
+    };
+  }
 }
 
 export async function testConfirmed() {

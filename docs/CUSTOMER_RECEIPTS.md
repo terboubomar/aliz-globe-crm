@@ -65,6 +65,14 @@ phone number + template, sent with sample values, showing Bevatel's raw reply.
 Automatic sending cannot be switched on until a test was sent and a super
 admin pressed «نعم، وصلتني الرسالة».
 
+Bevatel answers «sent» as soon as it accepts a message; WhatsApp may still
+refuse it afterwards. «تحقق من حالة التسليم» asks Bevatel for the message's
+final status (delivered, read or failed, with WhatsApp's error). Bevatel
+versions differ in how template values are sent, so the test form offers two
+layouts: «الصيغة 1» (`processed_params: {"1": …}`) and «الصيغة 2»
+(`processed_params: {"body": {"1": …}}`). The layout of the confirmed test is
+saved (`app_settings.bevatel_template_format`) and used for customers.
+
 ### Templates to create in Bevatel (Business Chat → WhatsApp templates)
 
 Category **Utility**, language **Arabic**, numbered variables. Meta does not allow a variable at the very start or end, so templates 1 and 2 end with a short thank-you line.

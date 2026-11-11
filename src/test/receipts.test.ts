@@ -46,6 +46,12 @@ vi.mock("@/functions/core.server", () => {
           }),
         });
       },
+      upsert: (r: Row) => {
+        const i = rows().findIndex((x) => x["key"] === r["key"]);
+        if (i >= 0) rows()[i] = r;
+        else rows().push(r);
+        return Promise.resolve({ error: null });
+      },
       update: (p: Row) => {
         op = "update";
         patch = p;
@@ -333,6 +339,19 @@ describe("WhatsApp through Bevatel (Chatwoot API)", () => {
         return new Response(JSON.stringify({ error: "template not found" }), {
           status: opts.sendStatus,
         });
+      if (path === "/conversations/56/messages" && method === "GET")
+        return ok({
+          meta: {},
+          payload: [
+            {
+              id: 1000,
+              status: "failed",
+              content_attributes: {
+                external_error: "(#132000) Number of parameters does not match",
+              },
+            },
+          ],
+        });
       if (path === "/conversations/55/messages") return ok({ id: 999 });
       if (path === "/conversations" && method === "POST")
         return ok({ id: 56, messages: [{ id: 1000 }] });
@@ -502,6 +521,32 @@ describe("WhatsApp through Bevatel (Chatwoot API)", () => {
     expect(await w.testConfirmed()).toBe(false);
     expect(await w.confirmTest(test.id!)).toBe(true);
     expect(await w.testConfirmed()).toBe(true);
+  });
+
+  it("tries the second layout, checks delivery, and keeps the confirmed layout", async () => {
+    const w = await import("@/functions/whatsapp.server");
+    const { fetcher, calls } = chatwoot();
+    const test = await w.sendTest("0500000009", "closed", "admin-1", fetcher, "body");
+    const sent = sends(calls)[0]!.body!["message"] as {
+      template_params: { processed_params: unknown };
+    };
+    expect(sent.template_params.processed_params).toEqual({
+      body: { "1": "AG-2026-000123", "2": "برجر واقف" },
+    });
+    expect(await w.deliveryStatus(test.id!, fetcher)).toMatchObject({
+      status: "failed",
+      error: "(#132000) Number of parameters does not match",
+    });
+    expect(await w.savedFormat()).toBe("flat");
+    await w.confirmTest(test.id!);
+    expect(await w.savedFormat()).toBe("body");
+    // Automatic sends now use the confirmed layout.
+    const id = ticket();
+    await queueAndSend(id, { whatsapp: "966500000001" }, fetcher);
+    const auto = sends(calls).at(-1)!.body!["message"] as {
+      template_params: { processed_params: Record<string, unknown> };
+    };
+    expect(Object.keys(auto.template_params.processed_params)).toEqual(["body"]);
   });
 
   it("cleans numbers and values", async () => {

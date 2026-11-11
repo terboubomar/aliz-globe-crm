@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { CheckCircle2, Mail, MessageCircle, RefreshCw, Send } from "lucide-react";
 import {
+  whatsappCheckDelivery,
   whatsappConfirmTest,
   whatsappSendTest,
   whatsappStatus,
@@ -177,6 +178,14 @@ const statusLabels: Record<string, [string, string]> = {
   skipped: ["لم تُرسل", "neutral"],
 };
 type WaStatus = Awaited<ReturnType<typeof whatsappStatus>>;
+type Delivery = Awaited<ReturnType<typeof whatsappCheckDelivery>>;
+type Format = "flat" | "body";
+const deliveryLabels: Record<string, [string, string]> = {
+  sent: ["سلّمتها Bevatel لواتساب، ولم يصل تأكيد الوصول بعد", "amber"],
+  delivered: ["وصلت إلى الجوال", "green"],
+  read: ["وصلت وقُرئت", "green"],
+  failed: ["رفضها واتساب", "red"],
+};
 type TestResult = Awaited<ReturnType<typeof whatsappSendTest>>;
 
 export const errorText = (e: unknown, fallback = "تعذر الاتصال") => {
@@ -200,7 +209,9 @@ function BevatelTest({ onChange }: { onChange: () => void }) {
   const [status, setStatus] = useState<WaStatus | null>(null),
     [phone, setPhone] = useState(""),
     [template, setTemplate] = useState<Template>("received"),
+    [format, setFormat] = useState<Format | null>(null),
     [result, setResult] = useState<TestResult | null>(null),
+    [delivery, setDelivery] = useState<{ id: string; d: Delivery } | null>(null),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
   const load = () =>
@@ -218,13 +229,43 @@ function BevatelTest({ onChange }: { onChange: () => void }) {
     setError("");
     setResult(null);
     try {
-      setResult(await whatsappSendTest({ data: { phone, template } }));
+      setDelivery(null);
+      setResult(
+        await whatsappSendTest({
+          data: { phone, template, format: format ?? status?.format ?? "flat" },
+        }),
+      );
     } catch (err) {
       setError(errorText(err));
     }
     setBusy(false);
     void load();
   }
+  async function check(id: string) {
+    setBusy(true);
+    setError("");
+    try {
+      setDelivery({ id, d: await whatsappCheckDelivery({ data: { id } }) });
+    } catch (err) {
+      setError(errorText(err));
+    }
+    setBusy(false);
+  }
+  const deliveryView = (id: string) =>
+    delivery?.id === id && (
+      <div className="bevatel-delivery">
+        <span className={"badge " + (deliveryLabels[delivery.d.status]?.[1] ?? "neutral")}>
+          {deliveryLabels[delivery.d.status]?.[0] ?? "الحالة: " + delivery.d.status}
+        </span>
+        {delivery.d.error && <span className="bevatel-error">{delivery.d.error}</span>}
+        {delivery.d.raw && (
+          <details>
+            <summary>تفاصيل الحالة من Bevatel</summary>
+            <pre dir="ltr">{delivery.d.raw}</pre>
+          </details>
+        )}
+      </div>
+    );
   async function confirm() {
     if (!result?.id) return;
     setBusy(true);
@@ -256,7 +297,8 @@ function BevatelTest({ onChange }: { onChange: () => void }) {
       <div className="padded">
         <p className="hint">
           أرسل أحد القوالب الثلاثة إلى جوالك ببيانات تجريبية (AG-2026-000123، برجر واقف…). لا يمكن
-          تفعيل الإرسال التلقائي للعملاء قبل أن تصلك رسالة وتؤكد وصولها هنا.
+          تفعيل الإرسال التلقائي للعملاء قبل أن تصلك رسالة وتؤكد وصولها هنا. إن لم تصل بالصيغة 1
+          جرّب الصيغة 2؛ الصيغة التي تؤكد وصولها تُستخدم للعملاء.
         </p>
         <form className="bevatel-test-form" onSubmit={(e) => void send(e)}>
           <Field label="رقم الجوال">
@@ -277,6 +319,15 @@ function BevatelTest({ onChange }: { onChange: () => void }) {
                   {templateLabels[t]}
                 </option>
               ))}
+            </select>
+          </Field>
+          <Field label="صيغة القالب">
+            <select
+              value={format ?? status?.format ?? "flat"}
+              onChange={(e) => setFormat(e.target.value as Format)}
+            >
+              <option value="flat">الصيغة 1</option>
+              <option value="body">الصيغة 2</option>
             </select>
           </Field>
           <button className="primary" disabled={busy || phone.trim().length < 9}>
@@ -302,13 +353,25 @@ function BevatelTest({ onChange }: { onChange: () => void }) {
                 <pre dir="ltr">{result.response}</pre>
               </details>
             )}
-            {result.status === "sent" && (
-              <div className="bevatel-confirm">
-                <span>قبلت Bevatel الرسالة. هل وصلت إلى واتساب على جوالك؟</span>
-                <button className="primary" disabled={busy} onClick={() => void confirm()}>
-                  <CheckCircle2 size={15} /> نعم، وصلتني الرسالة
-                </button>
-              </div>
+            {result.status === "sent" && result.id && (
+              <>
+                <div className="bevatel-confirm">
+                  <span>
+                    قبلت Bevatel الرسالة. انتظر دقيقة ثم تحقق: هل وصلت فعلاً إلى واتساب على جوالك؟
+                  </span>
+                  <button
+                    className="secondary"
+                    disabled={busy}
+                    onClick={() => void check(result.id!)}
+                  >
+                    <RefreshCw size={15} /> تحقق من حالة التسليم
+                  </button>
+                  <button className="primary" disabled={busy} onClick={() => void confirm()}>
+                    <CheckCircle2 size={15} /> نعم، وصلتني الرسالة
+                  </button>
+                </div>
+                {deliveryView(result.id)}
+              </>
             )}
           </div>
         )}
@@ -327,6 +390,12 @@ function BevatelTest({ onChange }: { onChange: () => void }) {
                   {r.phone_masked && <bdi dir="ltr">{r.phone_masked}</bdi>}
                   <time>{when(r.created_at)}</time>
                   {r.error && <small className="bevatel-error">{r.error}</small>}
+                  {r.status === "sent" && (
+                    <button className="text-btn" disabled={busy} onClick={() => void check(r.id)}>
+                      تحقق من التسليم
+                    </button>
+                  )}
+                  {deliveryView(r.id)}
                 </li>
               ))}
             </ul>
