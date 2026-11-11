@@ -180,9 +180,10 @@ const statusLabels: Record<string, [string, string]> = {
 };
 type WaStatus = Awaited<ReturnType<typeof whatsappStatus>>;
 type Delivery = Awaited<ReturnType<typeof whatsappCheckDelivery>>;
-type Format = "flat" | "body" | "text";
+type Format = "bevatel" | "flat" | "body" | "text";
 const deliveryLabels: Record<string, [string, string]> = {
-  sent: ["سلّمتها Bevatel لواتساب، ولم يصل تأكيد الوصول بعد", "amber"],
+  queued: ["لم تخرج من Bevatel إلى واتساب بعد (انتظر دقيقة وأعد التحقق)", "amber"],
+  sent: ["خرجت إلى واتساب، بانتظار تأكيد الوصول", "amber"],
   delivered: ["وصلت إلى الجوال", "green"],
   read: ["وصلت وقُرئت", "green"],
   failed: ["رفضها واتساب", "red"],
@@ -211,7 +212,7 @@ function BevatelTest({ onChange }: { onChange: () => void }) {
     [phone, setPhone] = useState(""),
     [template, setTemplate] = useState<Template>("received"),
     [format, setFormat] = useState<Format | null>(null),
-    [sentAs, setSentAs] = useState<Format>("flat"),
+    [sentAs, setSentAs] = useState<Format>("bevatel"),
     [result, setResult] = useState<TestResult | null>(null),
     [delivery, setDelivery] = useState<{ id: string; d: Delivery } | null>(null),
     [report, setReport] = useState<{ id: string; text: string } | null>(null),
@@ -233,7 +234,7 @@ function BevatelTest({ onChange }: { onChange: () => void }) {
     setResult(null);
     try {
       setDelivery(null);
-      const chosen: Format = format ?? status?.format ?? "flat";
+      const chosen: Format = format ?? status?.format ?? "bevatel";
       setSentAs(chosen);
       setResult(
         await whatsappSendTest({
@@ -319,8 +320,8 @@ function BevatelTest({ onChange }: { onChange: () => void }) {
       <div className="padded">
         <p className="hint">
           أرسل أحد القوالب الثلاثة إلى جوالك ببيانات تجريبية (AG-2026-000123، برجر واقف…). لا يمكن
-          تفعيل الإرسال التلقائي للعملاء قبل أن تصلك رسالة وتؤكد وصولها هنا. إن لم تصل بالصيغة 1
-          جرّب الصيغة 2؛ الصيغة التي تؤكد وصولها تُستخدم للعملاء.
+          تفعيل الإرسال التلقائي للعملاء قبل أن تصلك رسالة وتؤكد وصولها هنا. إن لم تصل بصيغة Bevatel
+          جرّب صيغة أخرى؛ الصيغة التي تؤكد وصولها تُستخدم للعملاء.
         </p>
         <form className="bevatel-test-form" onSubmit={(e) => void send(e)}>
           <Field label="رقم الجوال">
@@ -345,9 +346,10 @@ function BevatelTest({ onChange }: { onChange: () => void }) {
           </Field>
           <Field label="صيغة القالب">
             <select
-              value={format ?? status?.format ?? "flat"}
+              value={format ?? status?.format ?? "bevatel"}
               onChange={(e) => setFormat(e.target.value as Format)}
             >
+              <option value="bevatel">صيغة Bevatel (موصى بها)</option>
               <option value="flat">الصيغة 1</option>
               <option value="body">الصيغة 2</option>
               <option value="text">نص عادي (بلا قالب)</option>

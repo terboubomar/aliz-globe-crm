@@ -48,8 +48,14 @@ How it sends (`src/functions/whatsapp.server.ts`, server only), under
 3. `GET /contacts/{id}/conversations`: the newest open conversation in the
    WhatsApp inbox gets `POST /conversations/{id}/messages`; otherwise
    `POST /conversations {source_id, inbox_id, contact_id, message}`.
-4. The message is `{content, message_type: "outgoing", template_params: {name,
-   category: "UTILITY", language: "ar", processed_params: {"1": …}}}`. Each
+4. The message is sent the way Bevatel's own chat screen sends templates (the only
+   form Bevatel hands to WhatsApp): `{content, message_type: "outgoing",
+   template_params: {name, category: "UTILITY", language: "ar", processed_params:
+   {header: {}, headerMedia: {link: "", filename: ""}, products_catalog: null,
+   header_location: {}, body: {"1": …}, flow_type: null}, components: {"0": …}}}`,
+   where `components` is the template's definition from `GET /inboxes/{id}`
+   (`message_templates`, cached 10 minutes). Without `components`, Bevatel saves
+   the message but never sends it (status "sent", no `source_id`, no error). Each
    value has line breaks removed, is cut at 900 characters, and is `-` when
    empty.
 
