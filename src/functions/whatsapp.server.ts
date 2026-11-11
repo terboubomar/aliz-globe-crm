@@ -115,31 +115,80 @@ export function templateParams(template: Template, r: Receipt) {
 export const renderTemplate = (template: Template, params: Record<string, string>) =>
   TEMPLATES[template].text.replace(/\{\{(\d+)\}\}/g, (_, n: string) => params[n] ?? "-");
 
-/** How template values are sent: Bevatel versions expect one or the other. */
-export type Format = "flat" | "body";
+/**
+ * How template values are sent. "bevatel" is what Bevatel's own chat screen sends
+ * (and the only one it hands to WhatsApp): the template's components from the inbox
+ * plus the full processed_params with the values under `body`. "flat" and "body"
+ * were earlier guesses, kept for tests.
+ */
+export type Format = "bevatel" | "flat" | "body";
 /** "text": a plain message without the template, for tests only (WhatsApp delivers it only
  * within 24 hours of the customer's last message). It shows whether Bevatel sends API
  * messages at all. */
 export type SendFormat = Format | "text";
-export const isFormat = (v: unknown): v is Format => v === "flat" || v === "body";
+export const isFormat = (v: unknown): v is Format =>
+  v === "bevatel" || v === "flat" || v === "body";
+export const DEFAULT_FORMAT: Format = "bevatel";
 
 export function messagePayload(
   template: Template,
   params: Record<string, string>,
-  format: SendFormat = "flat",
+  format: SendFormat = DEFAULT_FORMAT,
+  components: Record<string, unknown> = {},
 ) {
   if (format === "text")
     return { content: renderTemplate(template, params), message_type: "outgoing" };
+  const base = { name: TEMPLATES[template].name, category: "UTILITY", language: "ar" };
+  if (format === "bevatel")
+    return {
+      content: renderTemplate(template, params),
+      message_type: "outgoing",
+      template_params: {
+        ...base,
+        processed_params: {
+          header: {},
+          headerMedia: { link: "", filename: "" },
+          products_catalog: null,
+          header_location: {},
+          body: params,
+          flow_type: null,
+        },
+        components,
+      },
+    };
   return {
     content: renderTemplate(template, params),
     message_type: "outgoing",
     template_params: {
-      name: TEMPLATES[template].name,
-      category: "UTILITY",
-      language: "ar",
+      ...base,
       processed_params: format === "body" ? { body: params } : params,
     },
   };
+}
+
+/** The template's components as Bevatel synced them from Meta, keyed "0", "1", … */
+let templateCache: { at: number; list: Json[] } | null = null;
+export const resetTemplateCache = () => {
+  templateCache = null;
+};
+async function templateComponents(fetcher: typeof fetch, template: Template) {
+  if (!templateCache || Date.now() - templateCache.at > 10 * 60_000) {
+    const inbox = await call(fetcher, "GET", `/inboxes/${env("BEVATEL_INBOX_ID")}`);
+    const i = (inbox["payload"] ?? inbox) as Json;
+    templateCache = {
+      at: Date.now(),
+      list: Array.isArray(i["message_templates"]) ? (i["message_templates"] as Json[]) : [],
+    };
+  }
+  const found = templateCache.list.find(
+    (t) => t["name"] === TEMPLATES[template].name && String(t["language"] ?? "ar") === "ar",
+  );
+  if (!found || !Array.isArray(found["components"]))
+    throw new BevatelError(
+      `القالب ${TEMPLATES[template].name} غير موجود في صندوق واتساب لدى Bevatel (زامن القوالب)`,
+      null,
+    );
+  return Object.fromEntries((found["components"] as unknown[]).map((c, n) => [String(n), c]));
 }
 
 class BevatelError extends Error {
@@ -241,7 +290,7 @@ export async function sendToPhone(
   template: Template,
   params: Record<string, string>,
   fetcher: typeof fetch = fetch,
-  format: SendFormat = "flat",
+  format: SendFormat = DEFAULT_FORMAT,
 ): Promise<SendOutcome & { contactId?: string | undefined }> {
   let contactId: string | undefined;
   try {
@@ -252,7 +301,8 @@ export async function sendToPhone(
       .filter((c) => Number(c["inbox_id"]) === inbox)
       .sort((a, b) => Number(b["id"]) - Number(a["id"]));
     const open = convs.find((c) => c["status"] !== "resolved") ?? convs[0];
-    const message = messagePayload(template, params, format);
+    const components = format === "bevatel" ? await templateComponents(fetcher, template) : {};
+    const message = messagePayload(template, params, format, components);
     if (open) {
       const sent = await call(fetcher, "POST", `/conversations/${open["id"]}/messages`, message);
       return {
@@ -312,7 +362,7 @@ async function log(row: {
       complaint_id: row.complaintId,
       template: row.template,
       is_test: !!row.isTest,
-      format: row.format ?? "flat",
+      format: row.format ?? DEFAULT_FORMAT,
       manual: !!row.manual,
       phone_masked: row.phone ? maskPhone(row.phone) : null,
       params_enc: row.params ? await encrypt(JSON.stringify(row.params)) : null,
@@ -464,7 +514,7 @@ export async function sendTest(
   template: Template,
   actor: string,
   fetcher: typeof fetch = fetch,
-  format: SendFormat = "flat",
+  format: SendFormat = DEFAULT_FORMAT,
 ) {
   const missing = missingBevatel(false);
   if (missing.length)
@@ -511,7 +561,7 @@ export async function savedFormat(): Promise<Format> {
     .eq("key", "bevatel_template_format")
     .maybeSingle();
   const v = (data as { value?: unknown } | null)?.value;
-  return isFormat(v) ? v : "flat";
+  return isFormat(v) ? v : DEFAULT_FORMAT;
 }
 
 /** The admin saw the test message arrive on their phone: its layout becomes the one used. */
@@ -529,7 +579,7 @@ export async function confirmTest(id: string) {
   if (!row) return false;
   await db.from("app_settings").upsert({
     key: "bevatel_template_format",
-    value: isFormat(row.format) ? row.format : "flat",
+    value: isFormat(row.format) ? row.format : DEFAULT_FORMAT,
     updated_at: new Date().toISOString(),
   } as never);
   return true;
@@ -567,7 +617,11 @@ export async function deliveryStatus(id: string, fetcher: typeof fetch = fetch) 
     const attrs = (found["content_attributes"] ?? {}) as Json;
     const external = attrs["external_error"];
     return {
-      status: String(found["status"] ?? "unknown"),
+      // "sent" without WhatsApp's message id means it never left Bevatel.
+      status:
+        found["status"] === "sent" && !found["source_id"]
+          ? "queued"
+          : String(found["status"] ?? "unknown"),
       error: external ? String(external) : null,
       raw: JSON.stringify(
         {

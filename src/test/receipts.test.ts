@@ -360,7 +360,19 @@ describe("WhatsApp through Bevatel (Chatwoot API)", () => {
           channel_type: "Channel::Whatsapp",
           provider: "whatsapp_cloud",
           message_templates: [
-            { name: "aliz_complaint_received", language: "ar", status: "APPROVED" },
+            ...(["received", "resolved", "closed"] as const).map((t) => ({
+              name: "aliz_complaint_" + t,
+              language: "ar",
+              status: "APPROVED",
+              category: "UTILITY",
+              components: [
+                {
+                  type: "BODY",
+                  text: "نص القالب {{1}} {{2}}",
+                  example: { body_text: [["a", "b"]] },
+                },
+              ],
+            })),
             { name: "other", language: "en", status: "APPROVED" },
           ],
         });
@@ -377,6 +389,7 @@ describe("WhatsApp through Bevatel (Chatwoot API)", () => {
 
   beforeEach(() => {
     process.env["BEVATEL_API_TOKEN"] = "test-bevatel-token";
+    void import("@/functions/whatsapp.server").then((w) => w.resetTemplateCache());
     process.env["BEVATEL_BASE_URL"] = "https://chat.bevatel.com";
     process.env["BEVATEL_ACCOUNT_ID"] = "29441";
     process.env["BEVATEL_INBOX_ID"] = "87741";
@@ -413,16 +426,28 @@ describe("WhatsApp through Bevatel (Chatwoot API)", () => {
         name: string;
         category: string;
         language: string;
-        processed_params: Record<string, string>;
+        processed_params: Record<string, unknown> & { body: Record<string, string> };
+        components: Record<string, unknown>;
       };
     };
     expect(message.message_type).toBe("outgoing");
+    // Exactly what Bevatel's own chat screen sends.
+    expect(message.template_params.processed_params).toMatchObject({
+      header: {},
+      headerMedia: { link: "", filename: "" },
+      products_catalog: null,
+      header_location: {},
+      flow_type: null,
+    });
+    expect(message.template_params.components).toEqual({
+      "0": { type: "BODY", text: "نص القالب {{1}} {{2}}", example: { body_text: [["a", "b"]] } },
+    });
     expect(message.template_params).toMatchObject({
       name: "aliz_complaint_received",
       category: "UTILITY",
       language: "ar",
     });
-    const p = message.template_params.processed_params;
+    const p = message.template_params.processed_params.body;
     expect(Object.keys(p)).toEqual(["1", "2", "3", "4", "5", "6", "7", "8"]);
     expect(p["1"]).toBe("AG-2026-000007");
     expect(p["4"]).toBe("28/10/2026 11:00");
@@ -470,9 +495,9 @@ describe("WhatsApp through Bevatel (Chatwoot API)", () => {
       "aliz_complaint_closed",
     ]);
     const resolved = sends(calls)[1]!.body!["template_params"] as {
-      processed_params: Record<string, string>;
+      processed_params: { body: Record<string, string> };
     };
-    expect(resolved.processed_params).toEqual({
+    expect(resolved.processed_params.body).toEqual({
       "1": "AG-2026-000007",
       "2": "واقف",
       "3": "https://crm.example.com/track/abcdefghijklmnopqrstuvwx",
@@ -518,9 +543,9 @@ describe("WhatsApp through Bevatel (Chatwoot API)", () => {
     expect(test).toMatchObject({ status: "sent", error: null, response: { id: 56 } });
     const p = (
       sends(calls)[0]!.body!["message"] as {
-        template_params: { processed_params: Record<string, string> };
+        template_params: { processed_params: { body: Record<string, string> } };
       }
-    ).template_params.processed_params;
+    ).template_params.processed_params.body;
     expect([p["1"], p["2"], p["3"], p["5"], p["6"], p["7"], p["8"]]).toEqual([
       "AG-2026-000123",
       "برجر واقف",
@@ -549,7 +574,7 @@ describe("WhatsApp through Bevatel (Chatwoot API)", () => {
       status: "failed",
       error: "(#132000) Number of parameters does not match",
     });
-    expect(await w.savedFormat()).toBe("flat");
+    expect(await w.savedFormat()).toBe("bevatel");
     await w.confirmTest(test.id!);
     expect(await w.savedFormat()).toBe("body");
     // Automatic sends now use the confirmed layout.
@@ -580,10 +605,33 @@ describe("WhatsApp through Bevatel (Chatwoot API)", () => {
     expect(report.inbox).toMatchObject({
       channel_type: "Channel::Whatsapp",
       provider: "whatsapp_cloud",
-      message_templates: [{ name: "aliz_complaint_received", language: "ar", status: "APPROVED" }],
+      message_templates: expect.arrayContaining([
+        { name: "aliz_complaint_received", language: "ar", status: "APPROVED" },
+      ]),
     });
     expect(report.conversation).toBe("56");
     expect(report.last_messages[0]).toMatchObject({ id: 1000, status: "failed" });
+  });
+
+  it("reports a message that never left Bevatel, and refuses a template Bevatel lacks", async () => {
+    const w = await import("@/functions/whatsapp.server");
+    const { fetcher } = chatwoot({ exists: true, open: true });
+    const test = await w.sendTest("0500000009", "closed", "admin-1", fetcher);
+    const stuck = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ payload: [{ id: 999, status: "sent", source_id: null }] })),
+    ) as unknown as typeof fetch;
+    expect((await w.deliveryStatus(test.id!, stuck)).status).toBe("queued");
+    w.resetTemplateCache();
+    const empty = vi.fn(async (url: string, init: RequestInit) =>
+      String(url).includes("/inboxes/")
+        ? new Response(JSON.stringify({ message_templates: [] }))
+        : fetcher(url, init),
+    ) as unknown as typeof fetch;
+    const missing = await w.sendTest("0500000009", "closed", "admin-1", empty);
+    expect(missing.status).toBe("failed");
+    expect(missing.error).toContain("aliz_complaint_closed");
+    w.resetTemplateCache();
   });
 
   it("cleans numbers and values", async () => {
