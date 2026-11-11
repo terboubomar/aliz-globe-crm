@@ -1,6 +1,12 @@
 import { useEffect, useState } from "react";
-import { Mail, MessageCircle, RefreshCw } from "lucide-react";
+import { CheckCircle2, Mail, MessageCircle, RefreshCw, Send } from "lucide-react";
+import {
+  whatsappConfirmTest,
+  whatsappSendTest,
+  whatsappStatus,
+} from "@/functions/whatsapp.functions";
 import { api, n } from "./types";
+import { Field } from "./ui";
 type Status = {
   enabled: boolean;
   ready: boolean;
@@ -9,12 +15,24 @@ type Status = {
   provider?: string;
 };
 export function WhatsAppIntegration() {
-  return <ReceiptChannel channel="whatsapp" />;
+  const [revision, setRevision] = useState(0);
+  return (
+    <>
+      <ReceiptChannel channel="whatsapp" revision={revision} />
+      <BevatelTest onChange={() => setRevision((v) => v + 1)} />
+    </>
+  );
 }
 export function EmailIntegration() {
   return <ReceiptChannel channel="email" />;
 }
-function ReceiptChannel({ channel }: { channel: "whatsapp" | "email" }) {
+function ReceiptChannel({
+  channel,
+  revision = 0,
+}: {
+  channel: "whatsapp" | "email";
+  revision?: number;
+}) {
   const [status, setStatus] = useState<Status | null>(null),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
@@ -27,7 +45,7 @@ function ReceiptChannel({ channel }: { channel: "whatsapp" | "email" }) {
       .catch((e) => setError(e.message));
   useEffect(() => {
     void load();
-  }, [channel]);
+  }, [channel, revision]);
   async function toggle(enabled: boolean) {
     setBusy(true);
     try {
@@ -39,6 +57,10 @@ function ReceiptChannel({ channel }: { channel: "whatsapp" | "email" }) {
     setBusy(false);
   }
   const labels: Record<string, string> = {
+    BEVATEL_API_TOKEN: "رمز الوصول من Bevatel (BEVATEL_API_TOKEN)",
+    BEVATEL_BASE_URL: "رابط Bevatel (BEVATEL_BASE_URL)",
+    BEVATEL_ACCOUNT_ID: "رقم الحساب في Bevatel (BEVATEL_ACCOUNT_ID)",
+    BEVATEL_INBOX_ID: "رقم صندوق واتساب في Bevatel (BEVATEL_INBOX_ID)",
     WHATSAPP_ACCESS_TOKEN: "رمز الوصول الآمن",
     WHATSAPP_PHONE_NUMBER_ID: "رقم حساب المرسل",
     WHATSAPP_APP_SECRET: "مفتاح التحقق من الرسائل",
@@ -136,6 +158,179 @@ function ReceiptChannel({ channel }: { channel: "whatsapp" | "email" }) {
               </details>
             )}
           </>
+        )}
+      </div>
+    </section>
+  );
+}
+
+/* ---------------- Bevatel: test send before automatic sending ---------------- */
+type Template = "received" | "resolved" | "closed";
+const templateLabels: Record<Template, string> = {
+  received: "استلام الشكوى",
+  resolved: "تمت المعالجة",
+  closed: "إغلاق الشكوى",
+};
+const statusLabels: Record<string, [string, string]> = {
+  sent: ["أُرسلت", "green"],
+  failed: ["فشلت", "red"],
+  skipped: ["لم تُرسل", "neutral"],
+};
+type WaStatus = Awaited<ReturnType<typeof whatsappStatus>>;
+type TestResult = Awaited<ReturnType<typeof whatsappSendTest>>;
+
+export const errorText = (e: unknown, fallback = "تعذر الاتصال") => {
+  const m = (e as Error)?.message ?? "";
+  try {
+    const list = JSON.parse(m) as { message?: string }[];
+    if (Array.isArray(list) && list[0]?.message) return list[0].message;
+  } catch {
+    /* plain message */
+  }
+  return m || fallback;
+};
+export const when = (iso: string) =>
+  new Date(iso).toLocaleString("ar-SA-u-nu-latn", {
+    timeZone: "Asia/Riyadh",
+    dateStyle: "short",
+    timeStyle: "short",
+  });
+
+function BevatelTest({ onChange }: { onChange: () => void }) {
+  const [status, setStatus] = useState<WaStatus | null>(null),
+    [phone, setPhone] = useState(""),
+    [template, setTemplate] = useState<Template>("received"),
+    [result, setResult] = useState<TestResult | null>(null),
+    [error, setError] = useState(""),
+    [busy, setBusy] = useState(false);
+  const load = () =>
+    whatsappStatus()
+      .then(setStatus)
+      .catch((e) => setError(errorText(e)));
+  useEffect(() => {
+    void load();
+  }, []);
+  if (status && !status.configured) return null;
+
+  async function send(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError("");
+    setResult(null);
+    try {
+      setResult(await whatsappSendTest({ data: { phone, template } }));
+    } catch (err) {
+      setError(errorText(err));
+    }
+    setBusy(false);
+    void load();
+  }
+  async function confirm() {
+    if (!result?.id) return;
+    setBusy(true);
+    try {
+      await whatsappConfirmTest({ data: { id: result.id } });
+      setResult(null);
+      await load();
+      onChange();
+    } catch (err) {
+      setError(errorText(err));
+    }
+    setBusy(false);
+  }
+
+  return (
+    <section className="panel whatsapp-integration bevatel-test">
+      <div className="panel-head">
+        <h2>
+          <Send size={18} /> رسالة تجريبية عبر Bevatel
+        </h2>
+        {status?.testConfirmed ? (
+          <span className="badge green">
+            <CheckCircle2 size={13} /> تم تأكيد وصول رسالة تجريبية
+          </span>
+        ) : (
+          <span className="badge amber">لم يُؤكَّد وصول رسالة تجريبية</span>
+        )}
+      </div>
+      <div className="padded">
+        <p className="hint">
+          أرسل أحد القوالب الثلاثة إلى جوالك ببيانات تجريبية (AG-2026-000123، برجر واقف…). لا يمكن
+          تفعيل الإرسال التلقائي للعملاء قبل أن تصلك رسالة وتؤكد وصولها هنا.
+        </p>
+        <form className="bevatel-test-form" onSubmit={(e) => void send(e)}>
+          <Field label="رقم الجوال">
+            <input
+              dir="ltr"
+              inputMode="tel"
+              autoComplete="tel"
+              placeholder="05XXXXXXXX"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              required
+            />
+          </Field>
+          <Field label="القالب">
+            <select value={template} onChange={(e) => setTemplate(e.target.value as Template)}>
+              {(Object.keys(templateLabels) as Template[]).map((t) => (
+                <option key={t} value={t}>
+                  {templateLabels[t]}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <button className="primary" disabled={busy || phone.trim().length < 9}>
+            <Send size={15} /> {busy ? "جارٍ الإرسال…" : "إرسال تجريبي"}
+          </button>
+        </form>
+        {error && (
+          <p className="error" role="alert">
+            {error}
+          </p>
+        )}
+        {result && (
+          <div className="bevatel-result" role="status">
+            <div className="bevatel-result-head">
+              <span className={"badge " + (statusLabels[result.status]?.[1] ?? "neutral")}>
+                {statusLabels[result.status]?.[0] ?? result.status}
+              </span>
+              {result.error && <span className="bevatel-error">{result.error}</span>}
+            </div>
+            {result.response && (
+              <details open>
+                <summary>رد Bevatel كما وصل</summary>
+                <pre dir="ltr">{result.response}</pre>
+              </details>
+            )}
+            {result.status === "sent" && (
+              <div className="bevatel-confirm">
+                <span>قبلت Bevatel الرسالة. هل وصلت إلى واتساب على جوالك؟</span>
+                <button className="primary" disabled={busy} onClick={() => void confirm()}>
+                  <CheckCircle2 size={15} /> نعم، وصلتني الرسالة
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+        {!!status?.recent.length && (
+          <details className="bevatel-recent">
+            <summary>آخر محاولات الإرسال ({n(status.recent.length)})</summary>
+            <ul>
+              {status.recent.map((r) => (
+                <li key={r.id}>
+                  <span className={"badge " + (statusLabels[r.status]?.[1] ?? "neutral")}>
+                    {statusLabels[r.status]?.[0] ?? r.status}
+                  </span>
+                  <b>{templateLabels[r.template]}</b>
+                  {r.is_test && <small>تجريبية</small>}
+                  {r.manual && <small>إعادة إرسال</small>}
+                  {r.phone_masked && <bdi dir="ltr">{r.phone_masked}</bdi>}
+                  <time>{when(r.created_at)}</time>
+                  {r.error && <small className="bevatel-error">{r.error}</small>}
+                </li>
+              ))}
+            </ul>
+          </details>
         )}
       </div>
     </section>

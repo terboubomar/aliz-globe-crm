@@ -24,10 +24,12 @@
 
 WhatsApp and email confirmations to the customer live in
 `src/functions/receipts.server.ts`; setup and rules are in
-`docs/CUSTOMER_RECEIPTS.md`. WhatsApp goes through Bevatel when
-`BEVATEL_API_KEY` is set (received, resolved and closed messages), otherwise
-through Meta directly. Delivery state uses the existing `outbox` table
-(no schema change). Both channels stay off until a super admin switches them on
+`docs/CUSTOMER_RECEIPTS.md`. WhatsApp goes through Bevatel's Chatwoot API
+(`src/functions/whatsapp.server.ts`) when `BEVATEL_API_TOKEN` is set (received,
+resolved and closed messages), otherwise through Meta directly. Delivery state
+uses the `outbox` table; every Bevatel attempt is also logged in
+`whatsapp_messages`, and WhatsApp can only be switched on after a confirmed
+test send. Both channels stay off until a super admin switches them on
 in Settings, which is refused while any required secret is missing.
 
 ## Working with the Lovable connection (owner rule)
