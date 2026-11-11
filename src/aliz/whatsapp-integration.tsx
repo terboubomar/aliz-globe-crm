@@ -180,7 +180,7 @@ const statusLabels: Record<string, [string, string]> = {
 };
 type WaStatus = Awaited<ReturnType<typeof whatsappStatus>>;
 type Delivery = Awaited<ReturnType<typeof whatsappCheckDelivery>>;
-type Format = "flat" | "body";
+type Format = "flat" | "body" | "text";
 const deliveryLabels: Record<string, [string, string]> = {
   sent: ["سلّمتها Bevatel لواتساب، ولم يصل تأكيد الوصول بعد", "amber"],
   delivered: ["وصلت إلى الجوال", "green"],
@@ -211,6 +211,7 @@ function BevatelTest({ onChange }: { onChange: () => void }) {
     [phone, setPhone] = useState(""),
     [template, setTemplate] = useState<Template>("received"),
     [format, setFormat] = useState<Format | null>(null),
+    [sentAs, setSentAs] = useState<Format>("flat"),
     [result, setResult] = useState<TestResult | null>(null),
     [delivery, setDelivery] = useState<{ id: string; d: Delivery } | null>(null),
     [report, setReport] = useState<{ id: string; text: string } | null>(null),
@@ -232,9 +233,11 @@ function BevatelTest({ onChange }: { onChange: () => void }) {
     setResult(null);
     try {
       setDelivery(null);
+      const chosen: Format = format ?? status?.format ?? "flat";
+      setSentAs(chosen);
       setResult(
         await whatsappSendTest({
-          data: { phone, template, format: format ?? status?.format ?? "flat" },
+          data: { phone, template, format: chosen },
         }),
       );
     } catch (err) {
@@ -347,6 +350,7 @@ function BevatelTest({ onChange }: { onChange: () => void }) {
             >
               <option value="flat">الصيغة 1</option>
               <option value="body">الصيغة 2</option>
+              <option value="text">نص عادي (بلا قالب)</option>
             </select>
           </Field>
           <button className="primary" disabled={busy || phone.trim().length < 9}>
@@ -372,6 +376,12 @@ function BevatelTest({ onChange }: { onChange: () => void }) {
                 <pre dir="ltr">{result.response}</pre>
               </details>
             )}
+            {result.status === "sent" && result.id && sentAs === "text" && (
+              <p className="hint">
+                رسالة نصية للفحص فقط: تصل فقط إذا راسلت رقم الشركة خلال آخر 24 ساعة، ولا يمكن
+                اعتمادها للعملاء.
+              </p>
+            )}
             {result.status === "sent" && result.id && (
               <>
                 <div className="bevatel-confirm">
@@ -385,7 +395,11 @@ function BevatelTest({ onChange }: { onChange: () => void }) {
                   >
                     <RefreshCw size={15} /> تحقق من حالة التسليم
                   </button>
-                  <button className="primary" disabled={busy} onClick={() => void confirm()}>
+                  <button
+                    className="primary"
+                    disabled={busy || sentAs === "text"}
+                    onClick={() => void confirm()}
+                  >
                     <CheckCircle2 size={15} /> نعم، وصلتني الرسالة
                   </button>
                 </div>
