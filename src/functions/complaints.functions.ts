@@ -24,6 +24,8 @@ export const getBootstrap = createServerFn({ method: "POST" })
     ]);
     const lists = await c.catalog();
     const live = await (await import("./receipts.server")).liveChannels();
+    // Google reviews stay hidden until the Google account is connected (after Google's approval).
+    const google = await (await import("./google.server")).googleConnected();
     return {
       status: "OK" as const,
       email,
@@ -45,6 +47,7 @@ export const getBootstrap = createServerFn({ method: "POST" })
         whatsapp: live.whatsapp,
         email: live.email,
         telegram: s.telegram,
+        google,
       },
     };
   });

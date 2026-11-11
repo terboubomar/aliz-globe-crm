@@ -92,6 +92,14 @@ async function putValue(key: string, type: string, value: unknown) {
     );
   rpcError(error);
 }
+/** True once a super admin connected the Google account. */
+export async function googleConnected() {
+  try {
+    return !!(await getValue<Token>(TOKEN_KEY))?.refresh;
+  } catch {
+    return false;
+  }
+}
 async function dropValue(key: string) {
   const db = await admin();
   await db.from("outbox").delete().eq("key", key);

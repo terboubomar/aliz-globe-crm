@@ -281,7 +281,7 @@ async function bootstrap(): Promise<Data> {
     leave: [],
     permissions: b.permissions,
     catalog: b.catalog,
-    integrations: { whatsapp: b.flags.whatsapp, email: b.flags.email },
+    integrations: { whatsapp: b.flags.whatsapp, email: b.flags.email, google: b.flags.google },
     policy: {
       sla: b.flags.slaVersion,
       slaApproved: b.flags.slaApproved,
