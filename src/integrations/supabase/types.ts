@@ -220,6 +220,163 @@ export type Database = {
         }
         Relationships: []
       }
+      maintenance_events: {
+        Row: {
+          actor: string
+          created_at: string
+          id: string
+          note: string | null
+          request_id: string
+          type: string
+        }
+        Insert: {
+          actor: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          request_id: string
+          type: string
+        }
+        Update: {
+          actor?: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          request_id?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "maintenance_events_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "maintenance_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      maintenance_photos: {
+        Row: {
+          created_at: string
+          id: string
+          request_id: string
+          size: number
+          stage: string
+          storage_key: string
+          uploaded_by: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          request_id: string
+          size: number
+          stage: string
+          storage_key: string
+          uploaded_by: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          request_id?: string
+          size?: number
+          stage?: string
+          storage_key?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "maintenance_photos_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "maintenance_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      maintenance_requests: {
+        Row: {
+          assigned_at: string | null
+          assignee: string | null
+          branch_id: string
+          brand_id: string
+          category: string
+          category_detail: string | null
+          confirmed_at: string | null
+          created_at: string
+          description: string
+          done_at: string | null
+          fix_due_at: string | null
+          id: string
+          number: number
+          priority: string
+          requester: string
+          respond_due_at: string | null
+          started_at: string | null
+          state: string
+          title: string
+          version: number
+        }
+        Insert: {
+          assigned_at?: string | null
+          assignee?: string | null
+          branch_id: string
+          brand_id: string
+          category: string
+          category_detail?: string | null
+          confirmed_at?: string | null
+          created_at?: string
+          description?: string
+          done_at?: string | null
+          fix_due_at?: string | null
+          id?: string
+          number?: number
+          priority: string
+          requester: string
+          respond_due_at?: string | null
+          started_at?: string | null
+          state?: string
+          title: string
+          version?: number
+        }
+        Update: {
+          assigned_at?: string | null
+          assignee?: string | null
+          branch_id?: string
+          brand_id?: string
+          category?: string
+          category_detail?: string | null
+          confirmed_at?: string | null
+          created_at?: string
+          description?: string
+          done_at?: string | null
+          fix_due_at?: string | null
+          id?: string
+          number?: number
+          priority?: string
+          requester?: string
+          respond_due_at?: string | null
+          started_at?: string | null
+          state?: string
+          title?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "maintenance_requests_branch_id_brand_id_fkey"
+            columns: ["branch_id", "brand_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id", "brand_id"]
+          },
+          {
+            foreignKeyName: "maintenance_requests_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       outbox: {
         Row: {
           created_at: string
@@ -246,6 +403,35 @@ export type Database = {
           type?: string
         }
         Relationships: []
+      }
+      qr_scans: {
+        Row: {
+          brand_id: string
+          id: number
+          qr_id: string
+          scanned_at: string
+        }
+        Insert: {
+          brand_id: string
+          id?: number
+          qr_id: string
+          scanned_at?: string
+        }
+        Update: {
+          brand_id?: string
+          id?: number
+          qr_id?: string
+          scanned_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qr_scans_qr_id_fkey"
+            columns: ["qr_id"]
+            isOneToOne: false
+            referencedRelation: "qrs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       qrs: {
         Row: {
@@ -290,6 +476,13 @@ export type Database = {
             columns: ["branch_id"]
             isOneToOne: false
             referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "qrs_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
             referencedColumns: ["id"]
           },
         ]
@@ -760,11 +953,36 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      maintenance_action_tx: {
+        Args: {
+          _actor: string
+          _id: string
+          _note: string
+          _type: string
+          _version: number
+          p: Json
+        }
+        Returns: undefined
+      }
+      maintenance_create_tx: { Args: { p: Json }; Returns: Json }
+      maintenance_visible: {
+        Args: { _assignee: string; _branch: string; _brand: string }
+        Returns: boolean
+      }
       next_ticket_sequence: { Args: never; Returns: number }
       qr_ensure: {
         Args: {
           _actor: string
           _branch: string
+          _code_enc: string
+          _hash: string
+        }
+        Returns: Json
+      }
+      qr_ensure_brand: {
+        Args: {
+          _actor: string
+          _brand: string
           _code_enc: string
           _hash: string
         }
@@ -777,6 +995,10 @@ export type Database = {
           _new_code_enc: string
           _new_hash: string
         }
+        Returns: Json
+      }
+      qr_stats: {
+        Args: { _brands: string[]; _from: string; _to: string }
         Returns: Json
       }
       refund_visible: {
