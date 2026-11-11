@@ -21,9 +21,10 @@ describe("IT manager", () => {
       expect(perms).not.toContain(p);
   });
 
-  it("sees only the refunds section", () => {
+  it("works in the IT app: tickets, refunds and IT reports, nothing about complaints", () => {
     const views = ["overview", "tickets", "refunds", "customers", "tasks", "schedule", "reports"];
-    expect(views.filter((v) => canOpenView(v, perms, "IT_MANAGER"))).toEqual(["refunds"]);
+    expect(views.filter((v) => canOpenView(v, perms, "IT_MANAGER"))).toEqual([]);
+    expect(["it", "it-refunds", "it-reports"].every((v) => canOpenView(v, perms, "IT_MANAGER"))).toBe(true);
   });
 });
 

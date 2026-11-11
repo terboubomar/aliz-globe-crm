@@ -14,22 +14,42 @@ const viewPermissions: Record<string, string[]> = {
   settings: [],
   maintenance: ["mnt.view"],
   "maintenance-reports": ["mnt.report"],
+  it: ["it.request", "it.view"],
+  "it-refunds": ["refund.execute"],
+  "it-reports": ["it.report"],
 };
 
 /*
- * The CRM holds two apps: Customer Service (complaints, refunds…) and
- * Maintenance. Each person sees the apps their role opens; with both, they
- * pick one after signing in and can switch from the sidebar.
+ * The CRM holds three apps: Customer Service (complaints, refunds…),
+ * Maintenance and IT (IT tickets from every department, plus the refunds the IT
+ * manager executes). Each person sees the apps their role opens; with more than
+ * one, they pick one after signing in and can switch from the sidebar.
  */
-export type AppId = "cs" | "maintenance";
-export const appLabels: Record<AppId, string> = { cs: "خدمة العملاء", maintenance: "الصيانة" };
+export type AppId = "cs" | "maintenance" | "it";
+export const appLabels: Record<AppId, string> = {
+  cs: "خدمة العملاء",
+  maintenance: "الصيانة",
+  it: "تقنية المعلومات",
+};
+/** Short names for the sidebar switch, where three apps share one row. */
+export const appShortLabels: Record<AppId, string> = {
+  cs: "خدمة العملاء",
+  maintenance: "الصيانة",
+  it: "التقنية",
+};
 export const appOf = (view: string): AppId =>
-  view.startsWith("maintenance") ? "maintenance" : "cs";
+  view.startsWith("maintenance")
+    ? "maintenance"
+    : view === "it" || view.startsWith("it-")
+      ? "it"
+      : "cs";
 export function appsFor(permissions: string[], role: string): AppId[] {
   const views = Object.keys(viewPermissions).filter(
     (v) => v !== "settings" && canOpenView(v, permissions, role),
   );
-  return (["cs", "maintenance"] as const).filter((app) => views.some((v) => appOf(v) === app));
+  return (["cs", "maintenance", "it"] as const).filter((app) =>
+    views.some((v) => appOf(v) === app),
+  );
 }
 export const agentViewLabels: Record<string, string> = {
   overview: "مساحة عملي",
@@ -44,7 +64,8 @@ export const roleWorkspaces: Record<
   SUPER_ADMIN: {
     title: "إدارة المجموعة",
     description: "الفريق والعلامات والشكاوى والطلبات المالية في مساحة واحدة.",
-    views: Object.keys(viewPermissions),
+    // Refunds stay in Customer Service for the super admin (no copy in IT).
+    views: Object.keys(viewPermissions).filter((v) => v !== "it-refunds"),
     labels: { overview: "إدارة المجموعة" },
   },
   MARKETING_MANAGER: {
@@ -62,19 +83,20 @@ export const roleWorkspaces: Record<
       "reports",
       "qr-stats",
       "reviews",
+      "it",
     ],
     labels: { overview: "تجربة العملاء", tickets: "شكاوى العملاء" },
   },
   SHIFT_LEAD: {
     title: "لوحة قيادة الفريق",
     description: "أسند الشكاوى وتابع عبء العمل والحالات التي تحتاج تدخلك.",
-    views: ["overview", "tickets", "refunds", "branches", "customers", "tasks", "reviews"],
+    views: ["overview", "tickets", "refunds", "branches", "customers", "tasks", "reviews", "it"],
     labels: { overview: "قيادة الفريق", tickets: "الاستقبال والإسناد", tasks: "متابعات الفريق" },
   },
   AGENT: {
     title: "مساحة عملي",
     description: "ابحث في شكاوى العملاء، وتابع عملك وطلبات الاسترجاع.",
-    views: ["overview", "tickets", "refunds", "tasks", "schedule", "reviews"],
+    views: ["overview", "tickets", "refunds", "tasks", "schedule", "reviews", "it"],
     labels: {
       overview: "مساحة عملي",
       tickets: "الشكاوى",
@@ -86,7 +108,15 @@ export const roleWorkspaces: Record<
   OPERATIONS_MANAGER: {
     title: "التصعيدات المسندة إليّ",
     description: "عالج التصعيد المسند إليك ثم يتابع فريق خدمة العملاء التواصل مع العميل.",
-    views: ["overview", "tickets", "refunds", "reports", "maintenance", "maintenance-reports"],
+    views: [
+      "overview",
+      "tickets",
+      "refunds",
+      "reports",
+      "maintenance",
+      "maintenance-reports",
+      "it",
+    ],
     labels: {
       overview: "مساحة العمليات",
       tickets: "تصعيداتي",
@@ -106,31 +136,38 @@ export const roleWorkspaces: Record<
       "branches",
       "maintenance",
       "maintenance-reports",
+      "it",
     ],
     labels: { overview: "النظرة التنفيذية", tickets: "سجل الشكاوى", refunds: "متابعة الاسترجاع" },
   },
   IT_MANAGER: {
-    title: "طلبات الاسترجاع",
-    description: "استلم طلبات الاسترجاع ونفّذها ووثّق التنفيذ وأبلغ العميل.",
-    views: ["refunds"],
-    labels: { refunds: "طلبات الاسترجاع" },
+    title: "تقنية المعلومات",
+    description: "استلم تذاكر الدعم من كل الأقسام والفروع وأسندها، ونفّذ طلبات الاسترجاع والتعويض.",
+    views: ["it", "it-refunds", "it-reports"],
+    labels: { it: "تذاكر الدعم الفني" },
+  },
+  IT_SPECIALIST: {
+    title: "تذاكري",
+    description: "تذاكر الدعم الفني المسندة إليك.",
+    views: ["it"],
+    labels: { it: "تذاكري" },
   },
   BRANCH_MANAGER: {
     title: "شكاوى فرعي",
     description: "تابع شكاوى العملاء على فرعك، واطلب الصيانة وأكّد الإصلاح.",
-    views: ["overview", "tickets", "maintenance"],
+    views: ["overview", "tickets", "maintenance", "it"],
     labels: { overview: "شكاوى فرعي", tickets: "سجل شكاوى الفرع", maintenance: "طلبات الصيانة" },
   },
   MAINTENANCE_MANAGER: {
     title: "طلبات الصيانة",
     description: "استلم طلبات الفروع وأسندها للفنيين وتابع المهل.",
-    views: ["maintenance", "maintenance-reports"],
+    views: ["maintenance", "maintenance-reports", "it"],
     labels: { maintenance: "طلبات الصيانة" },
   },
   TECHNICIAN: {
     title: "أعمالي",
     description: "أعمال الصيانة المسندة إليك.",
-    views: ["maintenance"],
+    views: ["maintenance", "it"],
     labels: { maintenance: "أعمالي" },
   },
   OWNER: {
@@ -145,6 +182,7 @@ export const roleWorkspaces: Record<
       "branches",
       "maintenance",
       "maintenance-reports",
+      "it",
     ],
     labels: {
       overview: "أداء علاماتي",
@@ -222,7 +260,7 @@ export const roleDescriptions: Record<string, string> = {
   OWNER:
     "عرض الشكاوى والتقارير وطلبات الاسترجاع ضمن العلامات المحددة؛ دون تعديل المعالجة أو بيانات العميل الشخصية.",
   IT_MANAGER:
-    "طلبات الاسترجاع فقط: يستلم كل طلب جديد على تيليجرام، ويرى بيانات التحويل (حساب بنكي أو محفظة)، ويوثّق التنفيذ ويبلغ العميل؛ دون الوصول إلى الشكاوى.",
+    "تطبيق تقنية المعلومات: يستلم تذاكر الدعم من كل الأقسام والفروع ويسندها للمختصين ويدير الأنواع والمهل والتقارير، وينفّذ طلبات الاسترجاع والتعويض (يستلمها على تيليجرام ويرى بيانات التحويل ويبلغ العميل)؛ دون الوصول إلى الشكاوى.",
   AGENT:
     "عرض جميع الشكاوى ضمن النطاق، وتسجيل الشكاوى ومعالجتها والتواصل مع العميل وطلب الاسترجاع أو الإلغاء ومتابعة طلباته.",
   SHIFT_LEAD: "إسناد الشكاوى لفريق خدمة العملاء ومتابعة العمل والتصعيد والإغلاق.",
@@ -235,6 +273,8 @@ export const roleDescriptions: Record<string, string> = {
   MAINTENANCE_MANAGER:
     "تطبيق الصيانة فقط: يرى جميع طلبات الصيانة ضمن نطاقه ويسندها للفنيين ويدير أنواع الأعطال والمهل؛ دون الوصول إلى الشكاوى.",
   TECHNICIAN: "تطبيق الصيانة فقط: يرى أعمال الصيانة المسندة إليه ويبدأها ويوثّق الإصلاح بالصور.",
+  IT_SPECIALIST:
+    "تطبيق تقنية المعلومات فقط: يرى تذاكر الدعم الفني المسندة إليه ويبدأها ويوثّق الحل؛ دون الوصول إلى الشكاوى أو الاسترجاع.",
   FINANCE_APPROVER: "مراجعة الاسترجاع والموافقة والتحقق المالي مع فصل التنفيذ عن التحقق.",
   REFUND_PROCESSOR: "توثيق تنفيذ الاسترجاع خارج النظام وإبلاغ العميل؛ دون الموافقة المالية.",
   QA_REVIEWER: "مراجعة جودة معالجة الشكاوى وإضافة التقييمات.",

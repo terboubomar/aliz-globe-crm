@@ -158,7 +158,7 @@ export const retireQr = createServerFn({ method: "POST" })
   });
 
 /* ---------------- Staff accounts (verified provisioning, no self-signup) ---------------- */
-const NO_FINANCE_ROLES: string[] = ["BRANCH_MANAGER", "MAINTENANCE_MANAGER", "TECHNICIAN"];
+const NO_FINANCE_ROLES: string[] = ["BRANCH_MANAGER", "MAINTENANCE_MANAGER", "TECHNICIAN", "IT_SPECIALIST"];
 const staffInput = z.object({
   name: z.string().trim().min(2).max(100),
   role: z.enum(assignableRoles),

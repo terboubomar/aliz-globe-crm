@@ -22,6 +22,9 @@
 
 ## Customer receipts
 
+The CRM has three apps (Customer Service, Maintenance, IT); see `docs/APPS.md`
+for who sees what and how IT tickets and the IT refunds view work.
+
 WhatsApp and email confirmations to the customer live in
 `src/functions/receipts.server.ts`; setup and rules are in
 `docs/CUSTOMER_RECEIPTS.md`. WhatsApp goes through Bevatel's Chatwoot API

@@ -39,12 +39,14 @@ const who = (id: string, role: string) => ({ id, permissions: permissionsForRole
 describe("apps by role", () => {
   it("opens the right apps for each role", () => {
     const apps = (role: string) => appsFor(permissionsForRole(role), role);
-    expect(apps("AGENT")).toEqual(["cs"]);
-    expect(apps("IT_MANAGER")).toEqual(["cs"]);
-    expect(apps("TECHNICIAN")).toEqual(["maintenance"]);
-    expect(apps("MAINTENANCE_MANAGER")).toEqual(["maintenance"]);
-    expect(apps("BRANCH_MANAGER")).toEqual(["cs", "maintenance"]);
-    expect(apps("SUPER_ADMIN")).toEqual(["cs", "maintenance"]);
+    // Everyone can open IT tickets, so every role also has the IT app.
+    expect(apps("AGENT")).toEqual(["cs", "it"]);
+    expect(apps("IT_MANAGER")).toEqual(["it"]);
+    expect(apps("IT_SPECIALIST")).toEqual(["it"]);
+    expect(apps("TECHNICIAN")).toEqual(["maintenance", "it"]);
+    expect(apps("MAINTENANCE_MANAGER")).toEqual(["maintenance", "it"]);
+    expect(apps("BRANCH_MANAGER")).toEqual(["cs", "maintenance", "it"]);
+    expect(apps("SUPER_ADMIN")).toEqual(["cs", "maintenance", "it"]);
   });
   it("keeps complaints and customer details away from the maintenance team", () => {
     for (const role of ["TECHNICIAN", "MAINTENANCE_MANAGER"]) {

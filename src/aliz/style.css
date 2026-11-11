@@ -8940,3 +8940,7 @@ th {
 .place-author {
   font-weight: 700;
 }
+.app-card.it .app-card-icon {
+  background: #e7f3ef;
+  color: var(--green);
+}

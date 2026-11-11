@@ -560,7 +560,7 @@ export async function notifyRefundRequested(refundId: string) {
       const chat = await chatOf(m.user_id);
       if (chat && (await once(`REFUND:${refundId}:${m.user_id}`, refundId)))
         await send(chat, text, {
-          inline_keyboard: [[{ text: "فتح طلبات الاسترجاع ↗", url: `${origin()}/?view=refunds` }]],
+          inline_keyboard: [[{ text: "فتح طلبات الاسترجاع ↗", url: `${origin()}/?view=it-refunds` }]],
         });
     }
   } catch {
