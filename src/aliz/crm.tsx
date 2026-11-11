@@ -7,6 +7,7 @@ import {
   Users,
   CalendarDays,
   Settings,
+  Star,
   ChevronLeft,
   Plus,
   Search,
@@ -54,7 +55,9 @@ import {
   n,
   risk,
   summaryFor,
+  subject,
 } from "./types";
+import { SourceIcon, sourceLabel } from "./source-label";
 import { Modal, Empty, Submit, Field } from "./ui";
 import { ComplaintsWorkspace, ComplaintJourney } from "./complaints";
 import { ComplaintActionPanel } from "./complaint-actions";
@@ -82,6 +85,7 @@ import { ScheduleWorkspace } from "./schedule-workspace";
 import { TelegramAccount } from "./telegram-integration";
 import { TwoStepAccount } from "./two-step-account";
 import { CustomerCard } from "./customer-card";
+import { ReviewsWorkspace, TicketReview } from "./google-reviews";
 import { PasskeyAccount } from "./passkey-account";
 import { PASSKEYS_ENABLED } from "@/lib/passkey-errors";
 import { SettingsWorkspace } from "./settings-workspace";
@@ -102,6 +106,7 @@ const navigation = [
   { id: "schedule", label: "جدولة الفريق", icon: CalendarDays },
   { id: "reports", label: "التقارير", icon: Activity },
   { id: "qr-stats", label: "إحصائيات QR", icon: ScanLine },
+  { id: "reviews", label: "تقييمات Google", icon: Star },
   { id: "users", label: "المستخدمون والصلاحيات", icon: ShieldCheck },
   { id: "settings", label: "الإعدادات", icon: Settings },
   { id: "maintenance", label: "طلبات الصيانة", icon: Wrench },
@@ -342,7 +347,7 @@ export default function CRM() {
       (t) =>
         (brand === "all" || t.brandId === brand) &&
         (!search ||
-          [t.number, t.externalOrder, t.description, categories[t.category], t.branch?.name]
+          [t.number, t.externalOrder, t.description, subject(t), t.branch?.name]
             .join(" ")
             .includes(search)) &&
         (filter === "all" ||
@@ -471,6 +476,7 @@ export default function CRM() {
                 "tickets",
                 "refunds",
                 "customers",
+                "reviews",
                 "tasks",
                 "schedule",
                 "reports",
@@ -1021,6 +1027,9 @@ export default function CRM() {
               )}
             </section>
           )}
+          {view === "reviews" && (
+            <ReviewsWorkspace data={data} brand={brand} onOpenTicket={openTicket} />
+          )}
           {view === "tasks" && (
             <section className="panel">
               <div className="panel-head">
@@ -1292,11 +1301,11 @@ function TicketTable({
                     <span className="ticket-number" dir="ltr">
                       {t.number}
                     </span>
-                    <b>{categories[t.category]}</b>
+                    <b>{subject(t)}</b>
                   </button>
                   <span className="source-label">
-                    {t.source === "PHONE_AGENT" ? <Phone size={11} /> : <QrCode size={11} />}{" "}
-                    {t.source === "PHONE_AGENT" ? "تسجيل هاتفي" : "رمز QR"}{" "}
+                    <SourceIcon source={t.source} size={11} />{" "}
+                    {t.source === "PHONE_AGENT" ? "تسجيل هاتفي" : sourceLabel(t.source, "long")}{" "}
                     <span className={"priority " + t.priority}>{t.priority}</span>
                   </span>
                 </td>
@@ -1585,7 +1594,7 @@ function TicketDetail({
         <div className="table-brand">
           <img src={"/logos/" + t.brand.logo} alt={t.brand.name} />
           <div>
-            <h2>{categories[t.category]}</h2>
+            <h2>{subject(t)}</h2>
             <p>
               {t.brand.name} • {t.branch?.name ?? "الفرع غير معروف"}
             </p>
@@ -1599,6 +1608,14 @@ function TicketDetail({
         <Badge tone={t.priority === "P1" ? "red" : "neutral"}>{t.priority}</Badge>
       </div>
       <CustomerCard t={t} canSee={can("pii")} />
+      {t.google && (
+        <TicketReview
+          ticketId={t.id}
+          initial={t.google}
+          branchName={t.branch?.name ?? ""}
+          canReply={can("contact") || data.me.role === "SUPER_ADMIN"}
+        />
+      )}
       <ComplaintJourney ticket={t} />
       {t.branchBrief && (
         <section className="branch-brief">
@@ -1616,7 +1633,7 @@ function TicketDetail({
         <div className="detail-facts">
           <div>
             <small>مصدر البلاغ</small>
-            <b>{t.source === "PHONE_AGENT" ? "شكوى هاتفية" : "رمز QR"}</b>
+            <b>{sourceLabel(t.source, "long")}</b>
           </div>
           <div>
             <small>وقت استقبال الشكوى</small>

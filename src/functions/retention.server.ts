@@ -93,5 +93,19 @@ export async function runRetention(now = new Date()) {
     .like("key", "intake-ip:%")
     .lt("created_at", c.markers.toISOString());
 
+  // 4. Reviewer names and review text kept from Google, after 2 years.
+  await db
+    .from("google_reviews")
+    .update({ reviewer_enc: null, comment_enc: null })
+    .lt("created_at", c.personal.toISOString())
+    .not("reviewer_enc", "is", null);
+
+  // 5. Expired Google connection attempts.
+  await db
+    .from("outbox")
+    .delete()
+    .like("key", "ggstate:%")
+    .lt("created_at", c.markers.toISOString());
+
   return { anonymised, photos };
 }

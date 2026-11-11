@@ -406,7 +406,7 @@ const reportInput = z.object({
   from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   brandId: z.string().optional(),
-  source: z.enum(["PUBLIC_QR", "PHONE_AGENT"]).optional(),
+  source: z.enum(["PUBLIC_QR", "PHONE_AGENT", "GOOGLE_REVIEW"]).optional(),
   priority: z.enum(["P1", "P2", "P3"]).optional(),
   // Complaints and customer suggestions are reported apart; "all" shows both.
   kind: z.enum(["complaint", "suggestion", "all"]).default("complaint"),
