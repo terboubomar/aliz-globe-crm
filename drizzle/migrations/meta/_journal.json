@@ -120,6 +120,13 @@
       "when": 1795564800000,
       "tag": "0016_google_reviews_back",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1795651200000,
+      "tag": "0017_branch_google_place",
+      "breakpoints": true
     }
   ]
 }

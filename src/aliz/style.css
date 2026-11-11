@@ -8786,3 +8786,157 @@ th {
     max-width: none;
   }
 }
+
+/* Google ratings per branch (read-only, Places API). */
+.places-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+  gap: 14px;
+  margin-top: 12px;
+}
+.place-card {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px;
+  background: #fff;
+}
+.place-card header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.place-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.place-title img {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+}
+.place-title div,
+.places-link-row > div,
+.place-search li > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.place-title small,
+.places-link-row small,
+.place-search small,
+.place-card footer small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.place-score {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+}
+.place-score b {
+  font-size: 22px;
+  line-height: 1;
+}
+.place-score small {
+  color: var(--muted);
+  font-size: 11px;
+}
+.place-reviews {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.place-reviews li {
+  display: grid;
+  gap: 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.place-review-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 13px;
+}
+.place-review-head time {
+  color: var(--muted);
+  font-size: 12px;
+}
+.place-reviews p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.place-card footer {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+}
+.places-link-list {
+  display: grid;
+  gap: 0;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.places-link-list > li {
+  border-top: 1px solid var(--border);
+  padding: 10px 0;
+}
+.places-link-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+}
+.places-link-row > div {
+  flex: 1 1 200px;
+}
+.place-search {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 12px;
+  border-radius: 10px;
+  background: var(--cream);
+}
+.place-search form {
+  display: flex;
+  gap: 8px;
+}
+.place-search input {
+  flex: 1;
+  min-width: 0;
+}
+.place-search ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.place-search li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 8px;
+  background: #fff;
+}
+.place-author {
+  font-weight: 700;
+}

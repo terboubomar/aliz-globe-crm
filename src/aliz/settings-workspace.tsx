@@ -29,6 +29,7 @@ import { canOpenView } from "./access";
 import { EmailIntegration, WhatsAppIntegration } from "./whatsapp-integration";
 import { TelegramIntegration } from "./telegram-integration";
 import { GoogleIntegration } from "./google-reviews";
+import { PlacesLinking } from "./places-reviews";
 
 type Section = "general" | "lists" | "templates" | "integrations" | "audit";
 export function SettingsWorkspace({
@@ -272,7 +273,10 @@ export function SettingsWorkspace({
             ) : channel === "email" ? (
               <EmailIntegration />
             ) : channel === "google" ? (
-              <GoogleIntegration data={data} />
+              <>
+                <PlacesLinking data={data} />
+                <GoogleIntegration data={data} />
+              </>
             ) : (
               <TelegramIntegration />
             )}
