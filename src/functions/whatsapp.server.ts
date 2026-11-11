@@ -649,3 +649,57 @@ export async function complaintLog(complaintId: string) {
     })),
   );
 }
+
+/**
+ * Diagnosis for the Settings test: what kind of inbox Bevatel has, and the last
+ * messages of the test conversation (including ones sent from Bevatel's own
+ * screen), so their fields can be compared. Contents are cut short.
+ */
+export async function diagnose(id: string, fetcher: typeof fetch = fetch) {
+  const db = await admin();
+  const { data } = await db
+    .from("whatsapp_messages" as never)
+    .select("bevatel_conversation_id")
+    .eq("id", id)
+    .eq("is_test", true)
+    .maybeSingle();
+  const conv = (data as { bevatel_conversation_id?: string } | null)?.bevatel_conversation_id;
+  const out: Record<string, unknown> = {};
+  try {
+    const inbox = await call(fetcher, "GET", `/inboxes/${env("BEVATEL_INBOX_ID")}`);
+    const i = (inbox["payload"] ?? inbox) as Json;
+    out["inbox"] = {
+      id: i["id"],
+      name: i["name"],
+      channel_type: i["channel_type"],
+      provider: i["provider"],
+      phone_number: i["phone_number"],
+      message_templates: Array.isArray(i["message_templates"])
+        ? (i["message_templates"] as Json[])
+            .filter((t) => String(t["name"] ?? "").startsWith("aliz_"))
+            .map((t) => ({ name: t["name"], language: t["language"], status: t["status"] }))
+        : undefined,
+    };
+  } catch (e) {
+    out["inbox_error"] = e instanceof BevatelError ? e.response : String(e);
+  }
+  if (conv)
+    try {
+      const msgs = listIn(await call(fetcher, "GET", `/conversations/${conv}/messages`));
+      out["conversation"] = conv;
+      out["last_messages"] = msgs.slice(-6).map((m) => ({
+        id: m["id"],
+        message_type: m["message_type"],
+        status: m["status"],
+        source_id: m["source_id"],
+        content: String(m["content"] ?? "").slice(0, 120),
+        content_attributes: m["content_attributes"],
+        additional_attributes: m["additional_attributes"],
+        sender_type: (m["sender"] as Json | undefined)?.["type"] ?? m["sender_type"],
+        created_at: m["created_at"],
+      }));
+    } catch (e) {
+      out["messages_error"] = e instanceof BevatelError ? e.response : String(e);
+    }
+  return JSON.stringify(out, null, 2);
+}

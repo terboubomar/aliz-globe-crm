@@ -352,6 +352,17 @@ describe("WhatsApp through Bevatel (Chatwoot API)", () => {
             },
           ],
         });
+      if (path === "/inboxes/87741")
+        return ok({
+          id: 87741,
+          name: "WhatsApp",
+          channel_type: "Channel::Whatsapp",
+          provider: "whatsapp_cloud",
+          message_templates: [
+            { name: "aliz_complaint_received", language: "ar", status: "APPROVED" },
+            { name: "other", language: "en", status: "APPROVED" },
+          ],
+        });
       if (path === "/conversations/55/messages") return ok({ id: 999 });
       if (path === "/conversations" && method === "POST")
         return ok({ id: 56, messages: [{ id: 1000 }] });
@@ -547,6 +558,20 @@ describe("WhatsApp through Bevatel (Chatwoot API)", () => {
       template_params: { processed_params: Record<string, unknown> };
     };
     expect(Object.keys(auto.template_params.processed_params)).toEqual(["body"]);
+  });
+
+  it("reports the inbox type and the test conversation's last messages", async () => {
+    const w = await import("@/functions/whatsapp.server");
+    const { fetcher } = chatwoot();
+    const test = await w.sendTest("0500000009", "closed", "admin-1", fetcher);
+    const report = JSON.parse(await w.diagnose(test.id!, fetcher));
+    expect(report.inbox).toMatchObject({
+      channel_type: "Channel::Whatsapp",
+      provider: "whatsapp_cloud",
+      message_templates: [{ name: "aliz_complaint_received", language: "ar", status: "APPROVED" }],
+    });
+    expect(report.conversation).toBe("56");
+    expect(report.last_messages[0]).toMatchObject({ id: 1000, status: "failed" });
   });
 
   it("cleans numbers and values", async () => {

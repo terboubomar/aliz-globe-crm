@@ -132,3 +132,12 @@ export const whatsappCheckDelivery = createServerFn({ method: "POST" })
     await superAdmin(context);
     return (await wa()).deliveryStatus(data.id);
   });
+
+/** Inbox type and the last messages of the test conversation, for comparing with Bevatel's own sends. */
+export const whatsappDiagnose = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    await superAdmin(context);
+    return { report: await (await wa()).diagnose(data.id) };
+  });
