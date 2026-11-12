@@ -44,7 +44,7 @@ describe("shouldReloadAfterStaleModule", () => {
   it("allows the first three reloads inside the window", () => {
     expect(shouldReloadAfterStaleModule([], now)).toBe(true);
     expect(shouldReloadAfterStaleModule([now - 1000], now)).toBe(true);
-    expect(shouldReloadAfterStaleModule([now - 2000, now - 1000, now - 500], now)).toBe(true);
+    expect(shouldReloadAfterStaleModule([now - 2000, now - 1000], now)).toBe(true);
   });
 
   it("stops after three reloads in the same minute", () => {
