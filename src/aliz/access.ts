@@ -1,4 +1,6 @@
 const viewPermissions: Record<string, string[]> = {
+  // The group dashboard: one screen over the three apps.
+  hub: ["report"],
   overview: ["read", "report"],
   tickets: ["read"],
   refunds: ["read", "refund.view", "refund.request", "refund.decide", "refund.execute"],
@@ -42,6 +44,17 @@ export const appTinyLabels: Record<AppId, string> = {
   maintenance: "الصيانة",
   it: "التقنية",
 };
+/** The apps the group dashboard may summarise for these permissions. */
+export const hubSections = (permissions: string[]): AppId[] =>
+  (
+    [
+      ["cs", "read"],
+      ["maintenance", "mnt.view"],
+      ["it", "it.view"],
+    ] as const
+  )
+    .filter(([, p]) => permissions.includes(p))
+    .map(([app]) => app);
 export const appOf = (view: string): AppId =>
   view.startsWith("maintenance")
     ? "maintenance"
@@ -50,7 +63,7 @@ export const appOf = (view: string): AppId =>
       : "cs";
 export function appsFor(permissions: string[], role: string): AppId[] {
   const views = Object.keys(viewPermissions).filter(
-    (v) => v !== "settings" && canOpenView(v, permissions, role),
+    (v) => v !== "settings" && v !== "hub" && canOpenView(v, permissions, role),
   );
   return (["cs", "maintenance", "it"] as const).filter((app) =>
     views.some((v) => appOf(v) === app),
@@ -133,6 +146,7 @@ export const roleWorkspaces: Record<
     title: "نظرة تنفيذية للمجموعة",
     description: "مؤشرات تجربة العملاء والتصعيد والاسترجاع عبر العلامات المصرح بها.",
     views: [
+      "hub",
       "overview",
       "reports",
       "qr-stats",
@@ -179,6 +193,7 @@ export const roleWorkspaces: Record<
     title: "أداء علاماتي",
     description: "تابع تجربة العملاء والحالات المفتوحة والطلبات المالية لعلاماتك.",
     views: [
+      "hub",
       "overview",
       "reports",
       "qr-stats",
@@ -212,6 +227,8 @@ export function canOpenView(
   if (hidden.includes(id)) return false;
   const profile = role ? roleWorkspaces[role] : undefined;
   if (profile && !profile.views.includes(id)) return false;
+  // The group dashboard is only for roles that list it.
+  if (id === "hub" && !profile) return false;
   const required = viewPermissions[id];
   return !!required && (!required.length || required.some((p) => permissions.includes(p)));
 }

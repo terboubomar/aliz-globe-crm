@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef, FormEvent } from "react";
 import { WhatsAppLog } from "./whatsapp-log";
 import {
   LayoutDashboard,
+  LayoutGrid,
   Ticket as TicketIcon,
   Wallet,
   Users,
@@ -86,6 +87,7 @@ import { ItWorkspace } from "./it-workspace";
 import { ItReports } from "./it-reports";
 import { QrStatsWorkspace } from "./qr-stats-workspace";
 import { AppLauncher } from "./app-launcher";
+import { GroupDashboard } from "./group-dashboard";
 import { AgentWorkspace } from "./agent-workspace";
 import { agentInvolved } from "./workflow";
 import { ScheduleWorkspace } from "./schedule-workspace";
@@ -121,6 +123,8 @@ const navigation = [
   { id: "it", label: "تذاكر الدعم الفني", icon: MonitorCog },
   { id: "it-refunds", label: "الاسترجاع والتعويض", icon: Wallet },
   { id: "it-reports", label: "تقارير الدعم الفني", icon: Activity },
+  // Last, so it is never the page a role falls back to.
+  { id: "hub", label: "لوحة المجموعة", icon: LayoutGrid },
 ];
 function form(e: FormEvent<HTMLFormElement>) {
   e.preventDefault();
@@ -153,7 +157,10 @@ export default function CRM() {
     [app, setApp] = useState<AppId | null>(null),
     // Bumped by the phone quick bar to open a new maintenance request.
     [newMaintenance, setNewMaintenance] = useState(0),
-    [newIt, setNewIt] = useState(0);
+    [newIt, setNewIt] = useState(0),
+    // One maintenance request or IT ticket to open, sent by the group dashboard.
+    [openWork, setOpenWork] = useState<{ app: AppId; id: string; key: number } | null>(null);
+  const landed = useRef(false);
   const load = useCallback(async () => {
     const epoch = authEpoch.current;
     try {
@@ -190,19 +197,31 @@ export default function CRM() {
       // Opening IT tickets doesn't count as a second app for the picker: those
       // people start in their own app and switch to IT from the sidebar.
       const main = apps.filter((x) => x !== "it" || next.permissions.includes("it.view"));
+      // People with the group dashboard land on it instead of the app picker,
+      // unless a link asked for a page.
+      const hub = canOpenView("hub", next.permissions, next.me.role);
+      const toHub =
+        hub && !landed.current && !new URLSearchParams(window.location.search).get("view");
+      landed.current = true;
       setApp((current) =>
-        current && apps.includes(current) ? current : main.length === 1 ? main[0]! : null,
+        current && apps.includes(current)
+          ? current
+          : main.length === 1 || hub
+            ? (main[0] ?? null)
+            : null,
       );
       setView((current) =>
-        canOpenView(current, next.permissions, next.me.role, hiddenViews(next))
-          ? current
-          : // Old links to refunds open the IT copy for the IT manager.
-            current === "refunds" &&
-              canOpenView("it-refunds", next.permissions, next.me.role, hiddenViews(next))
-            ? "it-refunds"
-            : (navigation.find((i) =>
-                canOpenView(i.id, next.permissions, next.me.role, hiddenViews(next)),
-              )?.id ?? "settings"),
+        toHub
+          ? "hub"
+          : canOpenView(current, next.permissions, next.me.role, hiddenViews(next))
+            ? current
+            : // Old links to refunds open the IT copy for the IT manager.
+              current === "refunds" &&
+                canOpenView("it-refunds", next.permissions, next.me.role, hiddenViews(next))
+              ? "it-refunds"
+              : (navigation.find((i) =>
+                  canOpenView(i.id, next.permissions, next.me.role, hiddenViews(next)),
+                )?.id ?? "settings"),
       );
       setBrand((current) =>
         current === "all" || next.brands.some((b) => b.id === current) ? current : "all",
@@ -237,6 +256,8 @@ export default function CRM() {
       setNotifications(false);
       setToast("");
       setApp(null);
+      landed.current = false;
+      window.history.replaceState(null, "", window.location.pathname);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -317,7 +338,12 @@ export default function CRM() {
   }, [menu]);
   function go(id: string) {
     if (data && !canOpenView(id, data.permissions, data.me.role, hiddenViews(data))) return;
-    setApp(appOf(id));
+    // The group dashboard and Settings are shared: they keep the app you came from.
+    if (id !== "hub" && id !== "settings") setApp(appOf(id));
+    else if (data) setApp((c) => c ?? appsFor(data.permissions, data.me.role)[0] ?? "cs");
+    setOpenWork(null);
+    setNewMaintenance(0);
+    setNewIt(0);
     setView(id);
     setFilter("all");
     setSearch("");
@@ -345,7 +371,9 @@ export default function CRM() {
   const apps = appsFor(data.permissions, data.me.role);
   const openApp = (id: AppId) => {
     const first =
-      appOf(view) === id && canOpenView(view, data.permissions, data.me.role, hiddenViews(data))
+      view !== "hub" &&
+      appOf(view) === id &&
+      canOpenView(view, data.permissions, data.me.role, hiddenViews(data))
         ? view
         : navigation.find(
             (i) =>
@@ -360,7 +388,9 @@ export default function CRM() {
   // The app follows the page on screen (a link can open a page of another app);
   // Settings is shared, so it keeps the app you came from.
   const currentApp: AppId =
-    view !== "settings" && canOpenView(view, data.permissions, data.me.role, hiddenViews(data))
+    view !== "settings" &&
+    view !== "hub" &&
+    canOpenView(view, data.permissions, data.me.role, hiddenViews(data))
       ? appOf(view)
       : (app ?? apps[0] ?? "cs");
   const isAgent = data.me.role === "AGENT";
@@ -426,7 +456,10 @@ export default function CRM() {
   // Quick bar for phones and tablets: the main views this role can open (two
   // on phones, four on tablets), a new phone complaint (when allowed), alerts
   // and, on phones, "more" (the full menu; tablets keep the sidebar).
+  const onHub = view === "hub";
+  const hasHub = canOpenView("hub", data.permissions, data.me.role);
   const quickViews = [
+    "hub",
     "overview",
     "tickets",
     "refunds",
@@ -440,7 +473,7 @@ export default function CRM() {
   ]
     .filter(
       (id) =>
-        appOf(id) === currentApp &&
+        (id === "hub" || appOf(id) === currentApp) &&
         canOpenView(id, data.permissions, data.me.role, hiddenViews(data)),
     )
     .slice(0, 4)
@@ -476,6 +509,23 @@ export default function CRM() {
             <X size={19} />
           </button>
         </div>
+        {hasHub && (
+          <button
+            type="button"
+            className={"hub-link" + (onHub ? " active" : "")}
+            aria-current={onHub ? "page" : undefined}
+            title={rail ? undefined : "لوحة المجموعة"}
+            onClick={() => go("hub")}
+          >
+            <span className="hub-link-icon" aria-hidden="true">
+              <LayoutGrid size={18} strokeWidth={2} />
+            </span>
+            <span className="hub-link-text">
+              <b>لوحة المجموعة</b>
+              <small>كل الأقسام معاً</small>
+            </span>
+          </button>
+        )}
         {apps.length > 1 && (
           <>
             <div className="app-switch-label" id="app-switch-label">
@@ -493,8 +543,8 @@ export default function CRM() {
                   <button
                     key={id}
                     type="button"
-                    className={id + (id === currentApp ? " active" : "")}
-                    aria-pressed={id === currentApp}
+                    className={id + (id === currentApp && !onHub ? " active" : "")}
+                    aria-pressed={id === currentApp && !onHub}
                     aria-label={appLabels[id]}
                     title={appLabels[id]}
                     onClick={() => {
@@ -540,6 +590,7 @@ export default function CRM() {
               .map((id) => navigation.find((item) => item.id === id)!)
               .filter(
                 (item) =>
+                  item.id !== "hub" &&
                   appOf(item.id) === currentApp &&
                   canOpenView(item.id, data.permissions, data.me.role, hiddenViews(data)),
               );
@@ -636,7 +687,7 @@ export default function CRM() {
             >
               <Menu />
             </button>
-            <span>{appLabels[currentApp]}</span>
+            <span>{onHub ? "أليز غلوب" : appLabels[currentApp]}</span>
             <ChevronLeft size={14} />
             <b>{title}</b>
           </div>
@@ -790,6 +841,7 @@ export default function CRM() {
           </div>
 
           {!["reports", "settings"].includes(view) &&
+            !onHub &&
             appOf(view) === "cs" &&
             data.ticketCount > data.tickets.length && (
               <div className="notice">
@@ -838,7 +890,7 @@ export default function CRM() {
                   <span>•</span> Asia/Riyadh
                 </span>
               )}
-              {appOf(view) === "cs" && (
+              {appOf(view) === "cs" && !onHub && (
                 <button
                   className="text-btn refresh"
                   onClick={() => {
@@ -1148,10 +1200,40 @@ export default function CRM() {
           {view === "schedule" && <ScheduleWorkspace data={data} mutate={mutate} busy={busy} />}
           {view === "qr-stats" && <QrStatsWorkspace data={data} brand={brand} />}
           {view === "maintenance" && (
-            <MaintenanceWorkspace data={data} brand={brand} newRequest={newMaintenance} />
+            <MaintenanceWorkspace
+              data={data}
+              brand={brand}
+              newRequest={newMaintenance}
+              openRequest={openWork?.app === "maintenance" ? openWork : undefined}
+            />
           )}
           {view === "maintenance-reports" && <MaintenanceReports data={data} brand={brand} />}
-          {view === "it" && <ItWorkspace data={data} brand={brand} newRequest={newIt} />}
+          {view === "it" && (
+            <ItWorkspace
+              data={data}
+              brand={brand}
+              newRequest={newIt}
+              openRequest={openWork?.app === "it" ? openWork : undefined}
+            />
+          )}
+          {onHub && (
+            <GroupDashboard
+              data={data}
+              brand={brand}
+              onGo={go}
+              onRefresh={load}
+              onOpen={(target, id) => {
+                if (target === "cs") return void openTicket(id);
+                go(target === "it" ? "it" : "maintenance");
+                setOpenWork({ app: target, id, key: Date.now() });
+              }}
+              onNew={(target) => {
+                if (target === "cs") return setModal("create");
+                go(target === "it" ? "it" : "maintenance");
+                (target === "it" ? setNewIt : setNewMaintenance)((k) => k + 1);
+              }}
+            />
+          )}
           {view === "it-reports" && <ItReports data={data} />}
           {view === "reports" && (
             <ReportsWorkspace data={data} brand={brand} onBrandChange={setBrand} />
@@ -1201,7 +1283,9 @@ export default function CRM() {
                   </small>
                 )}
               </span>
-              <span className="quick-bar-label quick-bar-short">{label.split(" ")[0]}</span>
+              <span className="quick-bar-label quick-bar-short">
+                {item.id === "hub" ? "المجموعة" : label.split(" ")[0]}
+              </span>
               <span className="quick-bar-label quick-bar-full">{label}</span>
             </button>
           );

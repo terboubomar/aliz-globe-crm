@@ -32,3 +32,11 @@ those people start in their own app and switch to «التقنية» when needed
 - **Reports** (`it-reports`): by department, branch, problem type, priority and
   specialist, with a CSV export (one row per ticket).
 - Code: `src/lib/it.ts`, `src/functions/it.functions.ts`, `src/aliz/it-*.tsx`.
+
+## Group dashboard
+
+`?view=hub` («لوحة المجموعة») shows the three apps on one screen: totals, one
+list of what is late or urgent in any app, and a card per app with its numbers
+and main actions. It opens for the super admin, CEO and owner, who land on it
+after signing in. Each person sees only the apps they may read (`hubSections`
+in `src/aliz/access.ts`); the figures are in `src/lib/group-dashboard.ts`.
