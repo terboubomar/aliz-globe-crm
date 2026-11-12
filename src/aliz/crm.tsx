@@ -8,6 +8,7 @@ import {
   CalendarDays,
   Settings,
   Star,
+  ChevronDown,
   ChevronLeft,
   Plus,
   Search,
@@ -70,6 +71,7 @@ import { UsersWorkspace } from "./users-workspace";
 import {
   appLabels,
   appShortLabels,
+  appTinyLabels,
   appOf,
   appsFor,
   canOpenView,
@@ -355,7 +357,12 @@ export default function CRM() {
   };
   if (!app && apps.length > 1)
     return <AppLauncher name={data.me.name} apps={apps} onPick={openApp} onSignOut={logout} />;
-  const currentApp: AppId = app ?? apps[0] ?? "cs";
+  // The app follows the page on screen (a link can open a page of another app);
+  // Settings is shared, so it keeps the app you came from.
+  const currentApp: AppId =
+    view !== "settings" && canOpenView(view, data.permissions, data.me.role, hiddenViews(data))
+      ? appOf(view)
+      : (app ?? apps[0] ?? "cs");
   const isAgent = data.me.role === "AGENT";
   const workspace = roleWorkspaces[data.me.role];
   const executive = ["CEO", "OWNER"].includes(data.me.role);
@@ -470,27 +477,40 @@ export default function CRM() {
           </button>
         </div>
         {apps.length > 1 && (
-          <div className="app-switch" role="group" aria-label="التطبيق">
-            {apps.map((id) => {
-              const Icon = id === "maintenance" ? Wrench : id === "it" ? MonitorCog : Headset;
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  className={id === currentApp ? "active" : ""}
-                  aria-pressed={id === currentApp}
-                  title={appLabels[id]}
-                  onClick={() => {
-                    openApp(id);
-                    setMenu(false);
-                  }}
-                >
-                  <Icon size={17} />
-                  <span>{appShortLabels[id]}</span>
-                </button>
-              );
-            })}
-          </div>
+          <>
+            <div className="app-switch-label" id="app-switch-label">
+              التطبيق
+            </div>
+            <div
+              className="app-switch"
+              role="group"
+              aria-labelledby="app-switch-label"
+              style={{ "--apps": apps.length } as React.CSSProperties}
+            >
+              {apps.map((id) => {
+                const Icon = id === "maintenance" ? Wrench : id === "it" ? MonitorCog : Headset;
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    className={id + (id === currentApp ? " active" : "")}
+                    aria-pressed={id === currentApp}
+                    aria-label={appLabels[id]}
+                    title={appLabels[id]}
+                    onClick={() => {
+                      openApp(id);
+                      setMenu(false);
+                    }}
+                  >
+                    <span className="app-switch-icon" aria-hidden="true">
+                      <Icon size={18} strokeWidth={2} />
+                    </span>
+                    <span>{(apps.length > 2 ? appTinyLabels : appShortLabels)[id]}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </>
         )}
         <nav aria-label="التنقل الرئيسي">
           {[
@@ -621,6 +641,30 @@ export default function CRM() {
             <b>{title}</b>
           </div>
           <div className="top-tools">
+            {apps.length > 1 &&
+              (() => {
+                // Phones: which app you are in, one tap from the app switch.
+                const Icon =
+                  currentApp === "maintenance"
+                    ? Wrench
+                    : currentApp === "it"
+                      ? MonitorCog
+                      : Headset;
+                return (
+                  <button
+                    type="button"
+                    className={"app-chip mobile-only " + currentApp}
+                    aria-label={"التطبيق: " + appLabels[currentApp] + " — تبديل التطبيق"}
+                    aria-controls="crm-sidebar"
+                    aria-expanded={menu}
+                    onClick={() => setMenu(true)}
+                  >
+                    <Icon size={15} strokeWidth={2.1} aria-hidden="true" />
+                    <span>{appTinyLabels[currentApp]}</span>
+                    <ChevronDown size={14} aria-hidden="true" />
+                  </button>
+                );
+              })()}
             {currentApp === "cs" && (
               <button
                 className="icon-btn notification-btn"

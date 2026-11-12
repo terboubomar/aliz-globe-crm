@@ -31,9 +31,14 @@ export const appLabels: Record<AppId, string> = {
   maintenance: "الصيانة",
   it: "تقنية المعلومات",
 };
-/** Short names for the sidebar switch, where three apps share one row. */
+/** Names in the sidebar switch: one word each when three apps share the row. */
 export const appShortLabels: Record<AppId, string> = {
   cs: "خدمة العملاء",
+  maintenance: "الصيانة",
+  it: "التقنية",
+};
+export const appTinyLabels: Record<AppId, string> = {
+  cs: "العملاء",
   maintenance: "الصيانة",
   it: "التقنية",
 };
