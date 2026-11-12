@@ -77,11 +77,14 @@ export function ItWorkspace({
   data,
   brand,
   newRequest = 0,
+  openRequest,
 }: {
   data: Data;
   brand: string;
   /** Changes when the phone quick bar asks for a new request. */
   newRequest?: number;
+  /** Opens this one when the group dashboard sends it; `key` changes on each ask. */
+  openRequest?: { id: string; key: number } | undefined;
 }) {
   const [board, setBoard] = useState<ItBoard | null>(null),
     [closed, setClosed] = useState(false),
@@ -117,6 +120,9 @@ export function ItWorkspace({
   useEffect(() => {
     if (newRequest) setCreating(true);
   }, [newRequest]);
+  useEffect(() => {
+    if (openRequest) setOpenId(openRequest.id);
+  }, [openRequest]);
   useEffect(() => {
     if (!toast) return;
     const t = setTimeout(() => setToast(""), 4000);
