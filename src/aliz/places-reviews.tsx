@@ -1,3 +1,4 @@
+import { hasFullAccess } from "@/lib/domain";
 import { useCallback, useEffect, useState } from "react";
 import { ExternalLink, Link2, MapPin, RefreshCw, Search, Star, Unlink } from "lucide-react";
 import { placesBranch, placesLink, placesSearch, placesStatus } from "@/functions/places.functions";
@@ -201,7 +202,7 @@ function BranchCard({
 export function PlacesLinking({ data }: { data: Data }) {
   const { status, error, load } = usePlacesStatus();
   const [open, setOpen] = useState<string | null>(null);
-  const canLink = data.me.role === "SUPER_ADMIN" || data.permissions.includes("branches.manage");
+  const canLink = hasFullAccess(data.me.role) || data.permissions.includes("branches.manage");
   if (!canLink) return null;
   const linked = new Map(status?.links.map((l) => [l.branchId, l.placeId]) ?? []);
   const rows = data.brands.flatMap((b) =>

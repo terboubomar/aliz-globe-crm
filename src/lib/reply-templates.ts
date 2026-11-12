@@ -35,7 +35,7 @@ export const PLACEHOLDERS: Record<string, string> = {
   "{اسمي}": "اسم الموظف الذي يكتب",
 };
 
-export const MANAGE_ROLES = ["SUPER_ADMIN", "CUSTOMER_SERVICE_MANAGER", "SHIFT_LEAD"];
+export const MANAGE_ROLES = ["SUPER_ADMIN", "CEO", "OWNER", "CUSTOMER_SERVICE_MANAGER", "SHIFT_LEAD"];
 export const MAX_TEMPLATES = 200;
 
 /** Templates that fit this action, complaint category and brand, most specific first. */

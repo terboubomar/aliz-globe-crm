@@ -122,8 +122,9 @@ describe("who gets the group dashboard", () => {
       expect(sees(role)).toBe(false);
   });
   it("shows each person only the sections they may read", () => {
-    expect(hubSections(permissionsForRole("SUPER_ADMIN"))).toEqual(["cs", "maintenance", "it"]);
-    // Executives open IT tickets of their own only, so IT is not summarised for them.
-    expect(hubSections(permissionsForRole("CEO"))).toEqual(["cs", "maintenance"]);
+    for (const role of ["SUPER_ADMIN", "CEO", "OWNER"])
+      expect(hubSections(permissionsForRole(role))).toEqual(["cs", "maintenance", "it"]);
+    // Others would only see IT tickets of their own, so IT is not summarised for them.
+    expect(hubSections(permissionsForRole("OPERATIONS_MANAGER"))).toEqual(["cs", "maintenance"]);
   });
 });

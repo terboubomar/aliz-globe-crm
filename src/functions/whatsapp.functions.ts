@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { DomainError, authorize, can } from "@/lib/domain";
+import { DomainError, authorize, can, hasFullAccess } from "@/lib/domain";
 
 /*
  * WhatsApp through Bevatel: Settings (status, test send, confirm the test arrived)
@@ -14,11 +14,11 @@ const template = z.enum(["received", "resolved", "closed"]);
 async function superAdmin(context: unknown) {
   const c = await core();
   const a = await c.requireActor(context as never);
-  if (a.role !== "SUPER_ADMIN") throw new DomainError("FORBIDDEN", 403, "متاح لمدير النظام فقط");
+  if (!hasFullAccess(a.role)) throw new DomainError("FORBIDDEN", 403, "متاح لمدير النظام فقط");
   return { c, a };
 }
 const canResend = (a: { role: string; financeDuty?: string }) =>
-  a.role === "SUPER_ADMIN" || can(a as never, "configure");
+  hasFullAccess(a.role) || can(a as never, "configure");
 
 export const whatsappStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -97,7 +97,7 @@ export const whatsappLog = createServerFn({ method: "POST" })
     authorize(a, "read");
     await visibleComplaint(context as never, data.id);
     const rows = await (await wa()).complaintLog(data.id);
-    const admin = a.role === "SUPER_ADMIN";
+    const admin = hasFullAccess(a.role);
     return {
       canResend: canResend(a),
       rows: rows.map((r) => ({ ...r, response: admin ? r.response : null })),

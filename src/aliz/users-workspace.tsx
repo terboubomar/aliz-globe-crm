@@ -1,3 +1,4 @@
+import { hasFullAccess } from "@/lib/domain";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { Plus, Search, Pencil, ShieldCheck, Users, RefreshCw } from "lucide-react";
 import { Data, api, n, roleNames } from "./types";
@@ -68,7 +69,7 @@ export function UsersWorkspace({
   const users =
     directory?.users?.filter(
       (u) =>
-        (brand === "all" || u.role === "SUPER_ADMIN" || u.brandIds.includes(brand)) &&
+        (brand === "all" || hasFullAccess(u.role) || u.brandIds.includes(brand)) &&
         (role === "all" || u.role === role) &&
         (!search ||
           [u.name, u.email, roleNames[u.role]]
@@ -117,7 +118,7 @@ export function UsersWorkspace({
         <div className="queue-tabs">
           <button className={tab === "users" ? "current" : ""} onClick={() => setTab("users")}>
             <Users size={16} />
-            المستخدمون {directory && n((directory.users?.length ?? 0))}
+            المستخدمون {directory && n(directory.users?.length ?? 0)}
           </button>
           <button className={tab === "roles" ? "current" : ""} onClick={() => setTab("roles")}>
             <ShieldCheck size={16} />
@@ -194,7 +195,7 @@ export function UsersWorkspace({
                         </td>
                         <td>{roleNames[u.role] ?? u.role}</td>
                         <td>
-                          {u.role === "SUPER_ADMIN" ? (
+                          {hasFullAccess(u.role) ? (
                             <span>جميع العلامات والفروع</span>
                           ) : (
                             <>
@@ -358,7 +359,7 @@ function UserEditor({
   const previewPermissions = [
     ...new Set([
       ...(selectedRole?.permissions ?? []),
-      ...(role === "SUPER_ADMIN"
+      ...(hasFullAccess(role)
         ? []
         : (directory.financeDuties?.find((d) => d.id === financeDuty)?.permissions ?? [])),
     ]),
@@ -385,11 +386,11 @@ function UserEditor({
         name: String(f.get("name")),
         email: String(f.get("email")),
         role,
-        financeDuty: ["SUPER_ADMIN", ...NO_FINANCE].includes(role) ? "NONE" : financeDuty,
-        brandIds: role === "SUPER_ADMIN" ? [] : brands,
-        branchIds: role === "SUPER_ADMIN" || !restricted ? [] : branches,
+        financeDuty: hasFullAccess(role) || NO_FINANCE.includes(role) ? "NONE" : financeDuty,
+        brandIds: hasFullAccess(role) ? [] : brands,
+        branchIds: hasFullAccess(role) || !restricted ? [] : branches,
         enabled: f.get("enabled") === "on",
-        branchMode: role === "SUPER_ADMIN" || !restricted ? "all" : "selected",
+        branchMode: hasFullAccess(role) || !restricted ? "all" : "selected",
         ...(user ? { version: user.version } : {}),
         ...(f.get("password") ? { password: String(f.get("password")) } : {}),
         ...(!directory.passwordLogin ? { subject: String(f.get("subject")) } : {}),
@@ -446,7 +447,7 @@ function UserEditor({
                 ))}
               </select>
             </Field>
-            {!["SUPER_ADMIN", ...NO_FINANCE].includes(role) && (
+            {!(hasFullAccess(role) || NO_FINANCE.includes(role)) && (
               <Field label="المهمة المالية">
                 <select
                   name="financeDuty"
@@ -499,7 +500,7 @@ function UserEditor({
               ))}
             </div>
           </div>
-          {role === "SUPER_ADMIN" ? (
+          {hasFullAccess(role) ? (
             <div className="notice">
               هذا الدور يمنح جميع صلاحيات النظام وبيانات العملاء والوصول إلى جميع العلامات والفروع
               الحالية والمستقبلية.

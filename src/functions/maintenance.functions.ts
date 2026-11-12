@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { DomainError, authorize, inScope, permissionsForRole, safeCell } from "@/lib/domain";
+import { DomainError, authorize, inScope, permissionsForRole, safeCell, hasFullAccess } from "@/lib/domain";
 import {
   MAINTENANCE_ACTIONS,
   MAINTENANCE_PRIORITIES,
@@ -93,7 +93,7 @@ export const maintenanceBoard = createServerFn({ method: "POST" })
     if (data.status === "closed") q = q.in("state", ["CONFIRMED", "CANCELLED"]);
     const { data: rows, error } = await q.order("created_at", { ascending: false }).limit(500);
     if (error) throw new DomainError("LOAD_FAILED", 500, "تعذر تحميل طلبات الصيانة");
-    const staff = await c.staffDirectory(a.role === "SUPER_ADMIN" ? (await allBrands()) : a.brandIds);
+    const staff = await c.staffDirectory(hasFullAccess(a.role) ? (await allBrands()) : a.brandIds);
     return {
       requests: ((rows ?? []) as unknown as Row[]).map(toRequest),
       // Names for requesters and technicians; technicians are offered for assignment.
@@ -438,7 +438,7 @@ export const maintenanceReport = createServerFn({ method: "POST" })
     const [{ data: branches }, { data: brands }, people, settings] = await Promise.all([
       db.from("branches").select("id,name,code,city").in("id", branchIds.length ? branchIds : ["00000000-0000-0000-0000-000000000000"]),
       db.from("brands").select("id,name"),
-      c.staffDirectory(a.role === "SUPER_ADMIN" ? await allBrands() : a.brandIds),
+      c.staffDirectory(hasFullAccess(a.role) ? await allBrands() : a.brandIds),
       loadSettings(),
     ]);
     const branchOf = (id: string) => branches?.find((b) => b.id === id);

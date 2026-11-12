@@ -1,3 +1,4 @@
+import { hasFullAccess } from "@/lib/domain";
 import { useEffect, useState, type KeyboardEvent } from "react";
 import {
   Building2,
@@ -52,10 +53,11 @@ export function SettingsWorkspace({
     ...(MANAGE_ROLES.includes(data.me.role)
       ? [{ id: "templates" as const, label: "القوالب", icon: FileText }]
       : []),
-    ...(data.me.role === "SUPER_ADMIN"
+    ...(hasFullAccess(data.me.role)
       ? [{ id: "integrations" as const, label: "التكاملات", icon: Plug }]
       : []),
-    ...(data.permissions.includes("audit") && ["SUPER_ADMIN", "ADMIN"].includes(data.me.role)
+    ...(data.permissions.includes("audit") &&
+    (hasFullAccess(data.me.role) || data.me.role === "ADMIN")
       ? [{ id: "audit" as const, label: "سجل التدقيق", icon: History }]
       : []),
   ];
@@ -110,7 +112,7 @@ export function SettingsWorkspace({
         {section === "templates" && (
           <div className="templates-workspace">
             <ReplyTemplatesPanel data={data} />
-            {data.me.role === "SUPER_ADMIN" && <TelegramWordsPanel />}
+            {hasFullAccess(data.me.role) && <TelegramWordsPanel />}
           </div>
         )}
         {section === "general" && (
@@ -164,7 +166,7 @@ export function SettingsWorkspace({
                   <div>
                     <dt>نطاق الوصول</dt>
                     <dd>
-                      {data.me.role === "SUPER_ADMIN"
+                      {hasFullAccess(data.me.role)
                         ? "جميع العلامات والفروع"
                         : `${n(data.brands.length)} علامات`}
                     </dd>
@@ -195,7 +197,7 @@ export function SettingsWorkspace({
                 )}
               </section>
             </div>
-            {data.me.role === "SUPER_ADMIN" && (
+            {hasFullAccess(data.me.role) && (
               <>
                 <PublicIntakeSetting data={data} onMutate={onMutate} />
                 <AutoAssignSetting data={data} onMutate={onMutate} />
@@ -223,7 +225,7 @@ export function SettingsWorkspace({
             )}
           </>
         )}
-        {section === "integrations" && data.me.role === "SUPER_ADMIN" && (
+        {section === "integrations" && hasFullAccess(data.me.role) && (
           <>
             <div className="settings-channels" role="group" aria-label="اختيار التكامل">
               <button aria-pressed={channel === "whatsapp"} onClick={() => setChannel("whatsapp")}>
@@ -280,7 +282,9 @@ export function SettingsWorkspace({
         )}
         {section === "audit" &&
           data.permissions.includes("audit") &&
-          ["SUPER_ADMIN", "ADMIN"].includes(data.me.role) && <AuditSettings data={data} />}
+          (hasFullAccess(data.me.role) || data.me.role === "ADMIN") && (
+            <AuditSettings data={data} />
+          )}
       </div>
     </div>
   );

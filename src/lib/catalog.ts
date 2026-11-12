@@ -79,7 +79,7 @@ export const DEFAULT_PLATFORMS: PlatformItem[] = [
   "أخرى",
 ].map((label) => ({ label, active: true }));
 
-export const CATALOG_ROLES = ["SUPER_ADMIN", "CUSTOMER_SERVICE_MANAGER"];
+export const CATALOG_ROLES = ["SUPER_ADMIN", "CEO", "OWNER", "CUSTOMER_SERVICE_MANAGER"];
 export const CATEGORY_ID = /^[A-Z][A-Z0-9_]{1,39}$/;
 export const MAX_ITEMS = 100;
 

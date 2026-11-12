@@ -1,4 +1,4 @@
-import { DomainError, roleLabels, stateLabels, ticketNumber, type Actor } from "@/lib/domain";
+import { DomainError, roleLabels, stateLabels, ticketNumber, type Actor, hasFullAccess } from "@/lib/domain";
 import { addDays, riyadhDay, riyadhISO, weekDays } from "@/aliz/schedule-time";
 import { word, type WordKey } from "@/lib/telegram-words";
 import { admin, rpcError, settings } from "./core.server";
@@ -322,7 +322,7 @@ function menu(role: string): Markup {
   const rows = [
     ["📅 ورديتي اليوم", "📋 شكاواي"],
     ["🗓 جدولي هذا الأسبوع", "⏭ الأسبوع القادم"],
-    ...(role === SUPER ? [["📊 الملخص", "👥 المناوبون الآن"], ["📥 بدون مسؤول"]] : []),
+    ...(hasFullAccess(role) ? [["📊 الملخص", "👥 المناوبون الآن"], ["📥 بدون مسؤول"]] : []),
     ["❓ مساعدة"],
   ];
   return {
@@ -1001,7 +1001,7 @@ export async function handleUpdate(update: Update, now = new Date()): Promise<Re
       "🔒 هذا الحساب غير مرتبط.\nاربطه من نظام الشكاوى: القائمة ← <b>حسابي على تيليجرام</b>.",
     );
   const cmd = MENU[text] ?? /^\/(\w+)/.exec(text)?.[1]?.toLowerCase() ?? "help";
-  const isAdmin = user.role === SUPER;
+  const isAdmin = hasFullAccess(user.role);
   switch (cmd) {
     case "today":
       return reply(chatId, await todayText(user.user_id, now));

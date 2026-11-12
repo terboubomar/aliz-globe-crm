@@ -1,4 +1,4 @@
-import { DomainError, can, inScope, slaMilestones, ticketNumber, type Actor } from "@/lib/domain";
+import { DomainError, can, inScope, slaMilestones, ticketNumber, type Actor, hasFullAccess } from "@/lib/domain";
 import {
   aiMessages,
   cleanAi,
@@ -117,7 +117,7 @@ export async function googleRules(): Promise<GoogleRules> {
 
 /* ---------------------------- connecting ---------------------------- */
 function superOnly(a: Actor) {
-  if (a.role !== "SUPER_ADMIN") throw new DomainError("FORBIDDEN", 403, "متاح لمدير النظام فقط");
+  if (!hasFullAccess(a.role)) throw new DomainError("FORBIDDEN", 403, "متاح لمدير النظام فقط");
 }
 
 export async function beginConnect(a: Actor) {
@@ -644,7 +644,7 @@ async function present(r: ReviewRow, numbers: Map<string, string>) {
 export type PresentedReview = Awaited<ReturnType<typeof present>>;
 
 function canReply(a: Actor) {
-  return can(a, "contact") || a.role === "SUPER_ADMIN";
+  return can(a, "contact") || hasFullAccess(a.role);
 }
 
 export async function listReviews(
@@ -666,7 +666,7 @@ export async function listReviews(
   const rows = ((data ?? []) as ReviewRow[]).filter((r) =>
     r.brand_id
       ? inScope(a, { brandId: r.brand_id, branchId: r.branch_id })
-      : a.role === "SUPER_ADMIN",
+      : hasFullAccess(a.role),
   );
   const ids = rows.map((r) => r.ticket_id).filter(Boolean) as string[];
   const { data: tickets } = ids.length
@@ -692,7 +692,7 @@ async function loadScoped(a: Actor, id: string) {
     !r ||
     (r.brand_id
       ? !inScope(a, { brandId: r.brand_id, branchId: r.branch_id })
-      : a.role !== "SUPER_ADMIN")
+      : !hasFullAccess(a.role))
   )
     throw new DomainError("NOT_FOUND", 404, "التقييم غير موجود ضمن نطاقك");
   return r;

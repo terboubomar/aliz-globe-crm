@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { authorize, can, normalizePhone, permissionsForRole, refundNumber, ticketNumber } from "@/lib/domain";
+import { authorize, can, normalizePhone, permissionsForRole, refundNumber, ticketNumber, hasFullAccess } from "@/lib/domain";
 
 const core = () => import("./core.server");
 const tickets = () => import("./tickets.server");
@@ -19,7 +19,7 @@ export const getBootstrap = createServerFn({ method: "POST" })
     const [{ data: brands }, { data: branches }, staff, s] = await Promise.all([
       context.supabase.from("brands").select("*").order("created_at"),
       context.supabase.from("branches").select("*").order("name"),
-      c.staffDirectory(a.role === "SUPER_ADMIN" ? ["waqf", "kabab", "batatisyon", "mazmuzil", ...a.brandIds] : a.brandIds),
+      c.staffDirectory(hasFullAccess(a.role) ? ["waqf", "kabab", "batatisyon", "mazmuzil", ...a.brandIds] : a.brandIds),
       c.settings(),
     ]);
     const lists = await c.catalog();

@@ -40,3 +40,10 @@ list of what is late or urgent in any app, and a card per app with its numbers
 and main actions. It opens for the super admin, CEO and owner, who land on it
 after signing in. Each person sees only the apps they may read (`hubSections`
 in `src/aliz/access.ts`); the figures are in `src/lib/group-dashboard.ts`.
+
+## Full access
+
+The super admin, CEO and owner have every permission in every brand and branch
+(`hasFullAccess` in `src/lib/domain.ts`; the database rules match in migration
+`0019_executive_full_access.sql`). Every other role is limited to its own
+rights and scope.

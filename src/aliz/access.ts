@@ -75,6 +75,9 @@ export const agentViewLabels: Record<string, string> = {
   tasks: "متابعاتي",
   refunds: "الاسترجاع والإلغاء",
 };
+// Full access (super admin, CEO, owner): every page. Refunds stay in Customer
+// Service for them (no copy in IT).
+const fullViews = Object.keys(viewPermissions).filter((v) => v !== "it-refunds");
 export const roleWorkspaces: Record<
   string,
   { title: string; description: string; views: string[]; labels: Record<string, string> }
@@ -82,8 +85,7 @@ export const roleWorkspaces: Record<
   SUPER_ADMIN: {
     title: "إدارة المجموعة",
     description: "الفريق والعلامات والشكاوى والطلبات المالية في مساحة واحدة.",
-    // Refunds stay in Customer Service for the super admin (no copy in IT).
-    views: Object.keys(viewPermissions).filter((v) => v !== "it-refunds"),
+    views: fullViews,
     labels: { overview: "إدارة المجموعة" },
   },
   MARKETING_MANAGER: {
@@ -145,19 +147,8 @@ export const roleWorkspaces: Record<
   CEO: {
     title: "نظرة تنفيذية للمجموعة",
     description: "مؤشرات تجربة العملاء والتصعيد والاسترجاع عبر العلامات المصرح بها.",
-    views: [
-      "hub",
-      "overview",
-      "reports",
-      "qr-stats",
-      "tickets",
-      "refunds",
-      "branches",
-      "maintenance",
-      "maintenance-reports",
-      "it",
-    ],
-    labels: { overview: "النظرة التنفيذية", tickets: "سجل الشكاوى", refunds: "متابعة الاسترجاع" },
+    views: fullViews,
+    labels: { overview: "النظرة التنفيذية" },
   },
   IT_MANAGER: {
     title: "تقنية المعلومات",
@@ -192,24 +183,8 @@ export const roleWorkspaces: Record<
   OWNER: {
     title: "أداء علاماتي",
     description: "تابع تجربة العملاء والحالات المفتوحة والطلبات المالية لعلاماتك.",
-    views: [
-      "hub",
-      "overview",
-      "reports",
-      "qr-stats",
-      "tickets",
-      "refunds",
-      "branches",
-      "maintenance",
-      "maintenance-reports",
-      "it",
-    ],
-    labels: {
-      overview: "أداء علاماتي",
-      tickets: "سجل الشكاوى",
-      refunds: "متابعة الاسترجاع",
-      branches: "علاماتي وفروعها",
-    },
+    views: fullViews,
+    labels: { overview: "أداء علاماتي" },
   },
 };
 export function viewLabel(id: string, role: string, fallback: string) {
@@ -278,9 +253,9 @@ export const roleDescriptions: Record<string, string> = {
     "الإشراف على خدمة العملاء وإسناد الشكاوى ومتابعة الجودة والتقارير وإدارة رموز QR.",
   OPERATIONS_MANAGER:
     "متابعة العمليات والعمل على الشكاوى المصعّدة إليه فقط، دون الإسناد الاعتيادي أو بيانات العميل.",
-  CEO: "عرض الشكاوى والتقارير وطلبات الاسترجاع ضمن العلامات المحددة؛ دون تعديل المعالجة أو بيانات العميل الشخصية.",
+  CEO: "صلاحيات كاملة مثل مدير النظام: جميع التطبيقات والعلامات والفروع والإعدادات وإدارة المستخدمين.",
   OWNER:
-    "عرض الشكاوى والتقارير وطلبات الاسترجاع ضمن العلامات المحددة؛ دون تعديل المعالجة أو بيانات العميل الشخصية.",
+    "صلاحيات كاملة مثل مدير النظام: جميع التطبيقات والعلامات والفروع والإعدادات وإدارة المستخدمين.",
   IT_MANAGER:
     "تطبيق تقنية المعلومات: يستلم تذاكر الدعم من كل الأقسام والفروع ويسندها للمختصين ويدير الأنواع والمهل والتقارير، وينفّذ طلبات الاسترجاع والتعويض (يستلمها على تيليجرام ويرى بيانات التحويل ويبلغ العميل)؛ دون الوصول إلى الشكاوى.",
   AGENT:
