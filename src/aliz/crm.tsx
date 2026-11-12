@@ -37,6 +37,7 @@ import {
   Home,
   MoreHorizontal,
   Wrench,
+  MonitorCog,
   ScanLine,
   Headset,
   ArrowLeftRight,
@@ -68,6 +69,7 @@ import { QRWorkspace, QRPanel } from "./qr-workspace";
 import { UsersWorkspace } from "./users-workspace";
 import {
   appLabels,
+  appShortLabels,
   appOf,
   appsFor,
   canOpenView,
@@ -78,6 +80,8 @@ import {
 } from "./access";
 import { MaintenanceWorkspace } from "./maintenance-workspace";
 import { MaintenanceReports } from "./maintenance-reports";
+import { ItWorkspace } from "./it-workspace";
+import { ItReports } from "./it-reports";
 import { QrStatsWorkspace } from "./qr-stats-workspace";
 import { AppLauncher } from "./app-launcher";
 import { AgentWorkspace } from "./agent-workspace";
@@ -112,6 +116,9 @@ const navigation = [
   { id: "settings", label: "الإعدادات", icon: Settings },
   { id: "maintenance", label: "طلبات الصيانة", icon: Wrench },
   { id: "maintenance-reports", label: "تقارير الصيانة", icon: Activity },
+  { id: "it", label: "تذاكر الدعم الفني", icon: MonitorCog },
+  { id: "it-refunds", label: "الاسترجاع والتعويض", icon: Wallet },
+  { id: "it-reports", label: "تقارير الدعم الفني", icon: Activity },
 ];
 function form(e: FormEvent<HTMLFormElement>) {
   e.preventDefault();
@@ -143,7 +150,8 @@ export default function CRM() {
     // Customer Service or Maintenance; people with both pick one after signing in.
     [app, setApp] = useState<AppId | null>(null),
     // Bumped by the phone quick bar to open a new maintenance request.
-    [newMaintenance, setNewMaintenance] = useState(0);
+    [newMaintenance, setNewMaintenance] = useState(0),
+    [newIt, setNewIt] = useState(0);
   const load = useCallback(async () => {
     const epoch = authEpoch.current;
     try {
@@ -177,14 +185,22 @@ export default function CRM() {
         }
       }
       const apps = appsFor(next.permissions, next.me.role);
+      // Opening IT tickets doesn't count as a second app for the picker: those
+      // people start in their own app and switch to IT from the sidebar.
+      const main = apps.filter((x) => x !== "it" || next.permissions.includes("it.view"));
       setApp((current) =>
-        current && apps.includes(current) ? current : apps.length === 1 ? apps[0]! : null,
+        current && apps.includes(current) ? current : main.length === 1 ? main[0]! : null,
       );
       setView((current) =>
         canOpenView(current, next.permissions, next.me.role, hiddenViews(next))
           ? current
-          : (navigation.find((i) => canOpenView(i.id, next.permissions, next.me.role, hiddenViews(next)))?.id ??
-            "settings"),
+          : // Old links to refunds open the IT copy for the IT manager.
+            current === "refunds" &&
+              canOpenView("it-refunds", next.permissions, next.me.role, hiddenViews(next))
+            ? "it-refunds"
+            : (navigation.find((i) =>
+                canOpenView(i.id, next.permissions, next.me.role, hiddenViews(next)),
+              )?.id ?? "settings"),
       );
       setBrand((current) =>
         current === "all" || next.brands.some((b) => b.id === current) ? current : "all",
@@ -330,7 +346,9 @@ export default function CRM() {
       appOf(view) === id && canOpenView(view, data.permissions, data.me.role, hiddenViews(data))
         ? view
         : navigation.find(
-            (i) => appOf(i.id) === id && canOpenView(i.id, data.permissions, data.me.role, hiddenViews(data)),
+            (i) =>
+              appOf(i.id) === id &&
+              canOpenView(i.id, data.permissions, data.me.role, hiddenViews(data)),
           )?.id;
     if (first) go(first);
     else setApp(id);
@@ -409,8 +427,15 @@ export default function CRM() {
     "schedule",
     "maintenance",
     "maintenance-reports",
+    "it",
+    "it-refunds",
+    "it-reports",
   ]
-    .filter((id) => appOf(id) === currentApp && canOpenView(id, data.permissions, data.me.role, hiddenViews(data)))
+    .filter(
+      (id) =>
+        appOf(id) === currentApp &&
+        canOpenView(id, data.permissions, data.me.role, hiddenViews(data)),
+    )
     .slice(0, 4)
     .map((id) => navigation.find((item) => item.id === id)!);
   const exactOpenCount = summaryFor(data.ticketSummary, "all")?.active;
@@ -447,7 +472,7 @@ export default function CRM() {
         {apps.length > 1 && (
           <div className="app-switch" role="group" aria-label="التطبيق">
             {apps.map((id) => {
-              const Icon = id === "maintenance" ? Wrench : Headset;
+              const Icon = id === "maintenance" ? Wrench : id === "it" ? MonitorCog : Headset;
               return (
                 <button
                   key={id}
@@ -461,7 +486,7 @@ export default function CRM() {
                   }}
                 >
                   <Icon size={17} />
-                  <span>{appLabels[id]}</span>
+                  <span>{appShortLabels[id]}</span>
                 </button>
               );
             })}
@@ -484,6 +509,9 @@ export default function CRM() {
                 "qr-stats",
                 "maintenance",
                 "maintenance-reports",
+                "it",
+                "it-refunds",
+                "it-reports",
               ],
             },
             { id: "management", label: "الإدارة", items: ["branches", "qr", "users", "settings"] },
@@ -980,7 +1008,7 @@ export default function CRM() {
               onQR={() => go("qr")}
             />
           )}
-          {view === "refunds" && (
+          {(view === "refunds" || view === "it-refunds") && (
             <RefundWorkspace
               data={data}
               brand={brand}
@@ -1079,6 +1107,8 @@ export default function CRM() {
             <MaintenanceWorkspace data={data} brand={brand} newRequest={newMaintenance} />
           )}
           {view === "maintenance-reports" && <MaintenanceReports data={data} brand={brand} />}
+          {view === "it" && <ItWorkspace data={data} brand={brand} newRequest={newIt} />}
+          {view === "it-reports" && <ItReports data={data} />}
           {view === "reports" && (
             <ReportsWorkspace data={data} brand={brand} onBrandChange={setBrand} />
           )}
@@ -1147,6 +1177,23 @@ export default function CRM() {
               <Plus size={24} strokeWidth={2.2} />
             </span>
             <span className="quick-bar-label">طلب صيانة</span>
+          </button>
+        )}
+        {currentApp === "it" && permit("it.request") && (
+          <button
+            type="button"
+            className="quick-bar-primary"
+            aria-label="تذكرة دعم فني جديدة"
+            onClick={() => {
+              setMenu(false);
+              if (view !== "it") go("it");
+              setNewIt((k) => k + 1);
+            }}
+          >
+            <span className="quick-bar-icon">
+              <Plus size={24} strokeWidth={2.2} />
+            </span>
+            <span className="quick-bar-label">تذكرة دعم</span>
           </button>
         )}
         {currentApp === "cs" && permit("create") && (

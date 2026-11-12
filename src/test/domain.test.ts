@@ -7,8 +7,8 @@ import {
 const actor = (role: string, extra: Partial<Actor> = {}): Actor => ({ id: role.toLowerCase(), name: role, role, brandIds: ["waqf"], branchIds: [], ...extra });
 
 describe("roles", () => {
-  it("exposes exactly the eleven assignable roles", () => {
-    expect([...assignableRoles]).toEqual(["SUPER_ADMIN", "MARKETING_MANAGER", "SHIFT_LEAD", "AGENT", "OPERATIONS_MANAGER", "CEO", "OWNER", "IT_MANAGER", "BRANCH_MANAGER", "MAINTENANCE_MANAGER", "TECHNICIAN"]);
+  it("exposes exactly the twelve assignable roles", () => {
+    expect([...assignableRoles]).toEqual(["SUPER_ADMIN", "MARKETING_MANAGER", "SHIFT_LEAD", "AGENT", "OPERATIONS_MANAGER", "CEO", "OWNER", "IT_MANAGER", "BRANCH_MANAGER", "MAINTENANCE_MANAGER", "TECHNICIAN", "IT_SPECIALIST"]);
   });
   it("unknown or legacy roles get no permissions", () => {
     expect(permissionsForRole("FINANCE_APPROVER")).toEqual([]);
@@ -17,9 +17,9 @@ describe("roles", () => {
   it("only shift lead / marketing / super admin may assign", () => {
     for (const r of assignableRoles) expect(can(actor(r), "assign")).toBe(["SUPER_ADMIN", "MARKETING_MANAGER", "SHIFT_LEAD"].includes(r));
   });
-  it("CEO and OWNER are read + report only (and can view maintenance)", () => {
-    expect(permissionsForRole("CEO").sort()).toEqual(["mnt.report", "mnt.view", "read", "report"]);
-    expect(permissionsForRole("OWNER").sort()).toEqual(["mnt.report", "mnt.view", "read", "report"]);
+  it("CEO and OWNER are read + report only (and can view maintenance, and open IT tickets)", () => {
+    expect(permissionsForRole("CEO").sort()).toEqual(["it.request", "mnt.report", "mnt.view", "read", "report"]);
+    expect(permissionsForRole("OWNER").sort()).toEqual(["it.request", "mnt.report", "mnt.view", "read", "report"]);
   });
   it("agents can request refunds but never decide, execute or verify without a duty", () => {
     const a = actor("AGENT");

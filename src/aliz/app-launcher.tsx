@@ -1,4 +1,4 @@
-import { ArrowLeft, Headset, LogOut, Wrench } from "lucide-react";
+import { ArrowLeft, Headset, LogOut, MonitorCog, Wrench } from "lucide-react";
 import { greeting } from "@/lib/dashboard";
 import { appLabels, type AppId } from "./access";
 
@@ -6,6 +6,7 @@ import { appLabels, type AppId } from "./access";
 const details: Record<AppId, string> = {
   cs: "شكاوى العملاء والاسترجاع والمتابعة",
   maintenance: "طلبات صيانة الفروع ومتابعة الإصلاح",
+  it: "تذاكر الدعم الفني من كل الأقسام والفروع",
 };
 
 export function AppLauncher({
@@ -34,7 +35,7 @@ export function AppLauncher({
         <p>اختر التطبيق</p>
         <div className="app-launcher-cards">
           {apps.map((id) => {
-            const Icon = id === "maintenance" ? Wrench : Headset;
+            const Icon = id === "maintenance" ? Wrench : id === "it" ? MonitorCog : Headset;
             return (
               <button
                 key={id}

@@ -209,6 +209,7 @@ export const roleNames: Record<string, string> = {
   BRANCH_MANAGER: "مدير الفرع",
   MAINTENANCE_MANAGER: "مدير الصيانة",
   TECHNICIAN: "فني صيانة",
+  IT_SPECIALIST: "مختص تقنية المعلومات",
   GROUP_OPERATIONS_MANAGER: "مدير عمليات المجموعة",
   FINANCE_APPROVER: "موافق مالي",
   REFUND_PROCESSOR: "مسؤول التنفيذ الخارجي",

@@ -5,7 +5,7 @@ import { Field, Empty, Modal, Submit } from "./ui";
 import { permissionLabels, roleDescriptions } from "./access";
 
 // Roles outside customer service never take a finance duty.
-const NO_FINANCE = ["BRANCH_MANAGER", "MAINTENANCE_MANAGER", "TECHNICIAN"];
+const NO_FINANCE = ["BRANCH_MANAGER", "MAINTENANCE_MANAGER", "TECHNICIAN", "IT_SPECIALIST"];
 type ManagedUser = {
   id: string;
   name: string;

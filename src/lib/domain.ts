@@ -13,6 +13,7 @@ export const assignableRoles = [
   "BRANCH_MANAGER",
   "MAINTENANCE_MANAGER",
   "TECHNICIAN",
+  "IT_SPECIALIST",
 ] as const;
 export type AssignableRole = (typeof assignableRoles)[number];
 
@@ -28,6 +29,7 @@ export const roleLabels: Record<string, string> = {
   BRANCH_MANAGER: "مدير الفرع",
   MAINTENANCE_MANAGER: "مدير الصيانة",
   TECHNICIAN: "فني صيانة",
+  IT_SPECIALIST: "مختص تقنية المعلومات",
 };
 
 export const financeDuties = ["NONE", "APPROVER", "PROCESSOR", "VERIFIER"] as const;
@@ -79,7 +81,13 @@ rights["OPERATIONS_MANAGER"] = ["read", "comment", "report", "investigate", "res
 rights["CEO"] = ["read", "report", "mnt.view", "mnt.report"];
 rights["OWNER"] = ["read", "report", "mnt.view", "mnt.report"];
 // Refunds only: sees and handles refund requests, nothing about complaints.
-rights["IT_MANAGER"] = ["refund.view", "refund.execute", "refund.notify", "evidence.view", "evidence.attach"];
+rights["IT_MANAGER"] = [
+  "refund.view", "refund.execute", "refund.notify", "evidence.view", "evidence.attach",
+  // IT app: sees every IT ticket, assigns specialists, sets types and deadlines, reports.
+  "it.view", "it.assign", "it.work", "it.configure", "it.report",
+];
+// Works the IT tickets assigned to them; nothing about complaints or refunds.
+rights["IT_SPECIALIST"] = ["it.view", "it.work"];
 rights["SUPER_ADMIN"] = [...new Set([...Object.values(rights).flat(), "users.manage", "directory.activate", "evidence.view"])];
 
 export function permissionsForRole(role: string, financeDuty?: string): string[] {
@@ -88,6 +96,8 @@ export function permissionsForRole(role: string, financeDuty?: string): string[]
   return [
     ...new Set([
       ...base,
+      // Every staff member can open IT tickets and follow their own.
+      "it.request",
       ...(base.includes("pii") ? ["evidence.view"] : []),
       ...(base.includes("comment") ? ["evidence.attach"] : []),
       ...(financePermissions[financeDuty ?? "NONE"] ?? []),
