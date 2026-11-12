@@ -109,10 +109,38 @@ describe("applying a template", () => {
     const w1 = weekEntries(plan, "2026-11-08").entries;
     expect(w1.filter((e) => e.userId === "b")).toHaveLength(1);
     const rotated = weekEntries(
-      { ...plan, template: { ...t, rotate: true } },
+      { ...plan, template: { rows: t.rows.map((r) => ({ ...r, lead: false })), rotate: true } },
       "2026-11-08",
     ).entries;
     expect(rotated.filter((e) => e.userId === "b")).toHaveLength(2);
+  });
+
+  it("keeps shift leads on their own row when rows rotate", () => {
+    const three: Template = {
+      rotate: true,
+      rows: [
+        {
+          userId: "lead",
+          lead: true,
+          days: [{ start: "10:00", end: "18:00" }, null, null, null, null, null, null],
+        },
+        {
+          userId: "x",
+          lead: false,
+          days: [{ start: "12:00", end: "20:00" }, null, null, null, null, null, null],
+        },
+        {
+          userId: "y",
+          lead: false,
+          days: [{ start: "18:00", end: "02:00" }, null, null, null, null, null, null],
+        },
+      ],
+    };
+    const start = (id: string) =>
+      templateEntries(three, "2026-11-08", 1).entries.find((e) => e.userId === id)!.start;
+    expect(start("lead")).toBe("2026-11-08T07:00:00.000Z");
+    expect(start("x")).toBe("2026-11-08T15:00:00.000Z");
+    expect(start("y")).toBe("2026-11-08T09:00:00.000Z");
   });
 
   it("leaves days that already have something alone", () => {
