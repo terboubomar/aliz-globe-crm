@@ -382,7 +382,7 @@ export function GoogleIntegration({ data }: { data: Data }) {
   const labels: Record<string, string> = {
     GOOGLE_CLIENT_ID: "معرّف تطبيق Google (Client ID)",
     GOOGLE_CLIENT_SECRET: "المفتاح السري لتطبيق Google",
-    PUBLIC_APP_ORIGIN: "رابط CRM العام",
+    PUBLIC_APP_ORIGIN: "رابط Portal العام",
   };
   return (
     <section className="panel google-integration">

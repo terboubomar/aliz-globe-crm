@@ -129,9 +129,9 @@ export function SettingsWorkspace({
                   </span>
                 </div>
                 <div className="settings-company-identity">
-                  <img src="/logos/aliz.webp" alt="أليز غلوب" />
+                  <img src="/logos/aliz.webp" alt="عليز غلوب" />
                   <div>
-                    <h3>أليز غلوب</h3>
+                    <h3>عليز غلوب</h3>
                     <span>Aliz Globe Company</span>
                   </div>
                 </div>

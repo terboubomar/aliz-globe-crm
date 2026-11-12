@@ -58,7 +58,7 @@ export function SignIn({
     <main className="sign-in-page">
       <section className="sign-in-form-panel" dir="rtl">
         <header className="sign-in-header">
-          <img src="/logos/aliz.webp" alt="أليز غلوب" />
+          <img src="/logos/aliz.webp" alt="عليز غلوب" />
         </header>
         <div className="sign-in-content">
           <form className="sign-in-form" onSubmit={submit}>
@@ -178,7 +178,7 @@ export function SignIn({
           </div>
         </div>
       </section>
-      <aside className="sign-in-brand-panel" aria-label="أليز غلوب">
+      <aside className="sign-in-brand-panel" aria-label="عليز غلوب">
         <img className="sign-in-display-logo" src="/logos/aliz.webp" alt="Aliz Globe Company" />
       </aside>
     </main>

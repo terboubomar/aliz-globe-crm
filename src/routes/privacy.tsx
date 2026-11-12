@@ -2,6 +2,6 @@ import { createFileRoute } from "@tanstack/react-router";
 import PrivacyNotice from "@/aliz/privacy";
 
 export const Route = createFileRoute("/privacy")({
-  head: () => ({ meta: [{ title: "إشعار الخصوصية | أليز غلوب" }] }),
+  head: () => ({ meta: [{ title: "إشعار الخصوصية | عليز غلوب" }] }),
   component: PrivacyNotice,
 });

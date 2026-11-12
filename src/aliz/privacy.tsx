@@ -8,7 +8,7 @@ const sections: { title: string; body: (string | string[])[] }[] = [
   {
     title: "من نحن",
     body: [
-      "شركة أليز غلوب هي الجهة المسؤولة عن بياناتك عندما تقدّم شكوى أو ملاحظة على أحد مطاعمنا (برقر واقف، كباب علوم، بطاطسيون، مزمزيل) عبر رمز QR أو عبر الهاتف.",
+      "شركة عليز غلوب هي الجهة المسؤولة عن بياناتك عندما تقدّم شكوى أو ملاحظة على أحد مطاعمنا (برقر واقف، كباب علوم، بطاطسيون، مزمزيل) عبر رمز QR أو عبر الهاتف.",
     ],
   },
   {
@@ -78,7 +78,7 @@ export default function PrivacyNotice() {
   return (
     <main className="public-shell qf privacy-page">
       <div className="public-top">
-        <img src="/logos/aliz.webp" alt="أليز غلوب" />
+        <img src="/logos/aliz.webp" alt="عليز غلوب" />
         <span>إشعار الخصوصية</span>
       </div>
       <header className="privacy-head">
@@ -118,7 +118,7 @@ export default function PrivacyNotice() {
         </p>
       </section>
       <div className="public-footer">
-        <ShieldCheck size={15} /> شركة أليز غلوب
+        <ShieldCheck size={15} /> شركة عليز غلوب
       </div>
     </main>
   );

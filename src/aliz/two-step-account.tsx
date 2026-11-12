@@ -42,7 +42,7 @@ export function TwoStepAccount({ required }: { required: boolean }) {
       if (f.status === "unverified") await supabase.auth.mfa.unenroll({ factorId: f.id });
     const { data: enrolled, error } = await supabase.auth.mfa.enroll({
       factorType: "totp",
-      friendlyName: "Aliz CRM " + new Date().toISOString().slice(0, 10),
+      friendlyName: "Aliz Portal " + new Date().toISOString().slice(0, 10),
     });
     setBusy(false);
     if (error || !enrolled) return setError("تعذر بدء التفعيل. حاول مرة أخرى.");

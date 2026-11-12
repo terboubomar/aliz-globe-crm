@@ -217,7 +217,7 @@ export function TelegramIntegration() {
     TELEGRAM_BOT_TOKEN: "رمز البوت الآمن",
     TELEGRAM_BOT_USERNAME: "اسم مستخدم البوت",
     TELEGRAM_WEBHOOK_SECRET: "مفتاح التحقق من البوت",
-    PUBLIC_HTTPS_APP_ORIGIN: "رابط CRM عام وآمن",
+    PUBLIC_HTTPS_APP_ORIGIN: "رابط Portal عام وآمن",
   };
   return (
     <section className="panel telegram-integration">

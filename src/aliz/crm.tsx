@@ -495,8 +495,8 @@ export default function CRM() {
           <a className="group-logo" href="/" aria-label="الرئيسية">
             <img src="/logos/aliz.webp" alt="Aliz Globe Company" />
             <span>
-              <b>أليز غلوب</b>
-              <small>CRM</small>
+              <b>عليز غلوب</b>
+              <small>Portal</small>
             </span>
           </a>
           <button
@@ -686,7 +686,7 @@ export default function CRM() {
             >
               <Menu />
             </button>
-            <span>{onHub ? "أليز غلوب" : appLabels[currentApp]}</span>
+            <span>{onHub ? "عليز غلوب" : appLabels[currentApp]}</span>
             <ChevronLeft size={14} />
             <b>{title}</b>
           </div>
@@ -1251,7 +1251,7 @@ export default function CRM() {
             />
           )}
           <footer className="page-footer">
-            <span>أليز غلوب • إدارة تجربة العملاء</span>
+            <span>عليز غلوب • إدارة تجربة العملاء</span>
           </footer>
         </main>
       </div>
@@ -1837,7 +1837,7 @@ function TicketDetail({
         </div>
         <div className="detail-facts">
           <div>
-            <small>وقت التسجيل في CRM</small>
+            <small>وقت التسجيل في Portal</small>
             <b>{date(t.createdAt)}</b>
           </div>
           <div>
