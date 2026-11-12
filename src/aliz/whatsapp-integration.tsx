@@ -68,7 +68,7 @@ function ReceiptChannel({
     WHATSAPP_APP_SECRET: "مفتاح التحقق من الرسائل",
     WHATSAPP_VERIFY_TOKEN: "رمز ربط إشعارات التسليم",
     WHATSAPP_TEMPLATE_NAME: "اسم قالب تأكيد الشكوى",
-    PUBLIC_HTTPS_APP_ORIGIN: "رابط CRM عام وآمن",
+    PUBLIC_HTTPS_APP_ORIGIN: "رابط Portal عام وآمن",
     WHATSAPP_TEMPLATE_APPROVED: "اعتماد قالب الرسالة",
     VALID_PHONE_NUMBER_ID: "معرّف صحيح لرقم واتساب",
     VALID_TEMPLATE_NAME: "اسم قالب صالح",

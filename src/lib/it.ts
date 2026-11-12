@@ -39,7 +39,7 @@ export const DEFAULT_IT_CATEGORIES: ItCategory[] = [
   { id: "NETWORK", label: "الشبكة والإنترنت", active: true },
   { id: "DEVICES", label: "الأجهزة (كمبيوتر، جوال، تابلت)", active: true },
   { id: "ACCOUNTS", label: "البريد والحسابات وكلمات المرور", active: true },
-  { id: "APPS", label: "الأنظمة والتطبيقات (CRM وغيرها)", active: true },
+  { id: "APPS", label: "الأنظمة والتطبيقات (Portal وغيرها)", active: true },
   { id: "CAMERAS", label: "الكاميرات", active: true },
   { id: "OTHER", label: "أخرى", active: true },
 ];

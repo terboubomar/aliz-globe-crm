@@ -533,7 +533,7 @@ export async function sendTest(
       response: null,
     };
   const params = SAMPLE_PARAMS(template);
-  const outcome = await sendToPhone(phone, "اختبار CRM", template, params, fetcher, format);
+  const outcome = await sendToPhone(phone, "اختبار Portal", template, params, fetcher, format);
   const id = await log({
     complaintId: null,
     template,

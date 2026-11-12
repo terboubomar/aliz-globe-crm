@@ -120,6 +120,7 @@ export type Database = {
           created_at: string
           district: string | null
           google_location: string | null
+          google_place_id: string | null
           id: string
           latitude: number | null
           longitude: number | null
@@ -137,6 +138,7 @@ export type Database = {
           created_at?: string
           district?: string | null
           google_location?: string | null
+          google_place_id?: string | null
           id?: string
           latitude?: number | null
           longitude?: number | null
@@ -154,6 +156,7 @@ export type Database = {
           created_at?: string
           district?: string | null
           google_location?: string | null
+          google_place_id?: string | null
           id?: string
           latitude?: number | null
           longitude?: number | null
@@ -204,8 +207,8 @@ export type Database = {
       }
       google_reviews: {
         Row: {
-          brand_id: string | null
           branch_id: string | null
+          brand_id: string | null
           comment_enc: string | null
           created_at: string
           id: string
@@ -222,8 +225,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          brand_id?: string | null
           branch_id?: string | null
+          brand_id?: string | null
           comment_enc?: string | null
           created_at: string
           id: string
@@ -240,8 +243,8 @@ export type Database = {
           updated_at: string
         }
         Update: {
-          brand_id?: string | null
           branch_id?: string | null
+          brand_id?: string | null
           comment_enc?: string | null
           created_at?: string
           id?: string
@@ -257,7 +260,29 @@ export type Database = {
           ticket_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "google_reviews_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "google_reviews_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "google_reviews_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       idempotency: {
         Row: {
@@ -279,6 +304,166 @@ export type Database = {
           response_enc?: string
         }
         Relationships: []
+      }
+      it_events: {
+        Row: {
+          actor: string
+          created_at: string
+          id: string
+          note: string | null
+          ticket_id: string
+          type: string
+        }
+        Insert: {
+          actor: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          ticket_id: string
+          type: string
+        }
+        Update: {
+          actor?: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          ticket_id?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "it_events_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "it_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      it_photos: {
+        Row: {
+          created_at: string
+          id: string
+          size: number
+          stage: string
+          storage_key: string
+          ticket_id: string
+          uploaded_by: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          size: number
+          stage: string
+          storage_key: string
+          ticket_id: string
+          uploaded_by: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          size?: number
+          stage?: string
+          storage_key?: string
+          ticket_id?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "it_photos_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "it_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      it_tickets: {
+        Row: {
+          assigned_at: string | null
+          assignee: string | null
+          branch_id: string | null
+          brand_id: string | null
+          category: string
+          category_detail: string | null
+          confirmed_at: string | null
+          created_at: string
+          department: string
+          description: string
+          done_at: string | null
+          fix_due_at: string | null
+          id: string
+          number: number
+          priority: string
+          requester: string
+          respond_due_at: string | null
+          started_at: string | null
+          state: string
+          title: string
+          version: number
+        }
+        Insert: {
+          assigned_at?: string | null
+          assignee?: string | null
+          branch_id?: string | null
+          brand_id?: string | null
+          category: string
+          category_detail?: string | null
+          confirmed_at?: string | null
+          created_at?: string
+          department: string
+          description?: string
+          done_at?: string | null
+          fix_due_at?: string | null
+          id?: string
+          number?: number
+          priority: string
+          requester: string
+          respond_due_at?: string | null
+          started_at?: string | null
+          state?: string
+          title: string
+          version?: number
+        }
+        Update: {
+          assigned_at?: string | null
+          assignee?: string | null
+          branch_id?: string | null
+          brand_id?: string | null
+          category?: string
+          category_detail?: string | null
+          confirmed_at?: string | null
+          created_at?: string
+          department?: string
+          description?: string
+          done_at?: string | null
+          fix_due_at?: string | null
+          id?: string
+          number?: number
+          priority?: string
+          requester?: string
+          respond_due_at?: string | null
+          started_at?: string | null
+          state?: string
+          title?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "it_tickets_branch_id_brand_id_fkey"
+            columns: ["branch_id", "brand_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id", "brand_id"]
+          },
+          {
+            foreignKeyName: "it_tickets_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       maintenance_events: {
         Row: {
@@ -964,6 +1149,74 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_messages: {
+        Row: {
+          actor: string
+          bevatel_contact_id: string | null
+          bevatel_conversation_id: string | null
+          bevatel_message_id: string | null
+          complaint_id: string | null
+          confirmed_at: string | null
+          created_at: string
+          error: string | null
+          format: string
+          id: string
+          is_test: boolean
+          manual: boolean
+          params_enc: string | null
+          phone_masked: string | null
+          response_enc: string | null
+          status: string
+          template: string
+        }
+        Insert: {
+          actor: string
+          bevatel_contact_id?: string | null
+          bevatel_conversation_id?: string | null
+          bevatel_message_id?: string | null
+          complaint_id?: string | null
+          confirmed_at?: string | null
+          created_at?: string
+          error?: string | null
+          format?: string
+          id?: string
+          is_test?: boolean
+          manual?: boolean
+          params_enc?: string | null
+          phone_masked?: string | null
+          response_enc?: string | null
+          status: string
+          template: string
+        }
+        Update: {
+          actor?: string
+          bevatel_contact_id?: string | null
+          bevatel_conversation_id?: string | null
+          bevatel_message_id?: string | null
+          complaint_id?: string | null
+          confirmed_at?: string | null
+          created_at?: string
+          error?: string | null
+          format?: string
+          id?: string
+          is_test?: boolean
+          manual?: boolean
+          params_enc?: string | null
+          phone_masked?: string | null
+          response_enc?: string | null
+          status?: string
+          template?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_messages_complaint_id_fkey"
+            columns: ["complaint_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -1012,6 +1265,22 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      it_action_tx: {
+        Args: {
+          _actor: string
+          _id: string
+          _note: string
+          _type: string
+          _version: number
+          p: Json
+        }
+        Returns: undefined
+      }
+      it_create_tx: { Args: { p: Json }; Returns: Json }
+      it_visible: {
+        Args: { _assignee: string; _requester: string }
+        Returns: boolean
       }
       maintenance_action_tx: {
         Args: {

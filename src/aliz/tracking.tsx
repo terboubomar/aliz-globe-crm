@@ -91,7 +91,7 @@ export default function Tracking({ token }: { token: string }) {
   return (
     <main className="public-shell qf tk">
       <div className="public-top">
-        <img src="/logos/aliz.webp" alt="أليز غلوب" />
+        <img src="/logos/aliz.webp" alt="عليز غلوب" />
         <span>متابعة البلاغ</span>
       </div>
 
@@ -223,7 +223,7 @@ export default function Tracking({ token }: { token: string }) {
         }
       />
       <div className="public-footer">
-        <ShieldCheck size={15} /> متابعة آمنة • أليز غلوب
+        <ShieldCheck size={15} /> متابعة آمنة • عليز غلوب
       </div>
     </main>
   );

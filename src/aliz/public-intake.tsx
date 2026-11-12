@@ -241,7 +241,7 @@ export default function PublicIntake({ code }: { code: string }) {
   return (
     <main className="public-shell qf" ref={top}>
       <div className="public-top">
-        <img src="/logos/aliz.webp" alt="أليز غلوب" />
+        <img src="/logos/aliz.webp" alt="عليز غلوب" />
         <span>نهتم بتجربتك</span>
       </div>
       {!context ? (
@@ -671,7 +671,7 @@ export default function PublicIntake({ code }: { code: string }) {
                   <div className="public-privacy">
                     <ShieldCheck size={19} />
                     <p>
-                      تستخدم شركة أليز غلوب معلوماتك فقط لمعالجة بلاغك والتواصل معك بخصوصه، ولا
+                      تستخدم شركة عليز غلوب معلوماتك فقط لمعالجة بلاغك والتواصل معك بخصوصه، ولا
                       نبيعها أو نستخدمها للتسويق. نحتفظ بها سنتين بعد إغلاق البلاغ ثم نحذفها. لا
                       ترفق بيانات دفع أو مستندات شخصية.{" "}
                       <a href="/privacy" target="_blank" rel="noopener">
@@ -741,7 +741,7 @@ export default function PublicIntake({ code }: { code: string }) {
         />
       )}
       <div className="public-footer">
-        <ShieldCheck size={15} /> متابعة آمنة • أليز غلوب
+        <ShieldCheck size={15} /> متابعة آمنة • عليز غلوب
       </div>
     </main>
   );

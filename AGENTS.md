@@ -19,6 +19,7 @@
 - Browsers only SELECT through RLS (role + brand/branch scope + MFA in `current_staff()`); every write goes through a server function that authorizes with domain rules, then calls a service-role-only SQL procedure so state change + event + audit are atomic.
 - Event and audit tables are append-only via triggers; never add UPDATE/DELETE paths.
 - Roles live only in `public.user_roles`; never read privileges from auth metadata.
+- Stale-tab recovery (`src/lib/stale-reload.ts`) must stay inline in the root shell's `<head>`, not only in-app: when the entry module itself is stale after a dev-server restart no app code runs, so the head guard is the only thing that can reload. Its reload budget is deliberately bounded so a broken page can't loop.
 
 ## Customer receipts
 

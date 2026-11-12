@@ -6,7 +6,7 @@ export const Route = createFileRoute("/")({
   ssr: false,
   head: () => ({
     meta: [
-      { title: "أليز غلوب | إدارة تجربة العملاء" },
+      { title: "عليز غلوب | إدارة تجربة العملاء" },
       { name: "description", content: "مساحة عمل موحّدة لتجربة العملاء وعمليات الفروع" },
     ],
   }),

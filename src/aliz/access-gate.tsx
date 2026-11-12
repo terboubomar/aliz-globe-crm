@@ -45,7 +45,7 @@ function Frame({
     <main className="sign-in-page">
       <section className="sign-in-form-panel" dir="rtl">
         <header className="sign-in-header">
-          <img src="/logos/aliz.webp" alt="أليز غلوب" />
+          <img src="/logos/aliz.webp" alt="عليز غلوب" />
         </header>
         <div className="sign-in-content">
           <div className="sign-in-form">
@@ -57,7 +57,7 @@ function Frame({
           </div>
         </div>
       </section>
-      <aside className="sign-in-brand-panel" aria-label="أليز غلوب">
+      <aside className="sign-in-brand-panel" aria-label="عليز غلوب">
         <img className="sign-in-display-logo" src="/logos/aliz.webp" alt="Aliz Globe Company" />
       </aside>
     </main>
@@ -79,7 +79,7 @@ function Mfa({ onDone, onSignOut }: { onDone: () => Promise<void>; onSignOut: ()
         if (f.status === "unverified") await supabase.auth.mfa.unenroll({ factorId: f.id });
       const { data: enrolled, error } = await supabase.auth.mfa.enroll({
         factorType: "totp",
-        friendlyName: "Aliz CRM",
+        friendlyName: "Aliz Portal",
       });
       if (error) return setError("تعذر بدء تسجيل التحقق بخطوتين. حدّث الصفحة.");
       setFactorId(enrolled.id);
