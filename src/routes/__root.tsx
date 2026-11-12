@@ -91,10 +91,14 @@ function RootShell({ children }: { children: ReactNode }) {
     <html lang="ar" dir="rtl">
       <head>
         {/* Runs before the app bundle: if the entry module itself is stale after a
-            dev-server restart, the in-app listener never installs, so reload once here. */}
+            dev-server restart, the in-app listener never installs, so this guard
+            reloads here. It watches three things: a rejected dynamic import, a
+            same-origin script that failed to fetch (capture phase, since those
+            events never bubble), and a page that never reports booting. Reloads
+            are capped at 3 per minute so a genuinely broken page can't loop. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){var K="aliz-stale-reload-at";function r(){try{var l=+sessionStorage.getItem(K)||0;if(Date.now()-l<30000)return;sessionStorage.setItem(K,String(Date.now()));}catch(e){}location.reload();}function s(m){return /dynamically imported module|error loading script|vite:preload/i.test(m||"");}addEventListener("unhandledrejection",function(e){var x=e.reason;if(s(typeof x==="string"?x:x&&x.message))r();});addEventListener("error",function(e){if(s(e.message))r();});})();`,
+            __html: `(function(){var K="aliz-stale-reload-attempts";function recent(){try{var a=JSON.parse(sessionStorage.getItem(K)||"[]");var n=Date.now();return a.filter(function(t){return n-t<60000})}catch(e){return[]}}function r(){var a=recent();if(a.length>=3)return;a.push(Date.now());try{sessionStorage.setItem(K,JSON.stringify(a))}catch(e){}location.reload();}function s(m){return /dynamically imported module|error loading script|vite:preload/i.test(m||"");}function bad(t){if(!t||t.tagName!=="SCRIPT"||!t.src)return false;try{return new URL(t.src,location.href).origin===location.origin}catch(e){return false}}addEventListener("unhandledrejection",function(e){var x=e.reason;if(s(typeof x==="string"?x:x&&x.message))r();},true);addEventListener("error",function(e){if(bad(e.target)||s(e.message))r();},true);setTimeout(function(){if(!window.__alizBooted)r();},12000);})();`,
           }}
         />
         <HeadContent />
