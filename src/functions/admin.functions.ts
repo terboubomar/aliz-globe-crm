@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import {
   DomainError, assignableRoles, authorize, can, financeDuties, inScope, overlaps, safeCell, stateLabels, ticketNumber,
+  hasFullAccess,
 } from "@/lib/domain";
 
 import { MANAGE_ROLES, type ReplyTemplate } from "@/lib/reply-templates";
@@ -165,7 +166,7 @@ const staffInput = z.object({
   financeDuty: z.enum(financeDuties),
   brandIds: z.array(z.string()).default([]),
   branchIds: z.array(z.string().uuid()).default([]),
-}).refine((s) => s.role === "SUPER_ADMIN" || s.brandIds.length > 0, { message: "اختر علامة واحدة على الأقل", path: ["brandIds"] })
+}).refine((s) => hasFullAccess(s.role) || s.brandIds.length > 0, { message: "اختر علامة واحدة على الأقل", path: ["brandIds"] })
   // A branch manager sees one branch's data: pick their branch.
   .refine((s) => s.role !== "BRANCH_MANAGER" || s.branchIds.length > 0, { message: "حدد فرع مدير الفرع", path: ["branchIds"] })
   // Finance duties are for customer-service staff only.
@@ -469,7 +470,7 @@ export const updateSetting = createServerFn({ method: "POST" })
     authorize(a, "users.manage");
     if (data.key === "whatsapp_enabled" || data.key === "email_receipts_enabled") {
       // Customer messages may only be switched on once the channel is fully configured.
-      if (a.role !== "SUPER_ADMIN") throw new DomainError("FORBIDDEN", 403, "متاح لمدير النظام فقط");
+      if (!hasFullAccess(a.role)) throw new DomainError("FORBIDDEN", 403, "متاح لمدير النظام فقط");
       const { missingConfig } = await import("./receipts.server");
       if (data.value && missingConfig(data.key === "whatsapp_enabled" ? "whatsapp" : "email").length)
         throw new DomainError("NOT_CONFIGURED", 409, "أكمل إعدادات القناة قبل تفعيل الإرسال");
@@ -481,7 +482,7 @@ export const updateSetting = createServerFn({ method: "POST" })
       }
     }
     if (data.key === "telegram_enabled" && data.value) {
-      if (a.role !== "SUPER_ADMIN") throw new DomainError("FORBIDDEN", 403, "متاح لمدير النظام فقط");
+      if (!hasFullAccess(a.role)) throw new DomainError("FORBIDDEN", 403, "متاح لمدير النظام فقط");
       if ((await import("./telegram.server")).missingConfig().length)
         throw new DomainError("NOT_CONFIGURED", 409, "أكمل إعدادات البوت قبل التفعيل");
     }
@@ -510,7 +511,7 @@ export const updateSla = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const c = await core();
     const a = await c.requireActor(context as never);
-    if (a.role !== "SUPER_ADMIN") throw new DomainError("FORBIDDEN", 403, "متاح لمدير النظام فقط");
+    if (!hasFullAccess(a.role)) throw new DomainError("FORBIDDEN", 403, "متاح لمدير النظام فقط");
     const version = "V" + new Date().toISOString().slice(0, 16).replace(/[-:T]/g, "");
     const value = { ...data, version, approved: true };
     const db = await c.admin();
@@ -578,7 +579,7 @@ export const receiptChannelStatus = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const c = await core();
     const a = await c.requireActor(context as never);
-    if (a.role !== "SUPER_ADMIN") throw new DomainError("FORBIDDEN", 403, "متاح لمدير النظام فقط");
+    if (!hasFullAccess(a.role)) throw new DomainError("FORBIDDEN", 403, "متاح لمدير النظام فقط");
     return (await import("./receipts.server")).channelStatus(data.channel);
   });
 
@@ -607,7 +608,7 @@ export const telegramStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const a = await (await core()).requireActor(context as never);
-    if (a.role !== "SUPER_ADMIN") throw new DomainError("FORBIDDEN", 403, "متاح لمدير النظام فقط");
+    if (!hasFullAccess(a.role)) throw new DomainError("FORBIDDEN", 403, "متاح لمدير النظام فقط");
     return (await tg()).adminStatus();
   });
 
@@ -628,7 +629,7 @@ export const telegramTest = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const a = await (await core()).requireActor(context as never);
-    if (a.role !== "SUPER_ADMIN") throw new DomainError("FORBIDDEN", 403, "متاح لمدير النظام فقط");
+    if (!hasFullAccess(a.role)) throw new DomainError("FORBIDDEN", 403, "متاح لمدير النظام فقط");
     return (await tg()).testMessage(a);
   });
 
@@ -637,7 +638,7 @@ export const telegramRegisterWebhook = createServerFn({ method: "POST" })
   .handler(async ({ context }) => {
     const c = await core();
     const a = await c.requireActor(context as never);
-    if (a.role !== "SUPER_ADMIN") throw new DomainError("FORBIDDEN", 403, "متاح لمدير النظام فقط");
+    if (!hasFullAccess(a.role)) throw new DomainError("FORBIDDEN", 403, "متاح لمدير النظام فقط");
     const r = await (await tg()).registerWebhook();
     const db = await c.admin();
     await db.rpc("write_audit", { _actor: a.id, _action: "TELEGRAM_WEBHOOK_REGISTERED", _entity: "telegram" });
@@ -689,7 +690,7 @@ export const getTelegramWords = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const a = await (await core()).requireActor(context as never);
-    if (a.role !== "SUPER_ADMIN") throw new DomainError("FORBIDDEN", 403, "متاح لمدير النظام فقط");
+    if (!hasFullAccess(a.role)) throw new DomainError("FORBIDDEN", 403, "متاح لمدير النظام فقط");
     const value = await readSetting("telegram_templates");
     return { words: value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, string>) : {} };
   });
@@ -703,7 +704,7 @@ export const saveTelegramWords = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const c = await core();
     const a = await c.requireActor(context as never);
-    if (a.role !== "SUPER_ADMIN") throw new DomainError("FORBIDDEN", 403, "متاح لمدير النظام فقط");
+    if (!hasFullAccess(a.role)) throw new DomainError("FORBIDDEN", 403, "متاح لمدير النظام فقط");
     // Only changed wording is stored; empty means the default.
     const words = Object.fromEntries(Object.entries(data.words).filter(([, v]) => typeof v === "string" && v.trim()));
     const db = await c.admin();

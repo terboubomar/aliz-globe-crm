@@ -1,3 +1,4 @@
+import { hasFullAccess } from "@/lib/domain";
 import { useCallback, useEffect, useState } from "react";
 import { ExternalLink, Link2, RefreshCw, Send, Sparkles, Star, Unlink } from "lucide-react";
 import {
@@ -196,7 +197,7 @@ export function ReviewsWorkspace({
     [rows, setRows] = useState<GoogleReview[] | null>(null),
     [pending, setPending] = useState(0),
     [error, setError] = useState("");
-  const canReply = data.permissions.includes("contact") || data.me.role === "SUPER_ADMIN";
+  const canReply = data.permissions.includes("contact") || hasFullAccess(data.me.role);
   const load = useCallback(async () => {
     try {
       const q = new URLSearchParams({ filter, ...(brand !== "all" ? { brandId: brand } : {}) });

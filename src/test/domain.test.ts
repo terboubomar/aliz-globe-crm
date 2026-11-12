@@ -14,12 +14,16 @@ describe("roles", () => {
     expect(permissionsForRole("FINANCE_APPROVER")).toEqual([]);
     expect(permissionsForRole("PUBLIC")).toEqual([]);
   });
-  it("only shift lead / marketing / super admin may assign", () => {
-    for (const r of assignableRoles) expect(can(actor(r), "assign")).toBe(["SUPER_ADMIN", "MARKETING_MANAGER", "SHIFT_LEAD"].includes(r));
+  it("only shift lead / marketing / full-access roles may assign", () => {
+    for (const r of assignableRoles) expect(can(actor(r), "assign")).toBe(["SUPER_ADMIN", "CEO", "OWNER", "MARKETING_MANAGER", "SHIFT_LEAD"].includes(r));
   });
-  it("CEO and OWNER are read + report only (and can view maintenance, and open IT tickets)", () => {
-    expect(permissionsForRole("CEO").sort()).toEqual(["it.request", "mnt.report", "mnt.view", "read", "report"]);
-    expect(permissionsForRole("OWNER").sort()).toEqual(["it.request", "mnt.report", "mnt.view", "read", "report"]);
+  it("CEO and OWNER have the same full access as the super admin, in every brand", () => {
+    const all = permissionsForRole("SUPER_ADMIN").sort();
+    expect(permissionsForRole("CEO").sort()).toEqual(all);
+    expect(permissionsForRole("OWNER").sort()).toEqual(all);
+    for (const r of ["SUPER_ADMIN", "CEO", "OWNER"])
+      expect(inScope({ ...actor(r), brandIds: [], branchIds: [] }, { brandId: "any", branchId: null })).toBe(true);
+    expect(inScope({ ...actor("AGENT"), brandIds: ["waqf"], branchIds: [] }, { brandId: "kabab", branchId: null })).toBe(false);
   });
   it("agents can request refunds but never decide, execute or verify without a duty", () => {
     const a = actor("AGENT");
@@ -27,8 +31,8 @@ describe("roles", () => {
     expect(can(a, "refund.decide") || can(a, "refund.execute") || can(a, "refund.verify")).toBe(false);
     expect(can(actor("AGENT", { financeDuty: "APPROVER" }), "refund.decide")).toBe(true);
   });
-  it("only SUPER_ADMIN manages users", () => {
-    for (const r of assignableRoles) expect(can(actor(r), "users.manage")).toBe(r === "SUPER_ADMIN");
+  it("only full-access roles manage users", () => {
+    for (const r of assignableRoles) expect(can(actor(r), "users.manage")).toBe(["SUPER_ADMIN", "CEO", "OWNER"].includes(r));
   });
 });
 

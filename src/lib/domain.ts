@@ -78,8 +78,6 @@ const rights: Record<string, string[]> = {
 };
 rights["MARKETING_MANAGER"] = [...(rights["CUSTOMER_SERVICE_MANAGER"] ?? []), "qa", "schedule", "configure"];
 rights["OPERATIONS_MANAGER"] = ["read", "comment", "report", "investigate", "resolve", "escalate", "mnt.view", "mnt.report"];
-rights["CEO"] = ["read", "report", "mnt.view", "mnt.report"];
-rights["OWNER"] = ["read", "report", "mnt.view", "mnt.report"];
 // Refunds only: sees and handles refund requests, nothing about complaints.
 rights["IT_MANAGER"] = [
   "refund.view", "refund.execute", "refund.notify", "evidence.view", "evidence.attach",
@@ -89,6 +87,12 @@ rights["IT_MANAGER"] = [
 // Works the IT tickets assigned to them; nothing about complaints or refunds.
 rights["IT_SPECIALIST"] = ["it.view", "it.work"];
 rights["SUPER_ADMIN"] = [...new Set([...Object.values(rights).flat(), "users.manage", "directory.activate", "evidence.view"])];
+// The owner and the CEO have the same full access as the super admin: every
+// permission, every brand and branch. Everyone else is limited by their role.
+export const fullAccessRoles = ["SUPER_ADMIN", "CEO", "OWNER"];
+export const hasFullAccess = (role: string) => fullAccessRoles.includes(role);
+rights["CEO"] = rights["SUPER_ADMIN"];
+rights["OWNER"] = rights["SUPER_ADMIN"];
 
 export function permissionsForRole(role: string, financeDuty?: string): string[] {
   if (!(assignableRoles as readonly string[]).includes(role)) return [];
@@ -108,7 +112,7 @@ export function can(actor: Actor, action: string) {
   return permissionsForRole(actor.role, actor.financeDuty).includes(action);
 }
 export function inScope(actor: Actor, s: Scope) {
-  if (actor.role === "SUPER_ADMIN") return true;
+  if (hasFullAccess(actor.role)) return true;
   return (
     actor.brandIds.includes(s.brandId) &&
     (!actor.branchIds.length || (!!s.branchId && actor.branchIds.includes(s.branchId)))

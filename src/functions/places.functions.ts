@@ -1,13 +1,13 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { DomainError, authorize, can, inScope, type Actor } from "@/lib/domain";
+import { DomainError, authorize, can, inScope, type Actor, hasFullAccess } from "@/lib/domain";
 
 /* Google ratings and latest reviews per branch (read-only, Places API). */
 const core = () => import("./core.server");
 const places = () => import("./places.server");
 
-const mayView = (a: Actor) => a.role === "SUPER_ADMIN" || can(a, "contact") || can(a, "configure");
+const mayView = (a: Actor) => hasFullAccess(a.role) || can(a, "contact") || can(a, "configure");
 
 async function branchRow(id: string) {
   const db = await (await core()).admin();

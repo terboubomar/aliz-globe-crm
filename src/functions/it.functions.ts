@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { DomainError, authorize, permissionsForRole, safeCell, type Actor } from "@/lib/domain";
+import { DomainError, authorize, permissionsForRole, safeCell, type Actor, hasFullAccess } from "@/lib/domain";
 import {
   IT_ACTIONS,
   IT_PRIORITIES,
@@ -88,7 +88,7 @@ async function allBrands() {
 const may = (a: Actor, p: string) => permissionsForRole(a.role, a.financeDuty).includes(p);
 /** Same rule as the database: IT manager and super admin see all, others their own or assigned. */
 const sees = (a: Actor, t: ItTicket) =>
-  a.role === "SUPER_ADMIN" ||
+  hasFullAccess(a.role) ||
   a.role === "IT_MANAGER" ||
   t.requester === a.id ||
   (a.role === "IT_SPECIALIST" && t.assignee === a.id);

@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { DomainError, authorize } from "@/lib/domain";
+import { DomainError, authorize, hasFullAccess } from "@/lib/domain";
 import type { QrStatsData } from "@/lib/qr-stats";
 
 const core = () => import("./core.server");
@@ -32,7 +32,7 @@ export const qrStats = createServerFn({ method: "POST" })
     authorize(a, "report");
     const db = await c.admin();
     let brands = a.brandIds;
-    if (a.role === "SUPER_ADMIN") {
+    if (hasFullAccess(a.role)) {
       const { data: all } = await db.from("brands").select("id");
       brands = (all ?? []).map((b) => b.id as string);
     }

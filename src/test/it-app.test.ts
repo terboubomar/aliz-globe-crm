@@ -40,7 +40,13 @@ const who = (id: string, role: string) => ({ id, permissions: permissionsForRole
 
 describe("IT app", () => {
   it("lets every staff role open tickets; only IT works them", () => {
-    for (const role of ["AGENT", "BRANCH_MANAGER", "TECHNICIAN", "CEO", "MAINTENANCE_MANAGER"]) {
+    for (const role of [
+      "AGENT",
+      "BRANCH_MANAGER",
+      "TECHNICIAN",
+      "OPERATIONS_MANAGER",
+      "MAINTENANCE_MANAGER",
+    ]) {
       const p = permissionsForRole(role);
       expect(p).toContain("it.request");
       expect(p).not.toContain("it.work");

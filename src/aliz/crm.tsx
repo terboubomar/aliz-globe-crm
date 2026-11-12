@@ -1,3 +1,4 @@
+import { hasFullAccess } from "@/lib/domain";
 import { useState, useEffect, useCallback, useRef, FormEvent } from "react";
 import { WhatsAppLog } from "./whatsapp-log";
 import {
@@ -395,9 +396,7 @@ export default function CRM() {
       : (app ?? apps[0] ?? "cs");
   const isAgent = data.me.role === "AGENT";
   const workspace = roleWorkspaces[data.me.role];
-  const executive = ["CEO", "OWNER"].includes(data.me.role);
-  const customRecords =
-    executive || ["OPERATIONS_MANAGER", "BRANCH_MANAGER"].includes(data.me.role);
+  const customRecords = ["OPERATIONS_MANAGER", "BRANCH_MANAGER"].includes(data.me.role);
   const permit = (p: string) => data.permissions.includes(p),
     filtered = data.tickets.filter(
       (t) =>
@@ -1789,7 +1788,7 @@ function TicketDetail({
           ticketId={t.id}
           initial={t.google}
           branchName={t.branch?.name ?? ""}
-          canReply={can("contact") || data.me.role === "SUPER_ADMIN"}
+          canReply={can("contact") || hasFullAccess(data.me.role)}
         />
       )}
       <ComplaintJourney ticket={t} />
@@ -1801,7 +1800,7 @@ function TicketDetail({
       )}
       <p className="description">{t.description}</p>
       {!editable && <p className="notice">للعرض فقط؛ المعالجة لدى الموظف المسند.</p>}
-      {editable && !["CEO", "OWNER"].includes(data.me.role) && (
+      {editable && (
         <ComplaintActionPanel key={t.id} ticket={t} data={data} busy={busy} mutate={mutate} />
       )}
       <details className="complaint-extra-details">

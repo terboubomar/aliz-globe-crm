@@ -1,3 +1,4 @@
+import { hasFullAccess } from "@/lib/domain";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -64,7 +65,7 @@ export const googleSyncNow = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const a = await actor(context);
-    if (a.role !== "SUPER_ADMIN") throw new Error("متاح لمدير النظام فقط");
+    if (!hasFullAccess(a.role)) throw new Error("متاح لمدير النظام فقط");
     return (await google()).syncReviews();
   });
 

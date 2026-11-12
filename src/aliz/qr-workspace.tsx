@@ -1,3 +1,4 @@
+import { hasFullAccess } from "@/lib/domain";
 import { useCallback, useEffect, useState, FormEvent } from "react";
 import {
   Plus,
@@ -96,7 +97,7 @@ export function QRWorkspace({
             استقبال شكاوى العملاء متوقف: الرموز تعمل، لكن النموذج يعرض «الرابط غير متاح» حتى يفعّله
             المسؤول الأعلى من الإعدادات.
           </span>
-          {data.me.role === "SUPER_ADMIN" && onSettings && (
+          {hasFullAccess(data.me.role) && onSettings && (
             <button className="text-btn" onClick={onSettings}>
               فتح الإعدادات
             </button>

@@ -134,6 +134,13 @@
       "when": 1795737600000,
       "tag": "0018_it_app",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1795824000000,
+      "tag": "0019_executive_full_access",
+      "breakpoints": true
     }
   ]
 }
