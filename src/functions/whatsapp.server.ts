@@ -20,8 +20,7 @@ import type { Receipt } from "./tickets.server";
  */
 
 export type Template = "received" | "resolved" | "closed";
-type Spec = { name: string; text: string };
-export const TEMPLATES: Record<Template, Spec> = {
+export const TEMPLATES: Record<Template, { name: string; text: string }> = {
   received: {
     name: "aliz_complaint_received",
     text: "شكراً لتواصلك معنا، تم استلام طلبك رقم {{1}}.\nالعلامة: {{2}}\nالفرع: {{3}}\nوقت الاستلام: {{4}}\nالسبب: {{5}}\nرقم الطلب: {{6}}\nالتفاصيل: {{7}}\nتابع حالة طلبك من هنا:\n{{8}}\nشكراً لك.",
@@ -37,38 +36,6 @@ export const TEMPLATES: Record<Template, Spec> = {
 };
 
 const env = (k: string) => (process.env[k] ?? "").trim();
-
-/*
- * Newer templates with a «تابع طلبك» button instead of a link in the text. The
- * button's address is https://care.alizglobe.cloud/track/{{1}}, where {{1}} is
- * the complaint's private tracking code. Once Meta approves one and Bevatel has
- * synced it, it is used in place of the older template of the same kind.
- */
-export const TEMPLATES_V2: Record<Template, Spec & { button: string }> = {
-  received: {
-    name: "aliz_complaint_received_v2",
-    text: "شكراً لتواصلك معنا، تم استلام طلبك رقم {{1}}.\nالعلامة: {{2}}\nالفرع: {{3}}\nوقت الاستلام: {{4}}\nالسبب: {{5}}\nرقم الطلب: {{6}}\nالتفاصيل: {{7}}\nيمكنك متابعة حالة طلبك من الزر أدناه.",
-    button: "تابع طلبك",
-  },
-  resolved: {
-    name: "aliz_complaint_resolved_v2",
-    text: "تحديث على طلبك رقم {{1}} لدى {{2}}:\nتمت معالجة الطلب، وسيتواصل معك فريقنا للتأكد من رضاك.\nيسعدنا تقييم تجربتك من الزر أدناه.",
-    button: "تفاصيل الطلب والتقييم",
-  },
-  closed: {
-    name: "aliz_complaint_closed_v2",
-    text: "تم إغلاق طلبك رقم {{1}} لدى {{2}}.\nشكراً لتواصلك معنا، يسعدنا خدمتك دائماً.\nشاركنا رأيك في الخدمة من الزر أدناه.",
-    button: "قيّم الخدمة",
-  },
-};
-/** The part of the tracking link the button fills in: the code after /track/. */
-export const trackingCode = (trackingPath: string) =>
-  /^\/track\/([\w-]{1,200})$/.exec(trackingPath)?.[1] ?? "";
-/** The older templates' values without the link, which the button now carries. */
-export function withoutLink(template: Template, params: Record<string, string>) {
-  const drop = template === "received" ? "8" : template === "resolved" ? "3" : "";
-  return Object.fromEntries(Object.entries(params).filter(([k]) => k !== drop));
-}
 
 /** The WhatsApp inbox in Bevatel that this CRM reads and writes. */
 export const inboxId = () => Number(env("BEVATEL_INBOX_ID"));
@@ -141,11 +108,8 @@ export function templateParams(template: Template, r: Receipt) {
   return Object.fromEntries(values.map((v, i) => [String(i + 1), cleanParam(v)]));
 }
 
-export const renderTemplate = (
-  template: Template,
-  params: Record<string, string>,
-  spec: Spec = TEMPLATES[template],
-) => spec.text.replace(/\{\{(\d+)\}\}/g, (_, n: string) => params[n] ?? "-");
+export const renderTemplate = (template: Template, params: Record<string, string>) =>
+  TEMPLATES[template].text.replace(/\{\{(\d+)\}\}/g, (_, n: string) => params[n] ?? "-");
 
 /**
  * How template values are sent. "bevatel" is what Bevatel's own chat screen sends
@@ -167,16 +131,13 @@ export function messagePayload(
   params: Record<string, string>,
   format: SendFormat = DEFAULT_FORMAT,
   components: Record<string, unknown> = {},
-  /** The tracking code for the button of the newer template; the older template when absent. */
-  button?: string,
 ) {
   if (format === "text")
     return { content: renderTemplate(template, params), message_type: "outgoing" };
-  const spec = button ? TEMPLATES_V2[template] : TEMPLATES[template];
-  const base = { name: spec.name, category: "UTILITY", language: "ar" };
+  const base = { name: TEMPLATES[template].name, category: "UTILITY", language: "ar" };
   if (format === "bevatel")
     return {
-      content: renderTemplate(template, params, spec),
+      content: renderTemplate(template, params),
       message_type: "outgoing",
       template_params: {
         ...base,
@@ -187,7 +148,6 @@ export function messagePayload(
           header_location: {},
           body: params,
           flow_type: null,
-          ...(button ? { buttons: [{ type: "url", parameter: button }] } : {}),
         },
         components,
       },
@@ -207,7 +167,7 @@ let templateCache: { at: number; list: Json[] } | null = null;
 export const resetTemplateCache = () => {
   templateCache = null;
 };
-async function syncedTemplates(fetcher: typeof fetch) {
+async function templateComponents(fetcher: typeof fetch, template: Template) {
   if (!templateCache || Date.now() - templateCache.at > 10 * 60_000) {
     const inbox = await call(fetcher, "GET", `/inboxes/${env("BEVATEL_INBOX_ID")}`);
     const i = (inbox["payload"] ?? inbox) as Json;
@@ -216,23 +176,7 @@ async function syncedTemplates(fetcher: typeof fetch) {
       list: Array.isArray(i["message_templates"]) ? (i["message_templates"] as Json[]) : [],
     };
   }
-  return templateCache.list;
-}
-const componentsOf = (t: Json) =>
-  Object.fromEntries((t["components"] as unknown[]).map((c, n) => [String(n), c]));
-/** The newer button template's components, when Meta approved it and Bevatel synced it. */
-async function buttonTemplate(fetcher: typeof fetch, template: Template) {
-  const found = (await syncedTemplates(fetcher)).find(
-    (t) =>
-      t["name"] === TEMPLATES_V2[template].name &&
-      String(t["language"] ?? "ar") === "ar" &&
-      Array.isArray(t["components"]) &&
-      (t["status"] === undefined || /^approved$/i.test(String(t["status"]))),
-  );
-  return found ? componentsOf(found) : null;
-}
-async function templateComponents(fetcher: typeof fetch, template: Template) {
-  const found = (await syncedTemplates(fetcher)).find(
+  const found = templateCache.list.find(
     (t) => t["name"] === TEMPLATES[template].name && String(t["language"] ?? "ar") === "ar",
   );
   if (!found || !Array.isArray(found["components"]))
@@ -240,7 +184,7 @@ async function templateComponents(fetcher: typeof fetch, template: Template) {
       `القالب ${TEMPLATES[template].name} غير موجود في صندوق واتساب لدى Bevatel (زامن القوالب)`,
       null,
     );
-  return componentsOf(found);
+  return Object.fromEntries((found["components"] as unknown[]).map((c, n) => [String(n), c]));
 }
 
 export class BevatelError extends Error {
@@ -344,8 +288,6 @@ export async function sendToPhone(
   params: Record<string, string>,
   fetcher: typeof fetch = fetch,
   format: SendFormat = DEFAULT_FORMAT,
-  /** The complaint's tracking code, for the button of the newer templates. */
-  code = "",
 ): Promise<SendOutcome & { contactId?: string | undefined }> {
   let contactId: string | undefined;
   try {
@@ -356,15 +298,8 @@ export async function sendToPhone(
       .filter((c) => Number(c["inbox_id"]) === inbox)
       .sort((a, b) => Number(b["id"]) - Number(a["id"]));
     const open = convs.find((c) => c["status"] !== "resolved") ?? convs[0];
-    const v2 = format === "bevatel" && code ? await buttonTemplate(fetcher, template) : null;
-    const message = v2
-      ? messagePayload(template, withoutLink(template, params), format, v2, code)
-      : messagePayload(
-          template,
-          params,
-          format,
-          format === "bevatel" ? await templateComponents(fetcher, template) : {},
-        );
+    const components = format === "bevatel" ? await templateComponents(fetcher, template) : {};
+    const message = messagePayload(template, params, format, components);
     if (open) {
       const sent = await call(fetcher, "POST", `/conversations/${open["id"]}/messages`, message);
       return {
@@ -538,7 +473,6 @@ export async function sendForComplaint(
       params,
       fetcher,
       format,
-      trackingCode(receipt.trackingPath),
     );
     await log({
       complaintId,
@@ -596,15 +530,7 @@ export async function sendTest(
       response: null,
     };
   const params = SAMPLE_PARAMS(template);
-  const outcome = await sendToPhone(
-    phone,
-    "اختبار Portal",
-    template,
-    params,
-    fetcher,
-    format,
-    "sample",
-  );
+  const outcome = await sendToPhone(phone, "اختبار Portal", template, params, fetcher, format);
   const id = await log({
     complaintId: null,
     template,
