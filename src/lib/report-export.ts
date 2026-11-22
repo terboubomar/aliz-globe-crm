@@ -201,6 +201,7 @@ export const complaintSourceLabels: Record<string, string> = {
   PUBLIC_QR: "رمز QR",
   PHONE_AGENT: "اتصال هاتفي",
   GOOGLE_REVIEW: "تقييم Google",
+  WHATSAPP: "واتساب",
 };
 export const complaintPriorityLabels: Record<string, string> = {
   P1: "حرجة",

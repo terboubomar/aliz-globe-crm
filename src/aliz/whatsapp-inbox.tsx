@@ -20,6 +20,7 @@ import {
   type Staff,
 } from "./inbox-api";
 import { Empty } from "./ui";
+import { ChatComplaint } from "./whatsapp-complaint";
 import { n, type Data } from "./types";
 
 /*
@@ -61,7 +62,13 @@ function useEvery(ms: number, run: () => void, active = true) {
   }, [ms, run, active]);
 }
 
-export function WhatsappInbox({ data }: { data: Data }) {
+export function WhatsappInbox({
+  data,
+  onOpenTicket,
+}: {
+  data: Data;
+  onOpenTicket: (ticketId: string) => void;
+}) {
   const me = data.me.id,
     canAssign = data.permissions.includes("assign");
   const [filter, setFilter] = useState<InboxFilter>("open"),
@@ -237,6 +244,8 @@ export function WhatsappInbox({ data }: { data: Data }) {
             me={me}
             canAssign={canAssign}
             people={people}
+            data={data}
+            onOpenTicket={onOpenTicket}
             onBack={() => setOpenId(null)}
             onChanged={poll}
           />
@@ -257,6 +266,8 @@ function Chat({
   me,
   canAssign,
   people,
+  data,
+  onOpenTicket,
   onBack,
   onChanged,
 }: {
@@ -264,6 +275,8 @@ function Chat({
   me: string;
   canAssign: boolean;
   people: Staff[];
+  data: Data;
+  onOpenTicket: (ticketId: string) => void;
   onBack: () => void;
   onChanged: () => void;
 }) {
@@ -522,6 +535,15 @@ function Chat({
         })}
         <div ref={bottom} />
       </div>
+      {conv && (
+        <ChatComplaint
+          id={id}
+          data={data}
+          messages={messages}
+          lastCustomerId={[...messages].reverse().find((m) => m.kind === "customer")?.id ?? null}
+          onOpenTicket={onOpenTicket}
+        />
+      )}
       {error && (
         <div className="error wa-chat-error" role="alert">
           {error}

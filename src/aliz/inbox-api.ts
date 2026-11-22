@@ -1,14 +1,22 @@
 // The WhatsApp inbox's calls to the server (direct server functions).
 import {
   inboxAssign,
+  inboxComplaint,
   inboxConversation,
+  inboxRegisterComplaint,
   inboxList,
   inboxReply,
   inboxSetStatus,
 } from "@/functions/inbox.functions";
 import type { InboxConversation, InboxMessage, Staff } from "@/functions/inbox.server";
+import type { RegisterInput, Suggestion } from "@/functions/inbox-complaint.server";
 
-export type { InboxConversation, InboxMessage, Staff };
+export type { InboxConversation, InboxMessage, Staff, Suggestion };
+export type ComplaintState = {
+  ticket: { id: string; number: string } | null;
+  suggestion: Suggestion | null;
+  ai: boolean;
+};
 export type InboxFilter = "open" | "pending" | "resolved" | "all";
 
 const message = (e: unknown) => {
@@ -50,6 +58,13 @@ export const inboxApi = {
     ),
   reply: (id: string, text: string) =>
     call(() => inboxReply({ data: { id, text } }) as Promise<InboxMessage>),
+  complaint: (id: string) =>
+    call(() => inboxComplaint({ data: { id } }) as Promise<ComplaintState>),
+  registerComplaint: (input: RegisterInput & { id: string }) =>
+    call(
+      () =>
+        inboxRegisterComplaint({ data: input }) as Promise<{ id: string | null; number: string }>,
+    ),
   assign: (id: string, to: string | null) =>
     call(() => inboxAssign({ data: { id, to } }) as Promise<{ owner: string | null }>),
   setStatus: (id: string, status: "open" | "resolved") =>

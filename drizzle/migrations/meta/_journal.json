@@ -148,6 +148,13 @@
       "when": 1795910400000,
       "tag": "0020_whatsapp_assignments",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1795996800000,
+      "tag": "0021_whatsapp_complaints",
+      "breakpoints": true
     }
   ]
 }

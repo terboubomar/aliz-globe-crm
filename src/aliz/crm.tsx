@@ -1201,7 +1201,7 @@ export default function CRM() {
               )}
             </section>
           )}
-          {view === "inbox" && <WhatsappInbox data={data} />}
+          {view === "inbox" && <WhatsappInbox data={data} onOpenTicket={openTicket} />}
           {view === "schedule" && <ScheduleWorkspace data={data} mutate={mutate} busy={busy} />}
           {view === "qr-stats" && <QrStatsWorkspace data={data} brand={brand} />}
           {view === "maintenance" && (

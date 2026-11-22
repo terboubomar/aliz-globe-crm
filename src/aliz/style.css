@@ -10066,3 +10066,85 @@ th {
     justify-content: center;
   }
 }
+
+/* WhatsApp chat as a complaint: the AI suggestion or the registered complaint. */
+.wa-complaint {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+}
+.wa-complaint.quiet {
+  justify-content: space-between;
+  background: var(--paper);
+  color: var(--muted);
+}
+.wa-complaint.quiet span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.wa-complaint.suggest {
+  background: #fdf3e3;
+  color: var(--amber);
+}
+.wa-complaint.suggest > svg {
+  flex: none;
+}
+.wa-complaint-text {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+.wa-complaint-text b {
+  color: var(--ink);
+}
+.wa-complaint-text small {
+  color: var(--muted);
+  font-size: 12.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wa-complaint.suggest .primary {
+  flex: none;
+  min-height: 36px;
+}
+.wa-complaint.done {
+  background: #eef6f2;
+  color: var(--green);
+}
+.wa-complaint.done span {
+  flex: 1;
+  color: var(--ink);
+}
+.wa-ai-note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: #f4efe9;
+  color: var(--ink);
+  font-size: 13px;
+}
+.wa-ai-note.muted {
+  margin: 12px 0 0;
+  background: none;
+  padding: 0;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+@media (max-width: 760px) {
+  .wa-complaint.suggest {
+    flex-wrap: wrap;
+  }
+  .wa-complaint.suggest .primary {
+    width: 100%;
+    justify-content: center;
+  }
+}

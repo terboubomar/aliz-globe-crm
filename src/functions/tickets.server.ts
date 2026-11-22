@@ -39,20 +39,25 @@ export async function createTicketCore(
   key: string,
   publicQr?: { brandId: string; branchId: string; qrId: string },
   actor?: Actor,
+  // Registered by staff from a WhatsApp chat (the customer wrote to us there).
+  origin?: "WHATSAPP",
 ) {
+  const whatsapp = origin === "WHATSAPP";
   const body = ticketInput.parse(raw);
   if (!publicQr) {
     if (!actor) throw new DomainError("FORBIDDEN", 403, "غير مصرح");
     authorize(actor, "create", { brandId: body.brandId, branchId: body.branchId ?? null });
   }
   if (!key || key.length > 100) throw new DomainError("IDEMPOTENCY_REQUIRED", 400, "مفتاح الطلب مطلوب");
-  // Phone complaints: the agent fills in every field.
+  // Phone complaints: the agent fills in every field. From WhatsApp the order
+  // number and platform are optional (the customer may not have one), and the
+  // number may be foreign, so only Saudi mobiles are kept.
   if (!publicQr) {
     const missing = [
       !body.name?.trim() && "اسم العميل",
-      !body.phone && "رقم الجوال",
-      !body.externalOrder?.trim() && "رقم الطلب الخارجي",
-      !body.platform && "منصة الطلب",
+      !whatsapp && !body.phone && "رقم الجوال",
+      !whatsapp && !body.externalOrder?.trim() && "رقم الطلب الخارجي",
+      !whatsapp && !body.platform && "منصة الطلب",
       !body.receivedAt && "وقت استقبال الشكوى",
     ].filter(Boolean);
     if (missing.length)
@@ -106,14 +111,14 @@ export async function createTicketCore(
     number, brand: brand.name, branch: branchRow?.data?.name ?? "غير محدد",
     receivedAt: received.toISOString(), category: reasonLabel,
     description, customerName: body.name ?? "", externalOrder: body.externalOrder ?? "",
-    platform: body.platform ?? "", source: publicQr ? "QR" : "الهاتف", trackingPath: access ? "/track/" + access : "",
+    platform: body.platform ?? "", source: publicQr ? "QR" : whatsapp ? "واتساب" : "الهاتف", trackingPath: access ? "/track/" + access : "",
   };
   const receiptEnc = await encrypt(JSON.stringify(receipt));
   const response = { number, trackingToken: access, receipt, confirmationStatus: "NOT_REQUESTED" as string };
   const { data, error } = await db.rpc("create_ticket_tx", {
     p: {
       idem_key: idemKey, request_hash: requestHash, sequence: seq, brand_id: brandId, branch_id: branchId,
-      unknown_reason: branchId ? null : body.unknownReason, source: publicQr ? "PUBLIC_QR" : "PHONE_AGENT",
+      unknown_reason: branchId ? null : body.unknownReason, source: publicQr ? "PUBLIC_QR" : whatsapp ? "WHATSAPP" : "PHONE_AGENT",
       category: body.category, priority, description_enc: await encrypt(description),
       receipt_enc: receiptEnc,
       customer_enc: body.name || phone || email ? await encrypt(JSON.stringify({ name: body.name ?? "", phone, ...(email ? { email } : {}) })) : null,
@@ -121,7 +126,7 @@ export async function createTicketCore(
       external_order: body.externalOrder || null, platform: body.platform || null,
       communications_owner: publicQr ? "UNASSIGNED" : actorId, creator: publicQr ? "PUBLIC_QR" : actorId,
       received_at: received.toISOString(), sla_policy: policy, actor: actorId,
-      event_type: publicQr ? "QR_CREATED" : "PHONE_CREATED",
+      event_type: publicQr ? "QR_CREATED" : whatsapp ? "WHATSAPP_CREATED" : "PHONE_CREATED",
       timers: hasDeadlines(body.category) ? slaMilestones(priority, received, policy) : [],
       access_hash: access ? await keyedHash("track:" + access) : null,
       response_enc: await encrypt(JSON.stringify(response)),
