@@ -4,6 +4,8 @@
 // The screens keep their original markup and behaviour; only data access
 // changes here. Paths with no backend yet fail with a clear Arabic message.
 import { supabase } from "@/integrations/supabase/client";
+import type { ExportBook } from "@/lib/report-export";
+import { downloadBook, type ExportFormat } from "./export-download";
 import { passkeyMessage } from "@/lib/passkey-errors";
 import {
   complaintAction,
@@ -468,27 +470,24 @@ async function report(params: URLSearchParams) {
   };
 }
 
-/** CSV download for the reports page (masked, audited by the server). */
-export async function downloadReport(query: string) {
+/** Excel or CSV download for the reports page (no customer data; audited by the server). */
+export async function downloadReport(query: string, format: ExportFormat) {
   const q = Object.fromEntries(new URLSearchParams(query)) as Record<string, string>;
   const out = await runReport({
     data: {
       from: q["from"],
       to: q["to"],
       brandId: q["brandId"] || undefined,
+      branchId: q["branchId"] || undefined,
       source: (q["source"] || undefined) as never,
       priority: (q["priority"] || undefined) as never,
       kind: (q["kind"] || undefined) as never,
-      csv: true,
+      exportBook: true,
     },
   });
-  const csv = (out as { csv?: string }).csv ?? "";
-  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "aliz-complaints.csv";
-  a.click();
-  URL.revokeObjectURL(url);
+  const book = (out as { book?: ExportBook }).book;
+  if (!book) throw new Error("تعذر إعداد ملف التقرير");
+  downloadBook(book, format);
 }
 
 /** Short-lived signed link for a scanned photo; null while the scan is pending. */

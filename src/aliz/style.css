@@ -9482,3 +9482,10 @@ th {
     min-height: 44px;
   }
 }
+
+/* Report export: Excel (main) and CSV side by side. */
+.export-buttons {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}

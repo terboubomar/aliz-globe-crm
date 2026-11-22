@@ -1,17 +1,13 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { DomainError, authorize, inScope, permissionsForRole, safeCell, hasFullAccess } from "@/lib/domain";
+import { DomainError, authorize, inScope, permissionsForRole, hasFullAccess } from "@/lib/domain";
 import {
   MAINTENANCE_ACTIONS,
   MAINTENANCE_PRIORITIES,
   maintenanceActions,
   maintenanceAsksDetail,
-  maintenanceCategoryText,
-  maintenanceLate,
   maintenanceNumber,
-  maintenancePriorityLabels,
-  maintenanceStateLabels,
   maintenanceDeadlines,
   maintenanceTransition,
   toMaintenanceSettings,
@@ -74,7 +70,11 @@ const toRequest = (r: Row): MaintenanceRequest => ({
 
 async function loadSettings() {
   const db = await (await core()).admin();
-  const { data } = await db.from("app_settings").select("value").eq("key", "maintenance").maybeSingle();
+  const { data } = await db
+    .from("app_settings")
+    .select("value")
+    .eq("key", "maintenance")
+    .maybeSingle();
   return toMaintenanceSettings(data?.value);
 }
 
@@ -93,13 +93,19 @@ export const maintenanceBoard = createServerFn({ method: "POST" })
     if (data.status === "closed") q = q.in("state", ["CONFIRMED", "CANCELLED"]);
     const { data: rows, error } = await q.order("created_at", { ascending: false }).limit(500);
     if (error) throw new DomainError("LOAD_FAILED", 500, "تعذر تحميل طلبات الصيانة");
-    const staff = await c.staffDirectory(hasFullAccess(a.role) ? (await allBrands()) : a.brandIds);
+    const staff = await c.staffDirectory(hasFullAccess(a.role) ? await allBrands() : a.brandIds);
     return {
       requests: ((rows ?? []) as unknown as Row[]).map(toRequest),
       // Names for requesters and technicians; technicians are offered for assignment.
       people: staff
         .filter((u) => permissionsForRole(u.role).some((p) => p.startsWith("mnt.")))
-        .map((u) => ({ id: u.id, name: u.name, role: u.role, brandIds: u.brandIds, branchIds: u.branchIds })),
+        .map((u) => ({
+          id: u.id,
+          name: u.name,
+          role: u.role,
+          brandIds: u.brandIds,
+          branchIds: u.branchIds,
+        })),
       settings: await loadSettings(),
     };
   });
@@ -138,10 +144,24 @@ export const maintenanceDetail = createServerFn({ method: "POST" })
     ]);
     return {
       request: toRequest(row as unknown as Row),
-      events: ((events ?? []) as unknown as { id: string; type: string; actor: string; note: string | null; created_at: string }[]).map(
-        (e) => ({ id: e.id, type: e.type, actor: e.actor, note: e.note, createdAt: e.created_at }),
-      ),
-      photos: ((photos ?? []) as unknown as { id: string; stage: string; created_at: string }[]).map((p) => ({
+      events: (
+        (events ?? []) as unknown as {
+          id: string;
+          type: string;
+          actor: string;
+          note: string | null;
+          created_at: string;
+        }[]
+      ).map((e) => ({
+        id: e.id,
+        type: e.type,
+        actor: e.actor,
+        note: e.note,
+        createdAt: e.created_at,
+      })),
+      photos: (
+        (photos ?? []) as unknown as { id: string; stage: string; created_at: string }[]
+      ).map((p) => ({
         id: p.id,
         stage: p.stage as "BEFORE" | "AFTER",
         createdAt: p.created_at,
@@ -175,30 +195,35 @@ export const maintenanceCreate = createServerFn({ method: "POST" })
       .select("id,brand_id,active")
       .eq("id", data.branchId)
       .maybeSingle();
-    if (!branch || !branch.active) throw new DomainError("INVALID_BRANCH", 400, "الفرع غير موجود أو غير مفعل");
+    if (!branch || !branch.active)
+      throw new DomainError("INVALID_BRANCH", 400, "الفرع غير موجود أو غير مفعل");
     if (!inScope(a, { brandId: branch.brand_id, branchId: branch.id }))
       throw new DomainError("FORBIDDEN", 403, "هذا الفرع خارج نطاقك");
     const s = await loadSettings();
     const category = s.categories.find((x) => x.id === data.category && x.active);
-    if (!category) throw new DomainError("INVALID_CATEGORY", 400, "نوع العطل غير متاح؛ اختر من القائمة");
+    if (!category)
+      throw new DomainError("INVALID_CATEGORY", 400, "نوع العطل غير متاح؛ اختر من القائمة");
     const detail = maintenanceAsksDetail(category) ? data.categoryDetail.replace(/\s+/g, " ") : "";
     if (maintenanceAsksDetail(category) && detail.length < 3)
       throw new DomainError("DETAIL_REQUIRED", 400, "اكتب نوع العطل عند اختيار «أخرى»");
     const due = maintenanceDeadlines(data.priority, new Date(), s.sla);
-    const { data: res, error } = await db.rpc("maintenance_create_tx" as never, {
-      p: {
-        brand_id: branch.brand_id,
-        branch_id: branch.id,
-        category: data.category,
-        category_detail: detail,
-        priority: data.priority,
-        title: data.title,
-        description: data.description,
-        requester: a.id,
-        respond_due_at: due.respondDueAt,
-        fix_due_at: due.fixDueAt,
-      },
-    } as never);
+    const { data: res, error } = await db.rpc(
+      "maintenance_create_tx" as never,
+      {
+        p: {
+          brand_id: branch.brand_id,
+          branch_id: branch.id,
+          category: data.category,
+          category_detail: detail,
+          priority: data.priority,
+          title: data.title,
+          description: data.description,
+          requester: a.id,
+          respond_due_at: due.respondDueAt,
+          fix_due_at: due.fixDueAt,
+        },
+      } as never,
+    );
     c.rpcError(error);
     return res as unknown as { id: string; number: number };
   });
@@ -221,7 +246,11 @@ export const maintenanceAction = createServerFn({ method: "POST" })
     const c = await core();
     const a = await c.requireActor(context as never);
     const db = await c.admin();
-    const { data: row } = await db.from("maintenance_requests" as never).select("*").eq("id", data.id).maybeSingle();
+    const { data: row } = await db
+      .from("maintenance_requests" as never)
+      .select("*")
+      .eq("id", data.id)
+      .maybeSingle();
     if (!row) throw new DomainError("NOT_FOUND", 404, "الطلب غير موجود");
     const r = toRequest(row as unknown as Row);
     const permissions = permissionsForRole(a.role, a.financeDuty);
@@ -231,7 +260,11 @@ export const maintenanceAction = createServerFn({ method: "POST" })
     if (!visible || !maintenanceActions(r, { id: a.id, permissions }).includes(data.action))
       throw new DomainError("FORBIDDEN", 403, "لا يمكن تنفيذ هذا الإجراء على الطلب الآن");
     if ((data.action === "comment" || data.action === "reopen") && !data.note)
-      throw new DomainError("NOTE_REQUIRED", 400, data.action === "reopen" ? "اكتب سبب إعادة الفتح" : "اكتب الملاحظة");
+      throw new DomainError(
+        "NOTE_REQUIRED",
+        400,
+        data.action === "reopen" ? "اكتب سبب إعادة الفتح" : "اكتب الملاحظة",
+      );
     const patch: Record<string, unknown> = { ...maintenanceTransition(data.action, new Date()) };
     let note = data.note || null;
     if (data.action === "assign") {
@@ -259,14 +292,17 @@ export const maintenanceAction = createServerFn({ method: "POST" })
       if (r.state === "NEW") patch["state"] = "ASSIGNED";
       note = [tech.name, data.note].filter(Boolean).join(" — ");
     }
-    const { error } = await db.rpc("maintenance_action_tx" as never, {
-      _id: r.id,
-      _version: data.version,
-      p: patch,
-      _type: data.action.toUpperCase(),
-      _note: note,
-      _actor: a.id,
-    } as never);
+    const { error } = await db.rpc(
+      "maintenance_action_tx" as never,
+      {
+        _id: r.id,
+        _version: data.version,
+        p: patch,
+        _type: data.action.toUpperCase(),
+        _note: note,
+        _actor: a.id,
+      } as never,
+    );
     c.rpcError(error);
     return { ok: true };
   });
@@ -308,7 +344,8 @@ export const maintenancePhoto = createServerFn({ method: "POST" })
     if ((count ?? 0) >= MAX_PHOTOS)
       throw new DomainError("FILE_COUNT", 400, `الحد الأعلى ${MAX_PHOTOS} صور`);
     const raw = Uint8Array.from(atob(data.base64), (ch) => ch.charCodeAt(0));
-    if (raw.length > 8 * 1024 * 1024) throw new DomainError("TOO_LARGE", 400, "يسمح بصور حتى 8 ميغابايت");
+    if (raw.length > 8 * 1024 * 1024)
+      throw new DomainError("TOO_LARGE", 400, "يسمح بصور حتى 8 ميغابايت");
     const { cleanPhoto, putEvidence } = await import("./evidence.server");
     const bytes = cleanPhoto(raw);
     const key = `m/${data.id}/${crypto.randomUUID()}`;
@@ -386,7 +423,11 @@ export const maintenanceSaveSettings = createServerFn({ method: "POST" })
       .from("app_settings")
       .upsert({ key: "maintenance", value: data as never, updated_at: new Date().toISOString() });
     c.rpcError(error);
-    await db.rpc("write_audit", { _actor: a.id, _action: "MAINTENANCE_SETTINGS_UPDATED", _entity: "maintenance" });
+    await db.rpc("write_audit", {
+      _actor: a.id,
+      _action: "MAINTENANCE_SETTINGS_UPDATED",
+      _entity: "maintenance",
+    });
     return toMaintenanceSettings(data);
   });
 
@@ -396,7 +437,7 @@ const reportInput = z
     to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     brandId: z.string().max(100).optional(),
     branchId: z.string().uuid().optional(),
-    csv: z.boolean().default(false),
+    exportBook: z.boolean().default(false),
   })
   .refine(
     (v) => v.from <= v.to && (Date.parse(v.to) - Date.parse(v.from)) / 86400000 < 366,
@@ -405,7 +446,7 @@ const reportInput = z
 
 /**
  * Requests received in a period (Riyadh time), for the maintenance report.
- * With csv: one row per request, with the brand, branch name and branch code.
+ * With exportBook: the Excel/CSV export, named by brand, region, city and branch.
  */
 export const maintenanceReport = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -431,41 +472,55 @@ export const maintenanceReport = createServerFn({ method: "POST" })
       if (!data || data.length < 1000) break;
     }
     const requests = rows.map(toRequest);
-    if (!q.csv) return { requests, csv: null };
+    if (!q.exportBook) return { requests, book: null };
 
     const db = await c.admin();
-    const branchIds = [...new Set(requests.map((r) => r.branchId))];
     const [{ data: branches }, { data: brands }, people, settings] = await Promise.all([
-      db.from("branches").select("id,name,code,city").in("id", branchIds.length ? branchIds : ["00000000-0000-0000-0000-000000000000"]),
+      db.from("branches").select("id,name,code,city,region,brand_id"),
       db.from("brands").select("id,name"),
       c.staffDirectory(hasFullAccess(a.role) ? await allBrands() : a.brandIds),
       loadSettings(),
     ]);
-    const branchOf = (id: string) => branches?.find((b) => b.id === id);
-    const brandName = (id: string) => brands?.find((b) => b.id === id)?.name ?? id;
-    const person = (id: string | null) => (id ? (people.find((p) => p.id === id)?.name ?? "موظف") : "");
-    const riyadh = (iso: string | null) =>
-      iso ? new Date(+new Date(iso) + 3 * 3600000).toISOString().slice(0, 16).replace("T", " ") : "";
-    const hours = (from: string, to: string | null) =>
-      to ? ((+new Date(to) - +new Date(from)) / 3600000).toFixed(1) : "";
-    const header = [
-      "رقم الطلب", "العلامة", "الفرع", "رمز الفرع", "معرّف الفرع", "المدينة", "نوع العطل", "العنوان",
-      "الأولوية", "الحالة", "متأخر", "طلبه", "الفني", "تاريخ الطلب", "بدء العمل", "تم الإصلاح",
-      "تأكيد الفرع", "ساعات حتى الإصلاح", "مهلة الإصلاح",
-    ];
-    const lines = requests.map((r) => {
-      const b = branchOf(r.branchId);
-      const late = maintenanceLate(r);
-      const fixedLate = r.doneAt && r.fixDueAt && +new Date(r.doneAt) > +new Date(r.fixDueAt);
-      return [
-        maintenanceNumber(r.number), brandName(r.brandId), b?.name ?? "", b?.code ?? "", r.branchId, b?.city ?? "",
-        maintenanceCategoryText(r, settings.categories), r.title, maintenancePriorityLabels[r.priority],
-        maintenanceStateLabels[r.state], late || fixedLate ? "نعم" : "لا", person(r.requester), person(r.assignee),
-        riyadh(r.createdAt), riyadh(r.startedAt), riyadh(r.doneAt), riyadh(r.confirmedAt),
-        hours(r.createdAt, r.doneAt), riyadh(r.fixDueAt),
-      ];
+    const branchList = (
+      (branches ?? []) as {
+        id: string;
+        name: string;
+        code: string;
+        city: string;
+        region: string | null;
+        brand_id: string;
+      }[]
+    ).map((b) => ({
+      id: b.id,
+      name: b.name,
+      code: b.code,
+      city: b.city,
+      region: b.region,
+      brandId: b.brand_id,
+    }));
+    const brandName = (id: string | null) =>
+      id ? (brands?.find((b) => b.id === id)?.name ?? id) : "";
+    const { maintenanceBook } = await import("@/lib/report-export");
+    const book = maintenanceBook({
+      rows: requests,
+      branches: branchList,
+      brandName,
+      personName: (id) => (id ? (people.find((p) => p.id === id)?.name ?? "موظف") : ""),
+      categories: settings.categories,
+      numberOf: maintenanceNumber,
+      from: q.from,
+      to: q.to,
+      filters: {
+        ...(q.brandId ? { brand: brandName(q.brandId) } : {}),
+        ...(q.branchId
+          ? { branch: branchList.find((b) => b.id === q.branchId)?.name ?? "فرع" }
+          : {}),
+      },
     });
-    const csv = "\uFEFF" + [header, ...lines].map((row) => row.map(safeCell).join(",")).join("\r\n");
-    await db.rpc("write_audit", { _actor: a.id, _action: "MAINTENANCE_REPORT_EXPORTED", _entity: `${q.from}..${q.to}` });
-    return { requests, csv };
+    await db.rpc("write_audit", {
+      _actor: a.id,
+      _action: "MAINTENANCE_REPORT_EXPORTED",
+      _entity: `${q.from}..${q.to}`,
+    });
+    return { requests, book };
   });

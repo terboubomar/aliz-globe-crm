@@ -10,6 +10,7 @@ import {
   itSaveSettings,
 } from "@/functions/it.functions";
 import type { ItAction, ItPriority, ItSettings, ItTicket } from "@/lib/it";
+import type { ExportBook } from "@/lib/report-export";
 import { prepareImage } from "./prepare-image";
 
 export type ItPerson = { id: string; name: string; role: string };
@@ -77,14 +78,14 @@ export const itApi = {
     to: string;
     department?: string;
     branchId?: string;
-    csv?: boolean;
+    exportBook?: boolean;
   }) =>
     call(
       () =>
-        itReport({ data: { csv: false, ...input } }) as Promise<{
+        itReport({ data: { exportBook: false, ...input } }) as Promise<{
           tickets: ItTicket[];
           names: Record<string, string>;
-          csv: string | null;
+          book: ExportBook | null;
         }>,
     ),
   saveSettings: (s: ItSettings) => call(() => itSaveSettings({ data: s }) as Promise<ItSettings>),

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, BarChart3, CheckCircle2, Clock, Download, RefreshCw } from "lucide-react";
+import { AlertTriangle, BarChart3, CheckCircle2, Clock, RefreshCw } from "lucide-react";
+import { downloadBook, ExportButtons, type ExportFormat } from "./export-download";
 import { itPriorityLabels, itSummary, toItSettings, type ItTicket } from "@/lib/it";
 import { itApi } from "./it-api";
 import { reportDuration } from "./report-format";
@@ -29,7 +30,7 @@ export function ItReports({ data }: { data: Data }) {
     [names, setNames] = useState<Record<string, string>>({}),
     [settings, setSettings] = useState(toItSettings(null)),
     [loading, setLoading] = useState(true),
-    [exporting, setExporting] = useState(false),
+    [exporting, setExporting] = useState<ExportFormat | null>(null),
     [error, setError] = useState(""),
     [revision, setRevision] = useState(0);
   const branches = data.brands.flatMap((b) => b.branches.map((r) => ({ ...r, brandName: b.name })));
@@ -73,21 +74,17 @@ export function ItReports({ data }: { data: Data }) {
   const categoryName = (id: string) => settings.categories.find((c) => c.id === id)?.label ?? id;
   const departmentName = (id: string) => settings.departments.find((d) => d.id === id)?.label ?? id;
 
-  async function exportCsv() {
-    setExporting(true);
+  async function exportFile(format: ExportFormat) {
+    setExporting(format);
     setError("");
     try {
-      const r = await itApi.report({ ...query, csv: true });
-      const url = URL.createObjectURL(new Blob([r.csv ?? ""], { type: "text/csv;charset=utf-8" }));
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `aliz-it-${filters.from}-${filters.to}.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
+      const r = await itApi.report({ ...query, exportBook: true });
+      if (!r.book) throw new Error("تعذر إعداد ملف التقرير");
+      downloadBook(r.book, format);
     } catch (e) {
       setError((e as Error).message);
     } finally {
-      setExporting(false);
+      setExporting(null);
     }
   }
 
@@ -152,11 +149,7 @@ export function ItReports({ data }: { data: Data }) {
           <button className="text-btn" disabled={loading} onClick={() => setRevision((v) => v + 1)}>
             <RefreshCw size={15} /> تحديث
           </button>
-          {summary && !loading && (
-            <button className="secondary" disabled={exporting} onClick={exportCsv}>
-              <Download size={16} /> {exporting ? "جارٍ التصدير…" : "تصدير CSV"}
-            </button>
-          )}
+          {summary && !loading && <ExportButtons busy={exporting} onExport={exportFile} />}
         </div>
       </div>
       {error && (
