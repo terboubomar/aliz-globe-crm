@@ -35,6 +35,34 @@ export function pickAgent(candidates: Candidate[]) {
 }
 
 const OPEN = ["NEW", "TRIAGED", "ASSIGNED", "ACKNOWLEDGED", "IN_PROGRESS"];
+
+/** Who of these people is on shift right now (not on a break or a day off). */
+export async function onShiftNow(ids: string[], now = new Date()) {
+  if (!ids.length) return new Set<string>();
+  const db = await admin();
+  const iso = now.toISOString();
+  const { data: shifts } = await db
+    .from("shifts")
+    .select("user_id,break_start,break_end")
+    .in("user_id", ids)
+    .lte("start_at", iso)
+    .gt("end_at", iso)
+    .eq("day_off", false)
+    .is("cancelled_at", null);
+  return new Set(
+    (shifts ?? [])
+      .filter(
+        (s) =>
+          !(
+            s.break_start &&
+            s.break_end &&
+            +new Date(s.break_start) <= +now &&
+            +now < +new Date(s.break_end)
+          ),
+      )
+      .map((s) => s.user_id),
+  );
+}
 const WAITED_MS = 3 * 60_000;
 
 /** Assign a newly created complaint. Never throws: the complaint stays for a manager if this fails. */
@@ -71,38 +99,17 @@ export async function autoAssign(ticketId: string, now = new Date()) {
     );
     if (!eligible.length) return null;
     const ids = eligible.map((a) => a.user_id);
-    const iso = now.toISOString();
-    const [{ data: open }, { data: recent }, { data: shifts }] = await Promise.all([
+    const [{ data: open }, { data: recent }, working] = await Promise.all([
       db.from("tickets").select("resolution_owner").in("resolution_owner", ids).in("state", OPEN),
       db
         .from("tickets")
         .select("resolution_owner")
         .in("resolution_owner", ids)
         .gte("created_at", new Date(+now - 86400_000).toISOString()),
-      db
-        .from("shifts")
-        .select("user_id,break_start,break_end")
-        .in("user_id", ids)
-        .lte("start_at", iso)
-        .gt("end_at", iso)
-        .eq("day_off", false)
-        .is("cancelled_at", null),
+      onShiftNow(ids, now),
     ]);
     const count = (rows: { resolution_owner: string | null }[] | null, id: string) =>
       (rows ?? []).filter((r) => r.resolution_owner === id).length;
-    const working = new Set(
-      (shifts ?? [])
-        .filter(
-          (s) =>
-            !(
-              s.break_start &&
-              s.break_end &&
-              +new Date(s.break_start) <= +now &&
-              +now < +new Date(s.break_end)
-            ),
-        )
-        .map((s) => s.user_id),
-    );
     const chosen = pickAgent(
       eligible.map((a) => ({
         id: a.user_id,

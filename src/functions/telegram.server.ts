@@ -1,4 +1,11 @@
-import { DomainError, roleLabels, stateLabels, ticketNumber, type Actor, hasFullAccess } from "@/lib/domain";
+import {
+  DomainError,
+  roleLabels,
+  stateLabels,
+  ticketNumber,
+  type Actor,
+  hasFullAccess,
+} from "@/lib/domain";
 import { addDays, riyadhDay, riyadhISO, weekDays } from "@/aliz/schedule-time";
 import { word, type WordKey } from "@/lib/telegram-words";
 import { admin, rpcError, settings } from "./core.server";
@@ -461,6 +468,35 @@ export async function notifyAssigned(ticketId: string, ownerId: string) {
   }
 }
 
+/** Tells an agent that a WhatsApp conversation was assigned to them. Never throws. */
+export async function notifyWhatsappAssigned(
+  conversationId: string,
+  ownerId: string,
+  customer: string,
+) {
+  try {
+    if (!(await ready())) return;
+    const chat = await chatOf(ownerId);
+    if (!chat || !(await once(`WA_ASSIGNED:${conversationId}:${ownerId}`, ownerId))) return;
+    await send(
+      chat,
+      ["💬 <b>محادثة واتساب أُسندت إليك</b>", "", `العميل: ${esc(customer)}`].join("\n"),
+      {
+        inline_keyboard: [
+          [
+            {
+              text: "فتح المحادثة ↗",
+              url: `${origin()}/?view=inbox&chat=${encodeURIComponent(conversationId)}`,
+            },
+          ],
+        ],
+      },
+    );
+  } catch {
+    /* alerts must never break assignment */
+  }
+}
+
 /** Tells every linked super admin about a new complaint and who got it. Never throws. */
 export async function notifyNewComplaint(ticketId: string) {
   try {
@@ -560,7 +596,9 @@ export async function notifyRefundRequested(refundId: string) {
       const chat = await chatOf(m.user_id);
       if (chat && (await once(`REFUND:${refundId}:${m.user_id}`, refundId)))
         await send(chat, text, {
-          inline_keyboard: [[{ text: "فتح طلبات الاسترجاع ↗", url: `${origin()}/?view=it-refunds` }]],
+          inline_keyboard: [
+            [{ text: "فتح طلبات الاسترجاع ↗", url: `${origin()}/?view=it-refunds` }],
+          ],
         });
     }
   } catch {

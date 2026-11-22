@@ -68,3 +68,11 @@ shows for roles with the `contact` permission once WhatsApp is switched on.
 WhatsApp allows free replies only within 24 hours of the customer's last
 message; after that the reply box is replaced by a notice. Code:
 `src/functions/inbox.server.ts`, `src/aliz/whatsapp-inbox.tsx`.
+
+New WhatsApp chats are assigned automatically to an agent who is on shift
+(fewest open chats, then fewest in the last 24 hours, the same rule as
+complaints), while staff have the inbox open and by the every-few-minutes job.
+Chats wait when nobody is on shift. The owner is kept in
+`whatsapp_assignments` (chat id → staff member); shift leads reassign, agents
+can claim unassigned chats, and the new owner gets a Telegram alert. It follows
+the auto-assignment switch in Settings.

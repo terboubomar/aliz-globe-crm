@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { DomainError, authorize } from "@/lib/domain";
+import { DomainError, authorize, can } from "@/lib/domain";
 
 /*
  * The shared WhatsApp inbox: staff who contact customers read the WhatsApp
@@ -11,6 +11,9 @@ import { DomainError, authorize } from "@/lib/domain";
 const core = () => import("./core.server");
 const inbox = () => import("./inbox.server");
 const id = z.string().regex(/^\d{1,12}$/);
+// New chats are assigned while staff have the inbox open (at most every 30 s
+// per server) and by the every-few-minutes job.
+let lastAutoAssign = 0;
 
 async function staff(context: unknown) {
   const c = await core();
@@ -57,7 +60,21 @@ export const inboxList = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     await staff(context);
-    return bevatel(async () => (await inbox()).listConversations(data.status, data.page));
+    const i = await inbox();
+    if (
+      data.status !== "resolved" &&
+      data.status !== "pending" &&
+      Date.now() - lastAutoAssign > 30_000
+    ) {
+      lastAutoAssign = Date.now();
+      await i.assignNew();
+    }
+    const r = await bevatel(() => i.listConversations(data.status, data.page));
+    const [conversations, people] = await Promise.all([
+      i.withOwners(r.conversations),
+      i.inboxStaff(),
+    ]);
+    return { ...r, conversations, people };
   });
 
 export const inboxConversation = createServerFn({ method: "POST" })
@@ -65,7 +82,10 @@ export const inboxConversation = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ id, before: id.optional() }).parse(d))
   .handler(async ({ data, context }) => {
     await staff(context);
-    return bevatel(async () => (await inbox()).conversation(data.id, data.before ?? null));
+    const i = await inbox();
+    const r = await bevatel(() => i.conversation(data.id, data.before ?? null));
+    const [conversation] = await i.withOwners([r.conversation]);
+    return { ...r, conversation: conversation! };
   });
 
 export const inboxReply = createServerFn({ method: "POST" })
@@ -94,4 +114,30 @@ export const inboxSetStatus = createServerFn({ method: "POST" })
       _entity: data.id,
     });
     return { ok: true };
+  });
+
+/**
+ * Owner of a chat. Shift leads and managers (assign permission) give it to
+ * anyone who answers customers, or clear it; an agent can only take an
+ * unassigned chat for themselves.
+ */
+export const inboxAssign = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id, to: z.string().uuid().nullable() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { c, a } = await staff(context);
+    const i = await inbox();
+    if (!can(a, "assign")) {
+      const current = (await i.owners([data.id]))[data.id];
+      if (data.to !== a.id || (current && current !== a.id))
+        throw new DomainError("FORBIDDEN", 403, "يمكنك استلام المحادثات غير المسندة فقط");
+    }
+    const r = await bevatel(() => i.assignTo(data.id, data.to, a.id));
+    const db = await c.admin();
+    await db.rpc("write_audit", {
+      _actor: a.id,
+      _action: data.to ? "WHATSAPP_ASSIGNED" : "WHATSAPP_UNASSIGNED",
+      _entity: data.id,
+    });
+    return r;
   });

@@ -12,9 +12,15 @@ import {
   Search,
   Send,
 } from "lucide-react";
-import { inboxApi, type InboxConversation, type InboxFilter, type InboxMessage } from "./inbox-api";
+import {
+  inboxApi,
+  type InboxConversation,
+  type InboxFilter,
+  type InboxMessage,
+  type Staff,
+} from "./inbox-api";
 import { Empty } from "./ui";
-import { n } from "./types";
+import { n, type Data } from "./types";
 
 /*
  * The shared WhatsApp inbox: conversations from Bevatel on one side, the open
@@ -26,6 +32,12 @@ const FILTERS: { id: InboxFilter; label: string }[] = [
   { id: "pending", label: "بانتظار" },
   { id: "resolved", label: "محلولة" },
   { id: "all", label: "الكل" },
+];
+type Owner = "mine" | "unassigned" | "all";
+const OWNERS: { id: Owner; label: string }[] = [
+  { id: "mine", label: "محادثاتي" },
+  { id: "unassigned", label: "غير مسندة" },
+  { id: "all", label: "الجميع" },
 ];
 const riyadh = (iso: string, opts: Intl.DateTimeFormatOptions) =>
   new Intl.DateTimeFormat("ar-SA-u-nu-latn", {
@@ -49,11 +61,22 @@ function useEvery(ms: number, run: () => void, active = true) {
   }, [ms, run, active]);
 }
 
-export function WhatsappInbox() {
+export function WhatsappInbox({ data }: { data: Data }) {
+  const me = data.me.id,
+    canAssign = data.permissions.includes("assign");
   const [filter, setFilter] = useState<InboxFilter>("open"),
+    // Agents start with their own chats; leads and managers see everyone's.
+    [owner, setOwner] = useState<Owner>(canAssign ? "all" : "mine"),
     [list, setList] = useState<InboxConversation[] | null>(null),
+    [people, setPeople] = useState<Staff[]>([]),
     [search, setSearch] = useState(""),
-    [openId, setOpenId] = useState<string | null>(null),
+    // A Telegram alert links straight to its chat (?chat=…).
+    [openId, setOpenId] = useState<string | null>(() =>
+      typeof window === "undefined"
+        ? null
+        : (new URLSearchParams(window.location.search).get("chat")?.match(/^\d{1,12}$/)?.[0] ??
+          null),
+    ),
     [error, setError] = useState(""),
     [loading, setLoading] = useState(false);
 
@@ -63,6 +86,7 @@ export function WhatsappInbox() {
       try {
         const r = await inboxApi.list(filter);
         setList(r.conversations);
+        setPeople(r.people);
         setError("");
       } catch (e) {
         if (!quiet) setError((e as Error).message);
@@ -83,12 +107,20 @@ export function WhatsappInbox() {
     const q = search.trim();
     return (list ?? []).filter(
       (c) =>
-        !q ||
-        c.name.includes(q) ||
-        c.phone.replace(/\D/g, "").includes(q.replace(/\D/g, "") || "\u0000"),
+        (owner === "all" || (owner === "mine" ? c.owner === me : !c.owner)) &&
+        (!q ||
+          c.name.includes(q) ||
+          c.phone.replace(/\D/g, "").includes(q.replace(/\D/g, "") || "\u0000")),
     );
-  }, [list, search]);
-  const unread = (list ?? []).reduce((s, c) => s + (c.unread > 0 ? 1 : 0), 0);
+  }, [list, search, owner, me]);
+  const unread = (list ?? []).filter((c) => c.unread > 0 && c.owner === me).length;
+  const counts = {
+    mine: (list ?? []).filter((c) => c.owner === me).length,
+    unassigned: (list ?? []).filter((c) => !c.owner).length,
+    all: (list ?? []).length,
+  };
+  const nameOf = (id: string | null) =>
+    id ? (id === me ? "أنا" : (people.find((p) => p.id === id)?.name ?? "موظف")) : null;
 
   return (
     <div className={"wa-inbox" + (openId ? " chat-open" : "")}>
@@ -106,6 +138,20 @@ export function WhatsappInbox() {
               >
                 {f.label}
                 {f.id === filter && f.id === "open" && unread > 0 && <small>{n(unread)}</small>}
+              </button>
+            ))}
+          </div>
+          <div className="wa-owners" role="group" aria-label="المسؤول">
+            {OWNERS.map((o) => (
+              <button
+                key={o.id}
+                type="button"
+                aria-pressed={owner === o.id}
+                className={owner === o.id ? "active" : ""}
+                onClick={() => setOwner(o.id)}
+              >
+                {o.label}
+                {list && <small>{n(counts[o.id])}</small>}
               </button>
             ))}
           </div>
@@ -167,6 +213,11 @@ export function WhatsappInbox() {
                     <Lock size={13} className="wa-locked" aria-label="انتهت نافذة الرد" />
                   )}
                 </span>
+                {owner !== "mine" && (
+                  <span className={"wa-owner" + (c.owner ? "" : " none")}>
+                    {c.owner ? "مع " + nameOf(c.owner) : "غير مسندة"}
+                  </span>
+                )}
               </span>
             </button>
           ))}
@@ -180,7 +231,15 @@ export function WhatsappInbox() {
       </section>
       <section className="wa-chat" aria-label="المحادثة">
         {openId ? (
-          <Chat key={openId} id={openId} onBack={() => setOpenId(null)} onChanged={poll} />
+          <Chat
+            key={openId}
+            id={openId}
+            me={me}
+            canAssign={canAssign}
+            people={people}
+            onBack={() => setOpenId(null)}
+            onChanged={poll}
+          />
         ) : (
           <div className="wa-chat-empty">
             <MessageCircle size={40} strokeWidth={1.5} aria-hidden="true" />
@@ -195,10 +254,16 @@ export function WhatsappInbox() {
 
 function Chat({
   id,
+  me,
+  canAssign,
+  people,
   onBack,
   onChanged,
 }: {
   id: string;
+  me: string;
+  canAssign: boolean;
+  people: Staff[];
   onBack: () => void;
   onChanged: () => void;
 }) {
@@ -275,6 +340,19 @@ function Chat({
       setSending(false);
     }
   }
+  async function assign(to: string | null) {
+    setBusy(true);
+    setError("");
+    try {
+      const r = await inboxApi.assign(id, to);
+      setConv((c) => (c ? { ...c, owner: r.owner } : c));
+      onChanged();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
   async function toggle() {
     if (!conv) return;
     setBusy(true);
@@ -308,6 +386,32 @@ function Chat({
           <b dir="auto">{conv?.name ?? "…"}</b>
           {conv?.phone && <small dir="ltr">{conv.phone}</small>}
         </div>
+        {conv &&
+          (canAssign ? (
+            <label className="wa-assign">
+              <span>المسؤول</span>
+              <select
+                value={conv.owner ?? ""}
+                disabled={busy}
+                onChange={(e) => assign(e.target.value || null)}
+              >
+                <option value="">غير مسندة</option>
+                {people.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.id === me ? p.name + " (أنا)" : p.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : !conv.owner ? (
+            <button type="button" className="secondary" disabled={busy} onClick={() => assign(me)}>
+              استلام المحادثة
+            </button>
+          ) : conv.owner !== me ? (
+            <span className="wa-owner-tag">
+              مع {people.find((p) => p.id === conv.owner)?.name ?? "موظف"}
+            </span>
+          ) : null)}
         {conv && (
           <button
             type="button"

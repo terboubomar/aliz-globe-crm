@@ -58,6 +58,7 @@ describe("reading conversations", () => {
       lastText: "الطلب وصل بارد",
       lastFromCustomer: true,
       assignee: null,
+      owner: null,
     });
   });
 
