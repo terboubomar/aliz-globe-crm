@@ -123,6 +123,18 @@ button do not work through Bevatel: neither its API nor its own chat screen pass
 button value, and Meta rejects the message with `(#131008) Required parameter is missing`
 (tested 22/11/2026).
 
+`aliz_complaint_closed_rating` (closing message with the rating link; replaces
+`aliz_complaint_closed` once Meta approves it and Bevatel has synced it)
+
+```
+تم إغلاق طلبك رقم {{1}} لدى {{2}}.
+شكراً لتواصلك معنا، يسعدنا تقييم تجربتك من الرابط:
+{{3}}
+رأيك يساعدنا على خدمتك بشكل أفضل.
+```
+
+Samples: `AG-2026-000123`, `برجر واقف`, `https://care.alizglobe.cloud/track/sample`.
+
 ### Secrets for Bevatel
 
 | Secret | What it is |

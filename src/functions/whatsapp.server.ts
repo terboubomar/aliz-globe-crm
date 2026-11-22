@@ -37,6 +37,16 @@ export const TEMPLATES: Record<Template, { name: string; text: string }> = {
 
 const env = (k: string) => (process.env[k] ?? "").trim();
 
+/*
+ * The closing message with the tracking link, where the customer rates the service.
+ * Once Meta approves it and Bevatel has synced it, it replaces aliz_complaint_closed
+ * (which has no link). Until then the older closing message goes out.
+ */
+export const CLOSED_RATING = {
+  name: "aliz_complaint_closed_rating",
+  text: "تم إغلاق طلبك رقم {{1}} لدى {{2}}.\nشكراً لتواصلك معنا، يسعدنا تقييم تجربتك من الرابط:\n{{3}}\nرأيك يساعدنا على خدمتك بشكل أفضل.",
+};
+
 /** The WhatsApp inbox in Bevatel that this CRM reads and writes. */
 export const inboxId = () => Number(env("BEVATEL_INBOX_ID"));
 
@@ -108,8 +118,11 @@ export function templateParams(template: Template, r: Receipt) {
   return Object.fromEntries(values.map((v, i) => [String(i + 1), cleanParam(v)]));
 }
 
-export const renderTemplate = (template: Template, params: Record<string, string>) =>
-  TEMPLATES[template].text.replace(/\{\{(\d+)\}\}/g, (_, n: string) => params[n] ?? "-");
+export const renderTemplate = (
+  template: Template,
+  params: Record<string, string>,
+  spec: { text: string } = TEMPLATES[template],
+) => spec.text.replace(/\{\{(\d+)\}\}/g, (_, n: string) => params[n] ?? "-");
 
 /**
  * How template values are sent. "bevatel" is what Bevatel's own chat screen sends
@@ -131,13 +144,14 @@ export function messagePayload(
   params: Record<string, string>,
   format: SendFormat = DEFAULT_FORMAT,
   components: Record<string, unknown> = {},
+  spec: { name: string; text: string } = TEMPLATES[template],
 ) {
   if (format === "text")
-    return { content: renderTemplate(template, params), message_type: "outgoing" };
-  const base = { name: TEMPLATES[template].name, category: "UTILITY", language: "ar" };
+    return { content: renderTemplate(template, params, spec), message_type: "outgoing" };
+  const base = { name: spec.name, category: "UTILITY", language: "ar" };
   if (format === "bevatel")
     return {
-      content: renderTemplate(template, params),
+      content: renderTemplate(template, params, spec),
       message_type: "outgoing",
       template_params: {
         ...base,
@@ -167,7 +181,7 @@ let templateCache: { at: number; list: Json[] } | null = null;
 export const resetTemplateCache = () => {
   templateCache = null;
 };
-async function templateComponents(fetcher: typeof fetch, template: Template) {
+async function syncedTemplates(fetcher: typeof fetch) {
   if (!templateCache || Date.now() - templateCache.at > 10 * 60_000) {
     const inbox = await call(fetcher, "GET", `/inboxes/${env("BEVATEL_INBOX_ID")}`);
     const i = (inbox["payload"] ?? inbox) as Json;
@@ -176,7 +190,23 @@ async function templateComponents(fetcher: typeof fetch, template: Template) {
       list: Array.isArray(i["message_templates"]) ? (i["message_templates"] as Json[]) : [],
     };
   }
-  const found = templateCache.list.find(
+  return templateCache.list;
+}
+/** The closing-with-link template's components, once Meta approved it and Bevatel synced it. */
+async function closedRatingComponents(fetcher: typeof fetch) {
+  const found = (await syncedTemplates(fetcher)).find(
+    (t) =>
+      t["name"] === CLOSED_RATING.name &&
+      String(t["language"] ?? "ar") === "ar" &&
+      Array.isArray(t["components"]) &&
+      (t["status"] === undefined || /^approved$/i.test(String(t["status"]))),
+  );
+  return found
+    ? Object.fromEntries((found["components"] as unknown[]).map((c, n) => [String(n), c]))
+    : null;
+}
+async function templateComponents(fetcher: typeof fetch, template: Template) {
+  const found = (await syncedTemplates(fetcher)).find(
     (t) => t["name"] === TEMPLATES[template].name && String(t["language"] ?? "ar") === "ar",
   );
   if (!found || !Array.isArray(found["components"]))
@@ -288,6 +318,8 @@ export async function sendToPhone(
   params: Record<string, string>,
   fetcher: typeof fetch = fetch,
   format: SendFormat = DEFAULT_FORMAT,
+  /** The tracking link, for the closing message with the rating link. */
+  link = "",
 ): Promise<SendOutcome & { contactId?: string | undefined }> {
   let contactId: string | undefined;
   try {
@@ -298,8 +330,24 @@ export async function sendToPhone(
       .filter((c) => Number(c["inbox_id"]) === inbox)
       .sort((a, b) => Number(b["id"]) - Number(a["id"]));
     const open = convs.find((c) => c["status"] !== "resolved") ?? convs[0];
-    const components = format === "bevatel" ? await templateComponents(fetcher, template) : {};
-    const message = messagePayload(template, params, format, components);
+    const rating =
+      template === "closed" && link && format === "bevatel"
+        ? await closedRatingComponents(fetcher)
+        : null;
+    const message = rating
+      ? messagePayload(
+          template,
+          { ...params, "3": cleanParam(link) },
+          format,
+          rating,
+          CLOSED_RATING,
+        )
+      : messagePayload(
+          template,
+          params,
+          format,
+          format === "bevatel" ? await templateComponents(fetcher, template) : {},
+        );
     if (open) {
       const sent = await call(fetcher, "POST", `/conversations/${open["id"]}/messages`, message);
       return {
@@ -473,6 +521,7 @@ export async function sendForComplaint(
       params,
       fetcher,
       format,
+      receipt.trackingPath ? new URL(receipt.trackingPath, origin()).toString() : "",
     );
     await log({
       complaintId,
@@ -530,7 +579,15 @@ export async function sendTest(
       response: null,
     };
   const params = SAMPLE_PARAMS(template);
-  const outcome = await sendToPhone(phone, "اختبار Portal", template, params, fetcher, format);
+  const outcome = await sendToPhone(
+    phone,
+    "اختبار Portal",
+    template,
+    params,
+    fetcher,
+    format,
+    new URL("/track/sample", origin()).toString(),
+  );
   const id = await log({
     complaintId: null,
     template,
