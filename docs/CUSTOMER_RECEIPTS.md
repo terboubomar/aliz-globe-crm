@@ -118,6 +118,11 @@ Samples: `AG-2026-000123`, `برجر واقف`, `برجر واقف - الدما�
 شكراً لتواصلك معنا، يسعدنا خدمتك دائماً.
 ```
 
+Keep the tracking link in the text (`{{8}}` / `{{3}}`). Templates with a dynamic URL
+button do not work through Bevatel: neither its API nor its own chat screen passes the
+button value, and Meta rejects the message with `(#131008) Required parameter is missing`
+(tested 22/11/2026).
+
 ### Secrets for Bevatel
 
 | Secret | What it is |
