@@ -69,7 +69,7 @@ export const inboxList = createServerFn({ method: "POST" })
       lastAutoAssign = Date.now();
       await i.assignNew();
     }
-    const r = await bevatel(() => i.listConversations(data.status, data.page));
+    const r = await bevatel(() => i.listMany(data.status, data.page));
     const [conversations, people] = await Promise.all([
       i.withOwners(r.conversations),
       i.inboxStaff(),

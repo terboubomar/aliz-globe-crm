@@ -44,6 +44,7 @@ export const inboxApi = {
         inboxList({ data: { status, page } }) as Promise<{
           conversations: InboxConversation[];
           total: number;
+          nextPage: number | null;
           people: Staff[];
         }>,
     ),

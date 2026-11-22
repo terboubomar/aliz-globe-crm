@@ -75,6 +75,32 @@ describe("reading conversations", () => {
     expect(calls[0]!.url).toContain("status=open");
   });
 
+  it("reads every page, not only Bevatel's first 10 chats", async () => {
+    const { listMany } = await inbox();
+    const page = (from: number, n: number) => ({
+      data: {
+        meta: { all_count: 23 },
+        payload: Array.from({ length: n }, (_, i) => conv({ id: from + i })),
+      },
+    });
+    const q = (p: number) =>
+      `GET /conversations?inbox_id=7&status=open&assignee_type=all&page=${p}`;
+    const { fetcher, calls } = fakeBevatel({
+      [q(1)]: page(1, 10),
+      // A chat that moved down while reading shows once.
+      [q(2)]: page(10, 10),
+      [q(3)]: page(20, 3),
+    });
+    const r = await listMany("open", 1, fetcher);
+    expect(r.conversations).toHaveLength(22);
+    expect(new Set(r.conversations.map((c) => c.id)).size).toBe(22);
+    expect(r.nextPage).toBeNull();
+    expect(calls).toHaveLength(3);
+
+    const capped = await listMany("open", 1, fetcher, 2);
+    expect(capped.nextPage).toBe(3);
+  });
+
   it("never opens a conversation from another inbox", async () => {
     const { conversation } = await inbox();
     const { fetcher } = fakeBevatel({ "GET /conversations/42": conv({ id: 42, inbox_id: 99 }) });

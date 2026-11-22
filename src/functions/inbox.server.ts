@@ -102,7 +102,7 @@ export function toMessage(m: Json): InboxMessage {
   };
 }
 
-/** Conversations of the WhatsApp inbox, latest activity first (25 per page). */
+/** One page of conversations of the WhatsApp inbox, latest activity first (Bevatel sets the page size). */
 export async function listConversations(
   status: InboxStatus | "all",
   page: number,
@@ -121,6 +121,37 @@ export async function listConversations(
     .map(toConversation);
   const meta = (data["meta"] ?? {}) as Json;
   return { conversations: list, total: Number(meta["all_count"] ?? list.length) || list.length };
+}
+
+/**
+ * Several pages at once, from `fromPage`, until Bevatel has no more or `maxPages`
+ * were read. `nextPage` is where to continue, or null when everything is loaded.
+ * Chats that move between pages while reading are kept once.
+ */
+export async function listMany(
+  status: InboxStatus | "all",
+  fromPage: number,
+  fetcher: typeof fetch = fetch,
+  maxPages = 10,
+) {
+  const out: InboxConversation[] = [];
+  const seen = new Set<string>();
+  let total = 0,
+    size = 0;
+  for (let page = fromPage; page < fromPage + maxPages; page++) {
+    const r = await listConversations(status, page, fetcher);
+    total = r.total;
+    if (!r.conversations.length) return { conversations: out, total, nextPage: null };
+    size ||= r.conversations.length;
+    for (const c of r.conversations)
+      if (!seen.has(c.id)) {
+        seen.add(c.id);
+        out.push(c);
+      }
+    if (r.conversations.length < size || page * size >= total)
+      return { conversations: out, total, nextPage: null };
+  }
+  return { conversations: out, total, nextPage: fromPage + maxPages };
 }
 
 /** Throws unless the conversation belongs to the configured WhatsApp inbox. */
@@ -228,12 +259,7 @@ export async function withOwners<T extends { id: string; owner: string | null }>
 export async function assignNew(fetcher: typeof fetch = fetch, now = new Date()) {
   try {
     if (!(await settings()).autoAssign) return 0;
-    const open: InboxConversation[] = [];
-    for (let page = 1; page <= 4; page++) {
-      const r = await listConversations("open", page, fetcher);
-      open.push(...r.conversations);
-      if (r.conversations.length < 25) break;
-    }
+    const { conversations: open } = await listMany("open", 1, fetcher, 20);
     const owned = await owners(open.map((c) => c.id));
     const waiting = open
       .filter((c) => !owned[c.id])
