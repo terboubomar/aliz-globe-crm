@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import {
-  DomainError, assignableRoles, authorize, can, financeDuties, inScope, overlaps, safeCell, stateLabels, ticketNumber,
+  DomainError, assignableRoles, authorize, can, financeDuties, inScope, overlaps, ticketNumber,
   hasFullAccess,
 } from "@/lib/domain";
 
@@ -407,11 +407,13 @@ const reportInput = z.object({
   from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   brandId: z.string().optional(),
+  branchId: z.string().uuid().optional(),
   source: z.enum(["PUBLIC_QR", "PHONE_AGENT", "GOOGLE_REVIEW"]).optional(),
   priority: z.enum(["P1", "P2", "P3"]).optional(),
   // Complaints and customer suggestions are reported apart; "all" shows both.
   kind: z.enum(["complaint", "suggestion", "all"]).default("complaint"),
-  csv: z.boolean().default(false),
+  // The Excel/CSV export: one row per complaint, named by brand, region and branch.
+  exportBook: z.boolean().default(false),
 }).refine((v) => v.from <= v.to && (Date.parse(v.to) - Date.parse(v.from)) / 86400000 < 366, "اختر فترة لا تتجاوز 366 يوماً.");
 
 export const runReport = createServerFn({ method: "POST" })
@@ -423,12 +425,13 @@ export const runReport = createServerFn({ method: "POST" })
     authorize(a, "report");
     const start = new Date(q.from + "T00:00:00+03:00").toISOString();
     const end = new Date(Date.parse(q.to + "T00:00:00+03:00") + 86400000).toISOString();
-    type Row = { sequence: number; created_at: string; brand_id: string; branch_id: string | null; state: string; source: string; category: string; priority: string; escalated: boolean; received_at: string; closed_at: string | null };
+    type Row = { sequence: number; created_at: string; brand_id: string; branch_id: string | null; state: string; source: string; category: string; priority: string; escalated: boolean; platform: string | null; communications_owner: string; received_at: string; closed_at: string | null };
     const rows: Row[] = [];
     // Page through the whole scoped dataset so totals are never capped by the 1000-row API limit.
     for (let off = 0; ; off += 1000) {
-      let qb = context.supabase.from("tickets").select("sequence,created_at,brand_id,branch_id,state,source,category,priority,escalated,received_at,closed_at").gte("received_at", start).lt("received_at", end);
+      let qb = context.supabase.from("tickets").select("sequence,created_at,brand_id,branch_id,state,source,category,priority,escalated,platform,communications_owner,received_at,closed_at").gte("received_at", start).lt("received_at", end);
       if (q.brandId) qb = qb.eq("brand_id", q.brandId);
+      if (q.branchId) qb = qb.eq("branch_id", q.branchId);
       if (q.source) qb = qb.eq("source", q.source);
       if (q.priority) qb = qb.eq("priority", q.priority);
       if (q.kind === "complaint") qb = qb.neq("category", "SUGGESTION");
@@ -439,13 +442,41 @@ export const runReport = createServerFn({ method: "POST" })
       if (!data || data.length < 1000) break;
     }
     const db = await c.admin();
-    if (q.csv) {
-      await db.rpc("write_audit", { _actor: a.id, _action: "MASKED_CSV_EXPORTED", _entity: q.brandId ?? "SCOPED" });
-      const lists = await c.catalog();
-      const reasonOf = (id: string) => lists.categories.find((x) => x.id === id)?.label ?? id;
-      const header = ["رقم البلاغ", "العلامة", "الفرع", "الحالة", "الأولوية", "المصدر", "التصنيف", "وقت الاستقبال (UTC)"];
-      const csv = "\uFEFF" + [header, ...rows.map((r) => [ticketNumber(r.sequence, r.created_at), r.brand_id, r.branch_id ?? "غير معروف", stateLabels[r.state] ?? r.state, r.priority, r.source, reasonOf(String(r.category)), r.received_at])].map((row) => row.map(safeCell).join(",")).join("\r\n");
-      return { csv };
+    if (q.exportBook) {
+      await db.rpc("write_audit", { _actor: a.id, _action: "MASKED_CSV_EXPORTED", _entity: q.branchId ?? q.brandId ?? "SCOPED" });
+      const brandIds = [...new Set(rows.map((r) => r.brand_id))];
+      const [lists, { data: brands }, { data: branches }, staff] = await Promise.all([
+        c.catalog(),
+        db.from("brands").select("id,name"),
+        db.from("branches").select("id,name,code,city,region,brand_id"),
+        c.staffDirectory(hasFullAccess(a.role) ? (brandIds.length ? brandIds : a.brandIds) : a.brandIds),
+      ]);
+      const brandName = (id: string | null) => (id ? (brands ?? []).find((b) => b.id === id)?.name ?? id : "");
+      const branchList = ((branches ?? []) as { id: string; name: string; code: string; city: string; region: string | null; brand_id: string }[]).map((b) => ({
+        id: b.id, name: b.name, code: b.code, city: b.city, region: b.region, brandId: b.brand_id,
+      }));
+      const { complaintsBook } = await import("@/lib/report-export");
+      const book = complaintsBook({
+        rows: rows.map((r) => ({
+          number: ticketNumber(r.sequence, r.created_at), brandId: r.brand_id, branchId: r.branch_id, state: r.state, source: r.source,
+          category: String(r.category), priority: r.priority, escalated: !!r.escalated, platform: r.platform, owner: r.communications_owner,
+          receivedAt: r.received_at, closedAt: r.closed_at,
+        })),
+        branches: branchList,
+        brandName,
+        personName: (id) => staff.find((u) => u.id === id)?.name ?? "موظف سابق",
+        reasonOf: (id) => lists.categories.find((x) => x.id === id)?.label ?? id,
+        from: q.from,
+        to: q.to,
+        kind: q.kind,
+        filters: {
+          ...(q.brandId ? { brand: brandName(q.brandId) } : {}),
+          ...(q.branchId ? { branch: branchList.find((b) => b.id === q.branchId)?.name ?? "فرع" } : {}),
+          ...(q.source ? { source: q.source } : {}),
+          ...(q.priority ? { priority: q.priority } : {}),
+        },
+      });
+      return { book };
     }
     const count = <K extends keyof Row>(k: K) => rows.reduce<Record<string, number>>((m, r) => ((m[String(r[k] ?? "—")] = (m[String(r[k] ?? "—")] ?? 0) + 1), m), {});
     const durations = rows.filter((r) => r.state === "CLOSED" && r.closed_at && +new Date(r.closed_at) >= +new Date(r.received_at)).map((r) => (+new Date(r.closed_at!) - +new Date(r.received_at)) / 3600000).sort((x, y) => x - y);

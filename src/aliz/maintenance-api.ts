@@ -16,6 +16,7 @@ import type {
   MaintenanceRequest,
   MaintenanceSettings,
 } from "@/lib/maintenance";
+import type { ExportBook } from "@/lib/report-export";
 import { prepareImage } from "./prepare-image";
 
 export type MaintenancePerson = {
@@ -95,13 +96,13 @@ export const maintenanceApi = {
     to: string;
     brandId?: string;
     branchId?: string;
-    csv?: boolean;
+    exportBook?: boolean;
   }) =>
     call(
       () =>
-        maintenanceReport({ data: { csv: false, ...input } }) as Promise<{
+        maintenanceReport({ data: { exportBook: false, ...input } }) as Promise<{
           requests: MaintenanceRequest[];
-          csv: string | null;
+          book: ExportBook | null;
         }>,
     ),
   saveSettings: (s: MaintenanceSettings) =>

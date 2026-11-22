@@ -1,18 +1,20 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { DomainError, authorize, permissionsForRole, safeCell, type Actor, hasFullAccess } from "@/lib/domain";
+import {
+  DomainError,
+  authorize,
+  permissionsForRole,
+  type Actor,
+  hasFullAccess,
+} from "@/lib/domain";
 import {
   IT_ACTIONS,
   IT_PRIORITIES,
   itActions,
   itAsksDetail,
-  itCategoryText,
   itDeadlines,
-  itLate,
   itNumber,
-  itPriorityLabels,
-  itStateLabels,
   itTransition,
   toItSettings,
   type ItTicket,
@@ -434,7 +436,7 @@ const reportInput = z
     to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     department: z.string().max(40).optional(),
     branchId: z.string().uuid().optional(),
-    csv: z.boolean().default(false),
+    exportBook: z.boolean().default(false),
   })
   .refine(
     (v) => v.from <= v.to && (Date.parse(v.to) - Date.parse(v.from)) / 86400000 < 366,
@@ -476,80 +478,57 @@ export const itReport = createServerFn({ method: "POST" })
         .filter((p) => tickets.some((t) => t.requester === p.id || t.assignee === p.id))
         .map((p) => [p.id, p.name]),
     );
-    if (!q.csv) return { tickets, names, csv: null };
+    if (!q.exportBook) return { tickets, names, book: null };
 
-    const branchIds = [...new Set(tickets.map((t) => t.branchId).filter(Boolean))] as string[];
     const [{ data: branches }, { data: brands }, settings] = await Promise.all([
-      db
-        .from("branches")
-        .select("id,name,code,city")
-        .in("id", branchIds.length ? branchIds : ["00000000-0000-0000-0000-000000000000"]),
+      db.from("branches").select("id,name,code,city,region,brand_id"),
       db.from("brands").select("id,name"),
       loadSettings(),
     ]);
-    const branchOf = (id: string | null) => (id ? branches?.find((b) => b.id === id) : undefined);
-    const brandName = (id: string | null) =>
-      id ? (brands?.find((b) => b.id === id)?.name ?? id) : "";
-    const department = (id: string) => settings.departments.find((d) => d.id === id)?.label ?? id;
-    const person = (id: string | null) => (id ? (names[id] ?? "موظف") : "");
-    const riyadh = (iso: string | null) =>
-      iso
-        ? new Date(+new Date(iso) + 3 * 3600000).toISOString().slice(0, 16).replace("T", " ")
-        : "";
-    const hours = (from: string, to: string | null) =>
-      to ? ((+new Date(to) - +new Date(from)) / 3600000).toFixed(1) : "";
-    const header = [
-      "رقم التذكرة",
-      "القسم",
-      "العلامة",
-      "الفرع",
-      "رمز الفرع",
-      "معرّف الفرع",
-      "نوع المشكلة",
-      "العنوان",
-      "الأولوية",
-      "الحالة",
-      "متأخرة",
-      "مقدم الطلب",
-      "المختص",
-      "تاريخ الفتح",
-      "بدء العمل",
-      "تم الحل",
-      "تأكيد مقدم الطلب",
-      "ساعات حتى الحل",
-      "مهلة الحل",
-    ];
-    const lines = tickets.map((t) => {
-      const b = branchOf(t.branchId);
-      const late = itLate(t);
-      const solvedLate = t.doneAt && t.fixDueAt && +new Date(t.doneAt) > +new Date(t.fixDueAt);
-      return [
-        itNumber(t.number),
-        department(t.department),
-        brandName(t.brandId),
-        b?.name ?? "",
-        b?.code ?? "",
-        t.branchId ?? "",
-        itCategoryText(t, settings.categories),
-        t.title,
-        itPriorityLabels[t.priority],
-        itStateLabels[t.state],
-        late || solvedLate ? "نعم" : "لا",
-        person(t.requester),
-        person(t.assignee),
-        riyadh(t.createdAt),
-        riyadh(t.startedAt),
-        riyadh(t.doneAt),
-        riyadh(t.confirmedAt),
-        hours(t.createdAt, t.doneAt),
-        riyadh(t.fixDueAt),
-      ];
+    const branchList = (
+      (branches ?? []) as {
+        id: string;
+        name: string;
+        code: string;
+        city: string;
+        region: string | null;
+        brand_id: string;
+      }[]
+    ).map((b) => ({
+      id: b.id,
+      name: b.name,
+      code: b.code,
+      city: b.city,
+      region: b.region,
+      brandId: b.brand_id,
+    }));
+    const { itBook } = await import("@/lib/report-export");
+    const book = itBook({
+      rows: tickets,
+      branches: branchList,
+      brandName: (id) => (id ? (brands?.find((b) => b.id === id)?.name ?? id) : ""),
+      personName: (id) => (id ? (names[id] ?? "موظف") : ""),
+      categories: settings.categories,
+      departments: settings.departments,
+      numberOf: itNumber,
+      from: q.from,
+      to: q.to,
+      filters: {
+        ...(q.department
+          ? {
+              department:
+                settings.departments.find((d) => d.id === q.department)?.label ?? q.department,
+            }
+          : {}),
+        ...(q.branchId
+          ? { branch: branchList.find((b) => b.id === q.branchId)?.name ?? "فرع" }
+          : {}),
+      },
     });
-    const csv = "﻿" + [header, ...lines].map((row) => row.map(safeCell).join(",")).join("\r\n");
     await db.rpc("write_audit", {
       _actor: a.id,
       _action: "IT_REPORT_EXPORTED",
       _entity: `${q.from}..${q.to}`,
     });
-    return { tickets, names, csv };
+    return { tickets, names, book };
   });

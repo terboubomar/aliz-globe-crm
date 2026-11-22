@@ -47,3 +47,12 @@ The super admin, CEO and owner have every permission in every brand and branch
 (`hasFullAccess` in `src/lib/domain.ts`; the database rules match in migration
 `0019_executive_full_access.sql`). Every other role is limited to its own
 rights and scope.
+
+## Report exports
+
+The complaints, Maintenance and IT reports export to Excel (`.xlsx`) or CSV.
+The Excel file has a summary sheet (filters, totals, and breakdowns by brand,
+region, branch, reason or type, and person) and a detail sheet with one row
+per item, named by brand, region, city, branch and branch code. Built in
+`src/lib/report-export.ts` with the small writer in `src/lib/xlsx.ts` (no
+dependency). Customer personal data is never included.

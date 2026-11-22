@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { Download, RefreshCw, BarChart3, CheckCircle2, Clock, AlertTriangle } from "lucide-react";
+import { RefreshCw, BarChart3, CheckCircle2, Clock, AlertTriangle } from "lucide-react";
 import { api, categories, Data, n, states, date } from "./types";
 import type { ReportResult } from "./report-aggregate";
 import { downloadReport } from "./adapter";
+import { ExportButtons, type ExportFormat } from "./export-download";
 import { Empty, Field } from "./ui";
 import { reportDuration } from "./report-format";
 import { addDays, riyadhDay } from "./schedule-time";
@@ -43,7 +44,8 @@ export function ReportsWorkspace({
     [loading, setLoading] = useState(true),
     [error, setError] = useState(""),
     [revision, setRevision] = useState(0),
-    [preset, setPreset] = useState("30");
+    [preset, setPreset] = useState("30"),
+    [exporting, setExporting] = useState<ExportFormat | null>(null);
   const branches = data.brands
     .filter((b) => brand === "all" || b.id === brand)
     .flatMap((b) => b.branches.map((r) => ({ ...r, brandName: b.name })));
@@ -200,16 +202,15 @@ export function ReportsWorkspace({
             <RefreshCw size={15} /> تحديث
           </button>
           {report && !loading && !error && (
-            <a
-              className="secondary"
-              href="#export"
-              onClick={(e) => {
-                e.preventDefault();
-                downloadReport(query).catch((err: Error) => setError(err.message));
+            <ExportButtons
+              busy={exporting}
+              onExport={(format) => {
+                setExporting(format);
+                downloadReport(query, format)
+                  .catch((err: Error) => setError(err.message))
+                  .finally(() => setExporting(null));
               }}
-            >
-              <Download size={16} /> تصدير CSV
-            </a>
+            />
           )}
         </div>
       </div>

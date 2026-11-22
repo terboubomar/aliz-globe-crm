@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, BarChart3, CheckCircle2, Clock, Download, RefreshCw } from "lucide-react";
+import { AlertTriangle, BarChart3, CheckCircle2, Clock, RefreshCw } from "lucide-react";
+import { downloadBook, ExportButtons, type ExportFormat } from "./export-download";
 import {
   maintenancePriorityLabels,
   maintenanceSummary,
@@ -28,7 +29,7 @@ export function MaintenanceReports({ data, brand }: { data: Data; brand: string 
     [categories, setCategories] = useState(toMaintenanceSettings(null).categories),
     [people, setPeople] = useState<{ id: string; name: string }[]>([]),
     [loading, setLoading] = useState(true),
-    [exporting, setExporting] = useState(false),
+    [exporting, setExporting] = useState<ExportFormat | null>(null),
     [error, setError] = useState(""),
     [revision, setRevision] = useState(0);
   const branches = data.brands
@@ -77,21 +78,17 @@ export function MaintenanceReports({ data, brand }: { data: Data; brand: string 
         "موظف");
   const categoryName = (id: string) => categories.find((c) => c.id === id)?.label ?? id;
 
-  async function exportCsv() {
-    setExporting(true);
+  async function exportFile(format: ExportFormat) {
+    setExporting(format);
     setError("");
     try {
-      const r = await maintenanceApi.report({ ...query, csv: true });
-      const url = URL.createObjectURL(new Blob([r.csv ?? ""], { type: "text/csv;charset=utf-8" }));
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `aliz-maintenance-${filters.from}-${filters.to}.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
+      const r = await maintenanceApi.report({ ...query, exportBook: true });
+      if (!r.book) throw new Error("تعذر إعداد ملف التقرير");
+      downloadBook(r.book, format);
     } catch (e) {
       setError((e as Error).message);
     } finally {
-      setExporting(false);
+      setExporting(null);
     }
   }
 
@@ -149,11 +146,7 @@ export function MaintenanceReports({ data, brand }: { data: Data; brand: string 
           <button className="text-btn" disabled={loading} onClick={() => setRevision((v) => v + 1)}>
             <RefreshCw size={15} /> تحديث
           </button>
-          {summary && !loading && (
-            <button className="secondary" disabled={exporting} onClick={exportCsv}>
-              <Download size={16} /> {exporting ? "جارٍ التصدير…" : "تصدير CSV"}
-            </button>
-          )}
+          {summary && !loading && <ExportButtons busy={exporting} onExport={exportFile} />}
         </div>
       </div>
       {error && (
