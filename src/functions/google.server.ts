@@ -1,4 +1,13 @@
-import { DomainError, can, inScope, slaMilestones, ticketNumber, type Actor, hasFullAccess } from "@/lib/domain";
+import { appOrigin } from "./origin.server";
+import {
+  DomainError,
+  can,
+  inScope,
+  slaMilestones,
+  ticketNumber,
+  type Actor,
+  hasFullAccess,
+} from "@/lib/domain";
 import {
   aiMessages,
   cleanAi,
@@ -34,7 +43,7 @@ import { decrypt, encrypt, keyedHash, randomToken, sha256 } from "./crypto.serve
  *
  * Secrets (set in the project's secrets, never in code): GOOGLE_CLIENT_ID,
  * GOOGLE_CLIENT_SECRET. The callback address is PUBLIC_APP_ORIGIN (default
- * https://alizglobecrm.lovable.app) + /api/public/google/callback. Optional AI drafts use LOVABLE_API_KEY.
+ * https://care.alizglobe.cloud) + /api/public/google/callback. Optional AI drafts use LOVABLE_API_KEY.
  */
 
 const env = (k: string) => process.env[k] ?? "";
@@ -51,15 +60,8 @@ const AI_MODEL = "google/gemini-2.5-flash";
 type Token = { refresh: string; connectedAt: string; by: string; account?: string };
 type SyncState = { at: string; error: string | null; created: number; replied: number };
 
-/** The CRM's public address; the live lovable.app address unless PUBLIC_APP_ORIGIN says otherwise. */
-function origin() {
-  try {
-    const u = new URL(env("PUBLIC_APP_ORIGIN") || "https://alizglobecrm.lovable.app");
-    return u.protocol === "https:" && !u.username ? u.origin : "";
-  } catch {
-    return "";
-  }
-}
+/** The CRM's public address (care.alizglobe.cloud unless PUBLIC_APP_ORIGIN says otherwise). */
+const origin = appOrigin;
 export const redirectUri = () => origin() + "/api/public/google/callback";
 
 export function missingConfig() {
@@ -664,9 +666,7 @@ export async function listReviews(
   const { data, error } = await q;
   rpcError(error);
   const rows = ((data ?? []) as ReviewRow[]).filter((r) =>
-    r.brand_id
-      ? inScope(a, { brandId: r.brand_id, branchId: r.branch_id })
-      : hasFullAccess(a.role),
+    r.brand_id ? inScope(a, { brandId: r.brand_id, branchId: r.branch_id }) : hasFullAccess(a.role),
   );
   const ids = rows.map((r) => r.ticket_id).filter(Boolean) as string[];
   const { data: tickets } = ids.length

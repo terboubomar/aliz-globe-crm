@@ -1,5 +1,6 @@
 // Server-only: WhatsApp to customers through Bevatel, a Chatwoot-based inbox.
 // Import dynamically from handlers. Never called from the browser.
+import { appOrigin, CRM_ORIGIN } from "./origin.server";
 import { admin, settings } from "./core.server";
 import { decrypt, encrypt } from "./crypto.server";
 import type { Receipt } from "./tickets.server";
@@ -35,7 +36,6 @@ export const TEMPLATES: Record<Template, { name: string; text: string }> = {
 };
 
 const env = (k: string) => (process.env[k] ?? "").trim();
-const DEFAULT_ORIGIN = "https://alizglobecrm.lovable.app";
 
 /** The WhatsApp inbox in Bevatel that this CRM reads and writes. */
 export const inboxId = () => Number(env("BEVATEL_INBOX_ID"));
@@ -57,14 +57,7 @@ export function missingBevatel(forAutomatic: boolean) {
 }
 
 const baseUrl = () => (env("BEVATEL_BASE_URL") || "https://chat.bevatel.com").replace(/\/+$/, "");
-function origin() {
-  try {
-    const u = new URL(env("PUBLIC_APP_ORIGIN") || DEFAULT_ORIGIN);
-    return u.protocol === "https:" ? u.origin : DEFAULT_ORIGIN;
-  } catch {
-    return DEFAULT_ORIGIN;
-  }
-}
+const origin = () => appOrigin() || CRM_ORIGIN;
 
 /** +9665XXXXXXXX, or "" when the number is not a Saudi mobile. */
 export function saudiE164(raw: string) {

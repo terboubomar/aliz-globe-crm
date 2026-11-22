@@ -19,7 +19,7 @@ There are two ways to bring Google reviews into the CRM. They can run side by si
 ## 2. Full version (Business Profile API), needs Google's approval
 
 - Secrets: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`. Callback:
-  `https://alizglobecrm.lovable.app/api/public/google/callback` (or `PUBLIC_APP_ORIGIN`).
+  `https://care.alizglobe.cloud/api/public/google/callback` (or `PUBLIC_APP_ORIGIN`).
 - Google must approve Business Profile API access for the Cloud project (days to weeks).
 - Then: «ربط حساب Google», link branches to locations, and set star rules. All reviews
   are fetched every few minutes; low-star reviews become complaints and are answered
