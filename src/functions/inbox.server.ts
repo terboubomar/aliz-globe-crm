@@ -138,18 +138,18 @@ export async function listMany(
   const seen = new Set<string>();
   let total = 0,
     size = 0;
+  // Bevatel's counts are not reliable, so read on until a page is short or brings nothing new.
   for (let page = fromPage; page < fromPage + maxPages; page++) {
     const r = await listConversations(status, page, fetcher);
-    total = r.total;
-    if (!r.conversations.length) return { conversations: out, total, nextPage: null };
+    total = Math.max(r.total, total);
     size ||= r.conversations.length;
-    for (const c of r.conversations)
-      if (!seen.has(c.id)) {
-        seen.add(c.id);
-        out.push(c);
-      }
-    if (r.conversations.length < size || page * size >= total)
-      return { conversations: out, total, nextPage: null };
+    const fresh = r.conversations.filter((c) => !seen.has(c.id));
+    for (const c of fresh) {
+      seen.add(c.id);
+      out.push(c);
+    }
+    if (!fresh.length || r.conversations.length < size)
+      return { conversations: out, total: Math.max(total, out.length), nextPage: null };
   }
   return { conversations: out, total, nextPage: fromPage + maxPages };
 }

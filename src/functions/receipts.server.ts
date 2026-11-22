@@ -1,3 +1,4 @@
+import { appOrigin } from "./origin.server";
 import { normalizePhone } from "@/lib/domain";
 import { receiptTime } from "@/aliz/complaint-receipt";
 import { admin, settings } from "./core.server";
@@ -37,20 +38,12 @@ const env = (k: string) => process.env[k] ?? "";
 /** Messages a customer can get on WhatsApp for one complaint. */
 export type WhatsAppEvent = "received" | "resolved" | "closed";
 export const provider = () => (env("BEVATEL_API_TOKEN") ? "bevatel" : "meta");
-function publicOrigin() {
-  try {
-    const u = new URL(env("PUBLIC_APP_ORIGIN"));
-    const local = ["localhost", "127.0.0.1", "[::1]"].includes(u.hostname);
-    return u.protocol === "https:" && !local && !u.username && !u.password ? u.origin : "";
-  } catch {
-    return "";
-  }
-}
+const publicOrigin = appOrigin;
 
 /** What is still missing before a channel can send. Names only, never values. */
 export function missingConfig(channel: Channel) {
   const missing: string[] = [];
-  // Bevatel builds its own tracking links (PUBLIC_APP_ORIGIN or the lovable.app address).
+  // Bevatel builds its own tracking links (PUBLIC_APP_ORIGIN or care.alizglobe.cloud).
   if (channel === "whatsapp" && provider() === "bevatel") return missingBevatel(true);
   if (!publicOrigin()) missing.push("PUBLIC_HTTPS_APP_ORIGIN");
   if (channel === "whatsapp") {

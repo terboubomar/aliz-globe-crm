@@ -127,7 +127,7 @@ Samples: `AG-2026-000123`, `برجر واقف`, `برجر واقف - الدما�
 | `BEVATEL_ACCOUNT_ID` | The number after `/accounts/` in the Bevatel address |
 | `BEVATEL_INBOX_ID` | The WhatsApp inbox id (Settings → Inboxes) |
 | `WHATSAPP_TEMPLATE_APPROVED` | `true`, once Meta approved the three templates |
-| `PUBLIC_APP_ORIGIN` | Optional: the CRM address for tracking links (default `https://alizglobecrm.lovable.app`) |
+| `PUBLIC_APP_ORIGIN` | Optional: the CRM address for links (default `https://care.alizglobe.cloud`; an old lovable.app value is ignored) |
 
 ## Secrets to add in Lovable Cloud (Project → Cloud → Secrets)
 

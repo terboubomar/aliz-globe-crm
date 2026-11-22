@@ -1,3 +1,4 @@
+import { appOrigin } from "./origin.server";
 import {
   DomainError,
   roleLabels,
@@ -49,18 +50,7 @@ const TZ = "Asia/Riyadh";
 const SUPER = "SUPER_ADMIN";
 const OPEN = ["NEW", "TRIAGED", "ASSIGNED", "ACKNOWLEDGED", "IN_PROGRESS"];
 
-function origin() {
-  try {
-    const u = new URL(env("PUBLIC_APP_ORIGIN"));
-    return u.protocol === "https:" &&
-      !["localhost", "127.0.0.1", "[::1]"].includes(u.hostname) &&
-      !u.username
-      ? u.origin
-      : "";
-  } catch {
-    return "";
-  }
-}
+const origin = appOrigin;
 
 export function missingConfig() {
   const missing: string[] = [];
@@ -490,7 +480,8 @@ export async function notifyLowRating(ticketId: string, score: number, comment: 
     ].join("\n");
     for (const p of people ?? []) {
       const chat = await chatOf(p.user_id);
-      if (!chat || !(await once(`LOW_RATING:${ticketId}:${score}:${p.user_id}`, ticketId))) continue;
+      if (!chat || !(await once(`LOW_RATING:${ticketId}:${score}:${p.user_id}`, ticketId)))
+        continue;
       await send(chat, text, ticketButtons(info, false));
     }
   } catch {

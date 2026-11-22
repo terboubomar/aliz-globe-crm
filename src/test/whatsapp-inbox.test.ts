@@ -93,12 +93,45 @@ describe("reading conversations", () => {
     });
     const r = await listMany("open", 1, fetcher);
     expect(r.conversations).toHaveLength(22);
+    expect(r.nextPage).toBeNull();
     expect(new Set(r.conversations.map((c) => c.id)).size).toBe(22);
     expect(r.nextPage).toBeNull();
     expect(calls).toHaveLength(3);
 
     const capped = await listMany("open", 1, fetcher, 2);
     expect(capped.nextPage).toBe(3);
+  });
+
+  it("keeps reading when Bevatel reports a count of only one page", async () => {
+    const { listMany } = await inbox();
+    const page = (from: number, n: number) => ({
+      data: {
+        meta: { all_count: 10 },
+        payload: Array.from({ length: n }, (_, i) => conv({ id: from + i })),
+      },
+    });
+    const q = (p: number) =>
+      `GET /conversations?inbox_id=7&status=open&assignee_type=all&page=${p}`;
+    const { fetcher } = fakeBevatel({
+      [q(1)]: page(1, 10),
+      [q(2)]: page(11, 10),
+      [q(3)]: page(21, 4),
+    });
+    const r = await listMany("open", 1, fetcher);
+    expect(r.conversations).toHaveLength(24);
+    expect(r.total).toBe(24);
+  });
+
+  it("stops when Bevatel ignores the page number", async () => {
+    const { listMany } = await inbox();
+    const { fetcher, calls } = fakeBevatel({
+      "GET /conversations?": {
+        data: { payload: Array.from({ length: 10 }, (_, i) => conv({ id: i + 1 })) },
+      },
+    });
+    const r = await listMany("open", 1, fetcher);
+    expect(r.conversations).toHaveLength(10);
+    expect(calls).toHaveLength(2);
   });
 
   it("never opens a conversation from another inbox", async () => {
