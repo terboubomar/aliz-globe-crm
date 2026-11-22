@@ -37,6 +37,9 @@ export const TEMPLATES: Record<Template, { name: string; text: string }> = {
 const env = (k: string) => (process.env[k] ?? "").trim();
 const DEFAULT_ORIGIN = "https://alizglobecrm.lovable.app";
 
+/** The WhatsApp inbox in Bevatel that this CRM reads and writes. */
+export const inboxId = () => Number(env("BEVATEL_INBOX_ID"));
+
 export function bevatelConfigured() {
   return !!env("BEVATEL_API_TOKEN");
 }
@@ -191,7 +194,7 @@ async function templateComponents(fetcher: typeof fetch, template: Template) {
   return Object.fromEntries((found["components"] as unknown[]).map((c, n) => [String(n), c]));
 }
 
-class BevatelError extends Error {
+export class BevatelError extends Error {
   constructor(
     message: string,
     public response: unknown,
@@ -200,8 +203,9 @@ class BevatelError extends Error {
   }
 }
 
-type Json = Record<string, unknown>;
-async function call(fetcher: typeof fetch, method: string, path: string, body?: unknown) {
+export type Json = Record<string, unknown>;
+/** One call to Bevatel's Chatwoot API for this account. */
+export async function call(fetcher: typeof fetch, method: string, path: string, body?: unknown) {
   const res = await fetcher(`${baseUrl()}/api/v1/accounts/${env("BEVATEL_ACCOUNT_ID")}${path}`, {
     method,
     headers: {
@@ -223,7 +227,7 @@ async function call(fetcher: typeof fetch, method: string, path: string, body?: 
   return json as Json;
 }
 /** Chatwoot wraps most replies in `payload`; take the list or the object inside. */
-const listIn = (j: Json) =>
+export const listIn = (j: Json) =>
   (Array.isArray(j["payload"]) ? j["payload"] : Array.isArray(j) ? j : []) as Json[];
 const digits = (s: unknown) => String(s ?? "").replace(/\D/g, "");
 

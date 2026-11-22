@@ -4,6 +4,7 @@ import { WhatsAppLog } from "./whatsapp-log";
 import {
   LayoutDashboard,
   LayoutGrid,
+  MessageCircle,
   Ticket as TicketIcon,
   Wallet,
   Users,
@@ -89,6 +90,7 @@ import { ItReports } from "./it-reports";
 import { QrStatsWorkspace } from "./qr-stats-workspace";
 import { AppLauncher } from "./app-launcher";
 import { GroupDashboard } from "./group-dashboard";
+import { WhatsappInbox } from "./whatsapp-inbox";
 import { AgentWorkspace } from "./agent-workspace";
 import { agentInvolved } from "./workflow";
 import { ScheduleWorkspace } from "./schedule-workspace";
@@ -108,6 +110,7 @@ import { AccessError } from "./adapter";
 const navigation = [
   { id: "overview", label: "نظرة عامة", icon: LayoutDashboard },
   { id: "tickets", label: "الشكاوى", icon: TicketIcon },
+  { id: "inbox", label: "واتساب العملاء", icon: MessageCircle },
   { id: "refunds", label: "الاسترجاع والإلغاء", icon: Wallet },
   { id: "branches", label: "العلامات والفروع", icon: Building2 },
   { id: "qr", label: "رموز QR", icon: QrCode },
@@ -461,6 +464,7 @@ export default function CRM() {
     "hub",
     "overview",
     "tickets",
+    "inbox",
     "refunds",
     "tasks",
     "schedule",
@@ -569,6 +573,7 @@ export default function CRM() {
               items: [
                 "overview",
                 "tickets",
+                "inbox",
                 "refunds",
                 "customers",
                 "reviews",
@@ -839,7 +844,7 @@ export default function CRM() {
             </div>
           </div>
 
-          {!["reports", "settings"].includes(view) &&
+          {!["reports", "settings", "inbox"].includes(view) &&
             !onHub &&
             appOf(view) === "cs" &&
             data.ticketCount > data.tickets.length && (
@@ -862,7 +867,7 @@ export default function CRM() {
               </button>
             </div>
           )}
-          {view !== "settings" && (
+          {view !== "settings" && view !== "inbox" && (
             <div className="scope-toolbar">
               {view !== "schedule" && (
                 <div className="scope-select">
@@ -1196,6 +1201,7 @@ export default function CRM() {
               )}
             </section>
           )}
+          {view === "inbox" && <WhatsappInbox />}
           {view === "schedule" && <ScheduleWorkspace data={data} mutate={mutate} busy={busy} />}
           {view === "qr-stats" && <QrStatsWorkspace data={data} brand={brand} />}
           {view === "maintenance" && (
