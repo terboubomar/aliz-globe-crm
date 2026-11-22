@@ -141,3 +141,47 @@ export const inboxAssign = createServerFn({ method: "POST" })
     });
     return r;
   });
+
+/** The complaint registered from this chat, or the AI's suggestion for it. */
+export const inboxComplaint = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id }).parse(d))
+  .handler(async ({ data, context }) => {
+    await staff(context);
+    const ic = await import("./inbox-complaint.server");
+    return bevatel(() => ic.suggestionFor(data.id));
+  });
+
+/** Registers the chat as a complaint (the agent has checked brand, branch and reason). */
+export const inboxRegisterComplaint = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        id,
+        brandId: z.string().min(1).max(40),
+        branchId: z.string().uuid().nullable(),
+        unknownReason: z.string().trim().max(300).optional(),
+        category: z.string().regex(/^[A-Z][A-Z0-9_]{1,39}$/, "اختر سبب الشكوى"),
+        otherDetail: z.string().trim().max(120).optional(),
+        priority: z.enum(["P1", "P2", "P3"]),
+        description: z.string().trim().max(4000),
+        externalOrder: z.string().trim().max(100).optional(),
+        platform: z.string().trim().max(80).optional(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { c, a } = await staff(context);
+    authorize(a, "create");
+    const { id: chat, ...input } = data;
+    const ic = await import("./inbox-complaint.server");
+    const ticket = await bevatel(() => ic.register(chat, input, a));
+    const db = await c.admin();
+    await db.rpc("write_audit", {
+      _actor: a.id,
+      _action: "WHATSAPP_COMPLAINT_REGISTERED",
+      _entity: chat,
+    });
+    return ticket;
+  });

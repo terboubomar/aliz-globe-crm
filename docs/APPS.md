@@ -76,3 +76,18 @@ Chats wait when nobody is on shift. The owner is kept in
 `whatsapp_assignments` (chat id → staff member); shift leads reassign, agents
 can claim unassigned chats, and the new owner gets a Telegram alert. It follows
 the auto-assignment switch in Settings.
+
+### WhatsApp chat → complaint
+
+When an agent opens a chat, AI (Lovable AI, `LOVABLE_API_KEY`) reads the
+customer and staff messages and suggests whether it is a complaint, with the
+brand, branch, reason, priority, order number and platform, checked against
+the CRM's lists. The suggestion is kept per chat (`whatsapp_complaints`) and
+asked again only after the customer writes something new. The agent reviews
+the pre-filled form and registers it: source `WHATSAPP`, customer name and
+number taken from Bevatel, order number and platform optional, and the
+customer receives the complaint number and tracking link on WhatsApp. A
+private note is added in Bevatel. Without AI the same form opens empty from
+«تسجيل كشكوى». Code: `src/functions/inbox-complaint.server.ts`,
+`src/aliz/whatsapp-complaint.tsx`.
+

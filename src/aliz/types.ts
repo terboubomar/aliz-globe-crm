@@ -222,6 +222,7 @@ export const eventNames: Record<string, string> = {
   PHONE_CREATED: "تسجيل شكوى هاتفية",
   QR_CREATED: "استقبال بلاغ QR",
   GOOGLE_REVIEW_CREATED: "استقبال تقييم Google",
+  WHATSAPP_CREATED: "تسجيل من محادثة واتساب",
   GOOGLE_REPLIED: "الرد على تقييم Google",
   DEMO_CREATED: "إنشاء حالة تجريبية",
   TRIAGE: "فرز البلاغ",
