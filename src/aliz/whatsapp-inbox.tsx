@@ -85,14 +85,26 @@ export function WhatsappInbox({
           null),
     ),
     [error, setError] = useState(""),
-    [loading, setLoading] = useState(false);
+    [loading, setLoading] = useState(false),
+    // Where to continue when there are more chats than one load brings.
+    [nextPage, setNextPage] = useState<number | null>(null),
+    [loadingMore, setLoadingMore] = useState(false);
 
   const load = useCallback(
     async (quiet = false) => {
       if (!quiet) setLoading(true);
       try {
         const r = await inboxApi.list(filter);
-        setList(r.conversations);
+        // A refresh keeps the older chats already loaded with «عرض المزيد».
+        setList((old) => {
+          if (!quiet || !old) return r.conversations;
+          const fresh = new Set(r.conversations.map((c) => c.id));
+          return [
+            ...r.conversations,
+            ...old.slice(r.conversations.length).filter((c) => !fresh.has(c.id)),
+          ];
+        });
+        if (!quiet) setNextPage(r.nextPage);
         setPeople(r.people);
         setError("");
       } catch (e) {
@@ -105,9 +117,26 @@ export function WhatsappInbox({
   );
   useEffect(() => {
     setList(null);
+    setNextPage(null);
     load();
   }, [load]);
   const poll = useCallback(() => load(true), [load]);
+  async function loadMore() {
+    if (!nextPage) return;
+    setLoadingMore(true);
+    try {
+      const r = await inboxApi.list(filter, nextPage);
+      setList((old) => {
+        const have = new Set((old ?? []).map((c) => c.id));
+        return [...(old ?? []), ...r.conversations.filter((c) => !have.has(c.id))];
+      });
+      setNextPage(r.nextPage);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setLoadingMore(false);
+    }
+  }
   useEvery(15_000, poll);
 
   const shown = useMemo(() => {
@@ -228,6 +257,16 @@ export function WhatsappInbox({
               </span>
             </button>
           ))}
+          {list && nextPage && (
+            <button
+              type="button"
+              className="text-btn wa-more-chats"
+              disabled={loadingMore}
+              onClick={loadMore}
+            >
+              {loadingMore && <RefreshCw size={14} className="spin" />} عرض المزيد من المحادثات
+            </button>
+          )}
         </div>
         <div className="wa-list-foot">
           <button type="button" className="text-btn" disabled={loading} onClick={() => load()}>

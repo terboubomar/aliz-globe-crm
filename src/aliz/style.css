@@ -10251,3 +10251,12 @@ th {
     transition: none;
   }
 }
+
+.wa-more-chats {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 14px;
+}
