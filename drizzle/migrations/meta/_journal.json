@@ -141,6 +141,13 @@
       "when": 1795824000000,
       "tag": "0019_executive_full_access",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1795910400000,
+      "tag": "0020_whatsapp_assignments",
+      "breakpoints": true
     }
   ]
 }

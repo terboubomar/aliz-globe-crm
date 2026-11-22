@@ -1,13 +1,14 @@
 // The WhatsApp inbox's calls to the server (direct server functions).
 import {
+  inboxAssign,
   inboxConversation,
   inboxList,
   inboxReply,
   inboxSetStatus,
 } from "@/functions/inbox.functions";
-import type { InboxConversation, InboxMessage } from "@/functions/inbox.server";
+import type { InboxConversation, InboxMessage, Staff } from "@/functions/inbox.server";
 
-export type { InboxConversation, InboxMessage };
+export type { InboxConversation, InboxMessage, Staff };
 export type InboxFilter = "open" | "pending" | "resolved" | "all";
 
 const message = (e: unknown) => {
@@ -35,6 +36,7 @@ export const inboxApi = {
         inboxList({ data: { status, page } }) as Promise<{
           conversations: InboxConversation[];
           total: number;
+          people: Staff[];
         }>,
     ),
   open: (id: string, before?: string) =>
@@ -48,6 +50,8 @@ export const inboxApi = {
     ),
   reply: (id: string, text: string) =>
     call(() => inboxReply({ data: { id, text } }) as Promise<InboxMessage>),
+  assign: (id: string, to: string | null) =>
+    call(() => inboxAssign({ data: { id, to } }) as Promise<{ owner: string | null }>),
   setStatus: (id: string, status: "open" | "resolved") =>
     call(() => inboxSetStatus({ data: { id, status } })),
 };
