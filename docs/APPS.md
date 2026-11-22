@@ -91,3 +91,15 @@ private note is added in Bevatel. Without AI the same form opens empty from
 «تسجيل كشكوى». Code: `src/functions/inbox-complaint.server.ts`,
 `src/aliz/whatsapp-complaint.tsx`.
 
+## Customer satisfaction (1-5)
+
+Once a complaint is solved (RESOLVED or CLOSED), the customer's tracking page
+asks «كيف كانت تجربتك مع معالجة بلاغك؟» with five faces and an optional
+comment. The score is kept in `complaint_ratings` (comment encrypted), written
+to the complaint history as «تقييم العميل للخدمة», and a 1 or 2 alerts shift
+leads and admins on Telegram. The customer can change it (at most 5 times).
+Reports show the average, the share of 4-5 scores and a breakdown by score,
+brand, branch and staff member; the Excel export adds a score column and an
+average per group; the group dashboard shows the last 30 days. Code:
+`src/functions/ratings.server.ts`, `src/aliz/tracking.tsx`.
+

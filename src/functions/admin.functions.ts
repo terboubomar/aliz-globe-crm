@@ -425,11 +425,11 @@ export const runReport = createServerFn({ method: "POST" })
     authorize(a, "report");
     const start = new Date(q.from + "T00:00:00+03:00").toISOString();
     const end = new Date(Date.parse(q.to + "T00:00:00+03:00") + 86400000).toISOString();
-    type Row = { sequence: number; created_at: string; brand_id: string; branch_id: string | null; state: string; source: string; category: string; priority: string; escalated: boolean; platform: string | null; communications_owner: string; received_at: string; closed_at: string | null };
+    type Row = { sequence: number; created_at: string; brand_id: string; branch_id: string | null; state: string; source: string; category: string; priority: string; escalated: boolean; platform: string | null; communications_owner: string; received_at: string; closed_at: string | null; complaint_ratings?: { score: number } | { score: number }[] | null };
     const rows: Row[] = [];
     // Page through the whole scoped dataset so totals are never capped by the 1000-row API limit.
     for (let off = 0; ; off += 1000) {
-      let qb = context.supabase.from("tickets").select("sequence,created_at,brand_id,branch_id,state,source,category,priority,escalated,platform,communications_owner,received_at,closed_at").gte("received_at", start).lt("received_at", end);
+      let qb = context.supabase.from("tickets").select("sequence,created_at,brand_id,branch_id,state,source,category,priority,escalated,platform,communications_owner,received_at,closed_at,complaint_ratings(score)").gte("received_at", start).lt("received_at", end);
       if (q.brandId) qb = qb.eq("brand_id", q.brandId);
       if (q.branchId) qb = qb.eq("branch_id", q.branchId);
       if (q.source) qb = qb.eq("source", q.source);
@@ -438,7 +438,7 @@ export const runReport = createServerFn({ method: "POST" })
       if (q.kind === "suggestion") qb = qb.eq("category", "SUGGESTION");
       const { data, error } = await qb.order("received_at").range(off, off + 999);
       if (error) throw error;
-      rows.push(...((data ?? []) as Row[]));
+      rows.push(...((data ?? []) as unknown as Row[]));
       if (!data || data.length < 1000) break;
     }
     const db = await c.admin();
@@ -461,6 +461,7 @@ export const runReport = createServerFn({ method: "POST" })
           number: ticketNumber(r.sequence, r.created_at), brandId: r.brand_id, branchId: r.branch_id, state: r.state, source: r.source,
           category: String(r.category), priority: r.priority, escalated: !!r.escalated, platform: r.platform, owner: r.communications_owner,
           receivedAt: r.received_at, closedAt: r.closed_at,
+          rating: (Array.isArray(r.complaint_ratings) ? r.complaint_ratings[0] : r.complaint_ratings)?.score ?? null,
         })),
         branches: branchList,
         brandName,
@@ -794,4 +795,24 @@ export const saveCatalog = createServerFn({ method: "POST" })
     await db.rpc("write_audit", { _actor: a.id, _action: "LISTS_SAVED", _entity: "catalog" });
     c.clearCatalogCache();
     return c.catalog();
+  });
+
+/** Satisfaction scores of the last 30 days in the user's scope (for the group dashboard). */
+export const recentSatisfaction = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const c = await core();
+    const a = await c.requireActor(context as never);
+    authorize(a, "read");
+    const since = new Date(Date.now() - 30 * 86400000).toISOString();
+    // The signed-in user's client: row-level security keeps it to their scope.
+    const { data } = await context.supabase
+      .from("complaint_ratings" as never)
+      .select("score, tickets!inner(brand_id)")
+      .gte("created_at", since)
+      .limit(5000);
+    return ((data ?? []) as unknown as { score: number; tickets: { brand_id: string } }[]).map((r) => ({
+      brandId: r.tickets.brand_id,
+      score: r.score,
+    }));
   });

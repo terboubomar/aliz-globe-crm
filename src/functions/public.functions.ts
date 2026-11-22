@@ -118,7 +118,7 @@ export const trackStatus = createServerFn({ method: "POST" })
     const core = await import("./core.server");
     const { keyedHash, decrypt } = await import("./crypto.server");
     const db = await core.admin();
-    const { data: acc } = await db.from("tracking_access").select("expires_at, tickets!inner(state,receipt_enc,sequence,acknowledged_at,action_completed_at,closed_at, brands(logo))").eq("hash", await keyedHash("track:" + data.token)).maybeSingle();
+    const { data: acc } = await db.from("tracking_access").select("expires_at, ticket_id, tickets!inner(state,receipt_enc,sequence,acknowledged_at,action_completed_at,closed_at, brands(logo))").eq("hash", await keyedHash("track:" + data.token)).maybeSingle();
     if (!acc || new Date(acc.expires_at) < new Date()) return { ok: false as const, message: "رابط المتابعة غير صالح أو منتهي" };
     const t = acc.tickets as unknown as {
       state: string; receipt_enc: string | null; sequence: number;
@@ -126,12 +126,16 @@ export const trackStatus = createServerFn({ method: "POST" })
       brands: { logo: string } | null;
     };
     const r = t.receipt_enc ? JSON.parse(await decrypt(t.receipt_enc)) : null;
+    const ratings = await import("./ratings.server");
+    const rated = await ratings.ratingOf(acc.ticket_id as string);
     // Only the customer's own receipt fields; never staff, notes or other cases.
     return {
       ok: true as const, state: t.state, number: String(t.sequence), brand: r?.brand as string, branch: r?.branch as string,
       receivedAt: r?.receivedAt as string, category: r?.category as string, logo: t.brands?.logo ?? "",
       // When each step was reached, for the customer's timeline (times only).
       startedAt: t.acknowledged_at, solvedAt: t.action_completed_at, closedAt: t.closed_at,
+      // The customer's own satisfaction score, and whether they can give one now.
+      rating: rated?.score ?? null, canRate: ratings.canRate(t.state),
     };
   });
 
@@ -198,4 +202,14 @@ export const publicAttach = createServerFn({ method: "POST" })
       _entity: row!.id,
     });
     return { ok: true };
+  });
+
+/** The customer rates how their complaint was handled (1-5), once it is solved. */
+export const trackRate = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) =>
+    z.object({ token: code, score: z.number().int().min(1).max(5), comment: z.string().max(500).default("") }).parse(d),
+  )
+  .handler(async ({ data }) => {
+    const ratings = await import("./ratings.server");
+    return ratings.rateByToken(data.token, data.score, data.comment);
   });
