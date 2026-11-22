@@ -538,7 +538,8 @@ export async function sendForComplaint(
       params,
       fetcher,
       format,
-      trackingCode(receipt.trackingPath),
+      // Customers get the button templates only once a test showed Bevatel passes the button on.
+      (await buttonTemplatesOn()) ? trackingCode(receipt.trackingPath) : "",
     );
     await log({
       complaintId,
@@ -624,6 +625,20 @@ export async function sendTest(
 }
 
 /** The layout of the last confirmed test; automatic sends use it. */
+/**
+ * Whether complaints use the button templates (switched on once a test message with
+ * the button reached a phone). Tests always try them when Meta approved them.
+ */
+export async function buttonTemplatesOn(): Promise<boolean> {
+  const db = await admin();
+  const { data } = await db
+    .from("app_settings")
+    .select("value")
+    .eq("key", "bevatel_button_templates")
+    .maybeSingle();
+  return (data as { value?: unknown } | null)?.value === true;
+}
+
 export async function savedFormat(): Promise<Format> {
   const db = await admin();
   const { data } = await db
