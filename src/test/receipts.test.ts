@@ -613,6 +613,72 @@ describe("WhatsApp through Bevatel (Chatwoot API)", () => {
     expect(report.last_messages[0]).toMatchObject({ id: 1000, status: "failed" });
   });
 
+  it("uses the approved button template, with the tracking code in the button", async () => {
+    const w = await import("@/functions/whatsapp.server");
+    const { fetcher, calls } = chatwoot();
+    w.resetTemplateCache();
+    const v2 = (status: string) =>
+      vi.fn(async (url: string, init: RequestInit) =>
+        String(url).includes("/inboxes/")
+          ? new Response(
+              JSON.stringify({
+                message_templates: [
+                  {
+                    name: "aliz_complaint_received",
+                    language: "ar",
+                    components: [{ type: "BODY" }],
+                  },
+                  {
+                    name: "aliz_complaint_received_v2",
+                    language: "ar",
+                    status,
+                    components: [{ type: "BODY" }, { type: "BUTTONS" }],
+                  },
+                ],
+              }),
+            )
+          : fetcher(url, init),
+      ) as unknown as typeof fetch;
+    const r = await w.sendTest("0500000009", "received", "admin-1", v2("APPROVED"));
+    expect(r.status).toBe("sent");
+    const message = sends(calls).at(-1)!.body!["message"] as {
+      content: string;
+      template_params: {
+        name: string;
+        processed_params: { body: Record<string, string>; buttons: unknown };
+      };
+    };
+    expect(message.template_params.name).toBe("aliz_complaint_received_v2");
+    expect(Object.keys(message.template_params.processed_params.body)).toEqual([
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+    ]);
+    expect(message.template_params.processed_params.buttons).toEqual([
+      { type: "url", parameter: "sample" },
+    ]);
+    expect(message.content).toContain("من الزر أدناه");
+    expect(message.content).not.toContain("/track/");
+
+    // Still waiting for Meta: the older template goes out.
+    w.resetTemplateCache();
+    await w.sendTest("0500000009", "received", "admin-1", v2("PENDING"));
+    const older = sends(calls).at(-1)!.body!["message"] as { template_params: { name: string } };
+    expect(older.template_params.name).toBe("aliz_complaint_received");
+    w.resetTemplateCache();
+  });
+
+  it("finds the tracking code for the button", async () => {
+    const w = await import("@/functions/whatsapp.server");
+    expect(w.trackingCode("/track/abc_DEF-123")).toBe("abc_DEF-123");
+    expect(w.trackingCode("")).toBe("");
+    expect(w.trackingCode("/track/a/b")).toBe("");
+  });
+
   it("reports a message that never left Bevatel, and refuses a template Bevatel lacks", async () => {
     const w = await import("@/functions/whatsapp.server");
     const { fetcher } = chatwoot({ exists: true, open: true });
