@@ -613,6 +613,56 @@ describe("WhatsApp through Bevatel (Chatwoot API)", () => {
     expect(report.last_messages[0]).toMatchObject({ id: 1000, status: "failed" });
   });
 
+  it("closes with the rating link once that template is approved", async () => {
+    const w = await import("@/functions/whatsapp.server");
+    const { fetcher, calls } = chatwoot();
+    const withRating = (status: string) =>
+      vi.fn(async (url: string, init: RequestInit) =>
+        String(url).includes("/inboxes/")
+          ? new Response(
+              JSON.stringify({
+                message_templates: [
+                  { name: "aliz_complaint_closed", language: "ar", components: [{ type: "BODY" }] },
+                  {
+                    name: "aliz_complaint_closed_rating",
+                    language: "ar",
+                    status,
+                    components: [{ type: "BODY", text: "x {{1}} {{2}} {{3}}" }],
+                  },
+                ],
+              }),
+            )
+          : fetcher(url, init),
+      ) as unknown as typeof fetch;
+    type Sent = {
+      content: string;
+      template_params: {
+        name: string;
+        processed_params: { body: Record<string, string> };
+        components: Record<string, unknown>;
+      };
+    };
+    w.resetTemplateCache();
+    await w.sendTest("0500000009", "closed", "admin-1", withRating("APPROVED"));
+    const m = sends(calls).at(-1)!.body!["message"] as Sent;
+    expect(m.template_params.name).toBe("aliz_complaint_closed_rating");
+    expect(m.template_params.processed_params.body["3"]).toBe(
+      "https://crm.example.com/track/sample",
+    );
+    expect(m.template_params.components).toEqual({
+      "0": { type: "BODY", text: "x {{1}} {{2}} {{3}}" },
+    });
+    expect(m.content).toContain("يسعدنا تقييم تجربتك");
+
+    // Waiting for Meta: the older closing message, without a link.
+    w.resetTemplateCache();
+    await w.sendTest("0500000009", "closed", "admin-1", withRating("PENDING"));
+    const old = sends(calls).at(-1)!.body!["message"] as Sent;
+    expect(old.template_params.name).toBe("aliz_complaint_closed");
+    expect(Object.keys(old.template_params.processed_params.body)).toEqual(["1", "2"]);
+    w.resetTemplateCache();
+  });
+
   it("reports a message that never left Bevatel, and refuses a template Bevatel lacks", async () => {
     const w = await import("@/functions/whatsapp.server");
     const { fetcher } = chatwoot({ exists: true, open: true });
