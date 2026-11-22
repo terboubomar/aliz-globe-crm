@@ -3,6 +3,8 @@ const viewPermissions: Record<string, string[]> = {
   hub: ["report"],
   overview: ["read", "report"],
   tickets: ["read"],
+  // The shared WhatsApp inbox (conversations held in Bevatel).
+  inbox: ["contact"],
   refunds: ["read", "refund.view", "refund.request", "refund.decide", "refund.execute"],
   branches: ["read", "brands.manage", "branches.manage"],
   qr: ["configure"],
@@ -94,6 +96,7 @@ export const roleWorkspaces: Record<
     views: [
       "overview",
       "tickets",
+      "inbox",
       "refunds",
       "branches",
       "qr",
@@ -110,13 +113,23 @@ export const roleWorkspaces: Record<
   SHIFT_LEAD: {
     title: "لوحة قيادة الفريق",
     description: "أسند الشكاوى وتابع عبء العمل والحالات التي تحتاج تدخلك.",
-    views: ["overview", "tickets", "refunds", "branches", "customers", "tasks", "reviews", "it"],
+    views: [
+      "overview",
+      "tickets",
+      "inbox",
+      "refunds",
+      "branches",
+      "customers",
+      "tasks",
+      "reviews",
+      "it",
+    ],
     labels: { overview: "قيادة الفريق", tickets: "الاستقبال والإسناد", tasks: "متابعات الفريق" },
   },
   AGENT: {
     title: "مساحة عملي",
     description: "ابحث في شكاوى العملاء، وتابع عملك وطلبات الاسترجاع.",
-    views: ["overview", "tickets", "refunds", "tasks", "schedule", "reviews", "it"],
+    views: ["overview", "tickets", "inbox", "refunds", "tasks", "schedule", "reviews", "it"],
     labels: {
       overview: "مساحة عملي",
       tickets: "الشكاوى",
@@ -191,8 +204,10 @@ export function viewLabel(id: string, role: string, fallback: string) {
   return roleWorkspaces[role]?.labels[id] ?? fallback;
 }
 /** Views kept out of the menu until their integration is live (Google reviews: until connected). */
-export const hiddenViews = (d: { integrations?: { google?: boolean } }) =>
-  d.integrations?.google ? [] : ["reviews"];
+export const hiddenViews = (d: { integrations?: { google?: boolean; whatsapp?: boolean } }) => [
+  ...(d.integrations?.google ? [] : ["reviews"]),
+  ...(d.integrations?.whatsapp ? [] : ["inbox"]),
+];
 export function canOpenView(
   id: string,
   permissions: string[],

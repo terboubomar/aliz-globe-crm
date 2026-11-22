@@ -56,3 +56,15 @@ region, branch, reason or type, and person) and a detail sheet with one row
 per item, named by brand, region, city, branch and branch code. Built in
 `src/lib/report-export.ts` with the small writer in `src/lib/xlsx.ts` (no
 dependency). Customer personal data is never included.
+
+## WhatsApp inbox
+
+«واتساب العملاء» (`?view=inbox`, Customer Service app) shows the WhatsApp
+conversations held in Bevatel and lets staff reply. It reads Bevatel's
+Chatwoot API with the existing `BEVATEL_*` secrets; messages are not copied
+into the CRM database, and only the inbox in `BEVATEL_INBOX_ID` is reachable.
+Replies and resolve/reopen are written to the audit log with who did it. It
+shows for roles with the `contact` permission once WhatsApp is switched on.
+WhatsApp allows free replies only within 24 hours of the customer's last
+message; after that the reply box is replaced by a notice. Code:
+`src/functions/inbox.server.ts`, `src/aliz/whatsapp-inbox.tsx`.
