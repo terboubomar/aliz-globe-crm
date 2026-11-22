@@ -223,6 +223,8 @@ export type ComplaintExportRow = {
   owner: string;
   receivedAt: string;
   closedAt: string | null;
+  /** The customer's satisfaction score (1-5), when given. */
+  rating?: number | null;
 };
 
 export function complaintsBook(input: {
@@ -257,6 +259,15 @@ export function complaintsBook(input: {
       value: (l) => (l.length ? l.filter(closed).length / l.length : null),
     },
     { header: "الوقت المعتاد للحل (ساعة)", width: 16, kind: "hours", value: fixHours },
+    {
+      header: "رضا العملاء (من 5)",
+      width: 14,
+      kind: "hours",
+      value: (l) => {
+        const s = l.map((t) => t.rating).filter((v): v is number => !!v);
+        return s.length ? Math.round((s.reduce((a, b) => a + b, 0) / s.length) * 10) / 10 : null;
+      },
+    },
   ];
   const title = "تقرير " + KIND_TITLE[input.kind];
   const one = (header: string, width = 24) => ({ columns: [{ header, width }] });
@@ -354,6 +365,7 @@ export function complaintsBook(input: {
         { header: "مسؤول التواصل", width: 18 },
         { header: "تاريخ الحل", width: 18 },
         { header: "مدة الحل (ساعة)", width: 14, kind: "hours" },
+        { header: "تقييم العميل (1-5)", width: 14, kind: "number" },
       ],
       rows: rows.map((t) => [
         t.number,
@@ -369,6 +381,7 @@ export function complaintsBook(input: {
         t.owner === "UNASSIGNED" ? "غير مسند" : input.personName(t.owner),
         closed(t) ? riyadhTime(t.closedAt) : "",
         closed(t) ? hoursBetween(t.receivedAt, t.closedAt) : null,
+        t.rating ?? null,
       ]),
     },
   };

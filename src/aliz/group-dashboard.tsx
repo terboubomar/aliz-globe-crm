@@ -22,6 +22,8 @@ import { itNumber, type ItTicket } from "@/lib/it";
 import { maintenanceNumber, type MaintenanceRequest } from "@/lib/maintenance";
 import { appLabels, appTinyLabels, canOpenView, hubSections, type AppId } from "./access";
 import { DashHello } from "./dashboard-bits";
+import { recentSatisfaction } from "@/functions/admin.functions";
+import { satisfaction } from "./report-aggregate";
 import { itApi } from "./it-api";
 import { maintenanceApi } from "./maintenance-api";
 import { n, subject, summaryFor, type Data } from "./types";
@@ -79,12 +81,19 @@ export function GroupDashboard({
   const [maintenance, setMaintenance] = useState<MaintenanceRequest[] | null>(null),
     [it, setIt] = useState<ItTicket[] | null>(null),
     [failed, setFailed] = useState<Partial<Record<AppId, string>>>({}),
+    [scores, setScores] = useState<{ brandId: string; score: number }[] | null>(null),
     [loading, setLoading] = useState(false);
+  const withCs = sections.includes("cs");
 
   const load = useCallback(async () => {
     setLoading(true);
     const errors: Partial<Record<AppId, string>> = {};
     await Promise.all([
+      withCs
+        ? recentSatisfaction()
+            .then(setScores)
+            .catch(() => setScores([]))
+        : null,
       withMaintenance
         ? maintenanceApi
             .board("open")
@@ -100,7 +109,7 @@ export function GroupDashboard({
     ]);
     setFailed(errors);
     setLoading(false);
-  }, [withMaintenance, withIt]);
+  }, [withMaintenance, withIt, withCs]);
   useEffect(() => {
     load();
     // Keep the screen current while it stays open.
@@ -177,6 +186,10 @@ export function GroupDashboard({
     ? data.refunds.filter((r) => inBrand(r.brandId) && pendingRefund(r.status)).length
     : null;
   const names = sections.map((app) => appLabels[app]).join(" و");
+  // Customer satisfaction over the last 30 days, for the brand filter.
+  const csat = satisfaction(
+    (scores ?? []).filter((r) => inBrand(r.brandId)).map((r) => ({ rating: r.score })),
+  );
 
   return (
     <div className="hub">
@@ -307,6 +320,16 @@ export function GroupDashboard({
                       <dt>بدون إسناد</dt>
                       <dd>{n(f.unassigned)}</dd>
                     </div>
+                    {app === "cs" && (
+                      <div className={csat.avgRating !== null && csat.avgRating < 3.5 ? "bad" : ""}>
+                        <dt>رضا العملاء (30 يوماً)</dt>
+                        <dd>
+                          {csat.avgRating === null
+                            ? "—"
+                            : csat.avgRating.toLocaleString("ar-SA-u-nu-latn") + " / ٥"}
+                        </dd>
+                      </div>
+                    )}
                     {app === "cs" ? (
                       refunds !== null && (
                         <div>

@@ -308,6 +308,19 @@ export function ReportsWorkspace({
               <span>بانتظار الإسناد</span>
               <b>{n(report.summary.unassigned)}</b>
             </div>
+            <div className="reports-satisfaction">
+              <span>رضا العملاء</span>
+              <b>
+                {report.summary.avgRating === null
+                  ? "—"
+                  : rating(report.summary.avgRating) + " / ٥"}
+              </b>
+              <small>
+                {report.summary.rated
+                  ? `${n(report.summary.satisfiedRate ?? 0)}٪ راضون · ${n(report.summary.rated)} تقييم`
+                  : "لا توجد تقييمات بعد"}
+              </small>
+            </div>
           </section>
           {!report.summary.total ? (
             <section className="panel">
@@ -367,6 +380,14 @@ export function ReportsWorkspace({
                       labels={Object.fromEntries(report.aging.map((a) => [a.key, a.label]))}
                     />
                   </div>
+                  {report.summary.rated > 0 && (
+                    <Breakdown
+                      title="تقييمات العملاء"
+                      rows={report.ratings.filter((r) => r.count > 0)}
+                      total={report.summary.rated}
+                      labels={RATING_LABELS}
+                    />
+                  )}
                   <div className="reports-resolution-note">
                     <span>
                       الوقت الوسيط للحل{" "}
@@ -407,6 +428,17 @@ export function ReportsWorkspace({
     </div>
   );
 }
+const RATING_LABELS: Record<string, string> = {
+  "5": "٥ — ممتاز",
+  "4": "٤ — جيد",
+  "3": "٣ — مقبول",
+  "2": "٢ — سيئ",
+  "1": "١ — سيئ جداً",
+};
+/** A 1-5 average with one decimal, in the page's digits. */
+const rating = (v: number) => v.toLocaleString("ar-SA-u-nu-latn", { maximumFractionDigits: 1 });
+const ratingCell = (r: { avgRating: number | null; rated: number }) =>
+  r.avgRating === null ? "—" : `${rating(r.avgRating)} (${n(r.rated)})`;
 function Breakdown({
   title,
   rows,
@@ -462,7 +494,9 @@ function ReportTable({
           ? b.open - a.open
           : sort === "rate"
             ? b.closureRate - a.closureRate
-            : b.total - a.total,
+            : sort === "rating"
+              ? (b.avgRating ?? 0) - (a.avgRating ?? 0)
+              : b.total - a.total,
     );
   return (
     <section className="panel">
@@ -490,6 +524,7 @@ function ReportTable({
             <option value="total">الأكثر شكاوى</option>
             <option value="open">غير المحلولة</option>
             <option value="rate">نسبة الحل</option>
+            <option value="rating">رضا العملاء</option>
             <option value="name">الاسم</option>
           </select>
         </div>
@@ -505,6 +540,7 @@ function ReportTable({
               <th>تصعيدات مفتوحة</th>
               <th>نسبة الحل</th>
               <th>متوسط الحل</th>
+              <th>رضا العملاء</th>
               {onSelect && <th>التفاصيل</th>}
             </tr>
           </thead>
@@ -528,6 +564,7 @@ function ReportTable({
                 <td>{n(r.escalated)}</td>
                 <td>{n(r.closureRate)}٪</td>
                 <td>{reportDuration(r.avgResolutionHours)}</td>
+                <td>{ratingCell(r)}</td>
                 {onSelect && (
                   <td>
                     {!r.id.startsWith("UNKNOWN:") && (
@@ -581,6 +618,7 @@ function TeamTable({ rows }: { rows: Report["team"] }) {
               <th>تم الحل</th>
               <th>تصعيدات مفتوحة</th>
               <th>متوسط الحل</th>
+              <th>رضا العملاء</th>
             </tr>
           </thead>
           <tbody>
@@ -594,6 +632,7 @@ function TeamTable({ rows }: { rows: Report["team"] }) {
                 <td>{n(r.closed)}</td>
                 <td>{n(r.escalated)}</td>
                 <td>{reportDuration(r.avgResolutionHours)}</td>
+                <td>{ratingCell(r)}</td>
               </tr>
             ))}
           </tbody>

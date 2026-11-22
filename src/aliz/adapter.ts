@@ -68,6 +68,7 @@ import {
   publicAttach,
   publicCreate,
   publicQrInfo,
+  trackRate,
   trackStatus,
 } from "@/functions/public.functions";
 import { prepareImage } from "./prepare-image";
@@ -390,6 +391,11 @@ const shiftEntry = (b: Row) => ({
   dayOff: !!b["dayOff"],
 });
 
+/** The score embedded with a complaint row (an object, or a one-item list). */
+const ratingOf = (v: unknown) => {
+  const r = (Array.isArray(v) ? v[0] : v) as { score?: number } | null | undefined;
+  return typeof r?.score === "number" ? r.score : null;
+};
 async function report(params: URLSearchParams) {
   const q = Object.fromEntries([...params].filter(([, v]) => v)) as Record<string, string>;
   // Complaints only by default; customer suggestions are reported apart.
@@ -402,7 +408,7 @@ async function report(params: URLSearchParams) {
       let qb = supabase
         .from("tickets")
         .select(
-          "brand_id,branch_id,state,source,category,priority,escalated,resolution_owner,received_at,closed_at",
+          "brand_id,branch_id,state,source,category,priority,escalated,resolution_owner,received_at,closed_at,complaint_ratings(score)",
         )
         .gte("received_at", start)
         .lt("received_at", end);
@@ -431,6 +437,7 @@ async function report(params: URLSearchParams) {
         resolutionOwner: (r["resolution_owner"] as string) ?? null,
         receivedAt: new Date(String(r["received_at"])),
         closedAt: r["closed_at"] ? new Date(String(r["closed_at"])) : null,
+        rating: ratingOf(r["complaint_ratings"]),
         brand: { name: brand.name, logo: brand.logo, color: brand.color },
         branch: branch ? { name: branch.name } : null,
       };
@@ -488,6 +495,11 @@ export async function downloadReport(query: string, format: ExportFormat) {
   const book = (out as { book?: ExportBook }).book;
   if (!book) throw new Error("تعذر إعداد ملف التقرير");
   downloadBook(book, format);
+}
+
+/** The customer's 1-5 score from the tracking page. */
+export async function rateComplaint(token: string, score: number, comment: string) {
+  return trackRate({ data: { token, score, comment } });
 }
 
 /** Short-lived signed link for a scanned photo; null while the scan is pending. */
@@ -808,6 +820,8 @@ async function route(
       startedAt: r.startedAt,
       solvedAt: r.solvedAt,
       closedAt: r.closedAt,
+      rating: r.rating,
+      canRate: r.canRate,
       receipt: {
         number: r.number,
         brand: r.brand,

@@ -88,9 +88,9 @@ describe("complaint export", () => {
     ]);
     expect(b.details.rows[0]).toContain("رمز QR");
     expect(b.details.rows[0]).toContain("نورة");
-    expect(b.details.rows[0]!.at(-1)).toBe(2.5);
+    expect(b.details.rows[0]!.at(-2)).toBe(2.5);
     // Open complaints have no solve time.
-    expect(b.details.rows[1]!.at(-1)).toBeNull();
+    expect(b.details.rows[1]!.at(-2)).toBeNull();
   });
 
   it("summarises by brand, region and branch with totals", () => {
@@ -151,7 +151,7 @@ describe("xlsx", () => {
     const details = part(zip, "xl/worksheets/sheet2.xml");
     expect(details).toContain('rightToLeft="1"');
     expect(details).toContain('state="frozen"');
-    expect(details).toContain('<autoFilter ref="A1:Q3"/>');
+    expect(details).toContain('<autoFilter ref="A1:R3"/>');
     expect(details).toContain("برجر واقف");
     // Numbers stay numbers so Excel can sum them.
     expect(details).toMatch(/<c r="Q2" s="7"><v>2.5<\/v><\/c>/);

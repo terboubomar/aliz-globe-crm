@@ -11,6 +11,8 @@ export type Row = {
   resolutionOwner?: string | null;
   receivedAt: Date;
   closedAt: Date | null;
+  /** The customer's satisfaction score (1-5), when they gave one. */
+  rating?: number | null;
   brand: { name: string; logo: string; color: string };
   branch: { name: string } | null;
 };
@@ -36,6 +38,20 @@ export function summarize(rows: Row[]) {
       : null,
     avgResolutionHours: durations.length
       ? durations.reduce((a, b) => a + b, 0) / durations.length
+      : null,
+    ...satisfaction(rows),
+  };
+}
+/** Customer satisfaction over the rated complaints: count, average and share of 4-5 scores. */
+export function satisfaction(rows: { rating?: number | null }[]) {
+  const scores = rows.map((r) => r.rating).filter((s): s is number => !!s && s >= 1 && s <= 5);
+  return {
+    rated: scores.length,
+    avgRating: scores.length
+      ? Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 10) / 10
+      : null,
+    satisfiedRate: scores.length
+      ? Math.round((scores.filter((s) => s >= 4).length / scores.length) * 100)
       : null,
   };
 }
@@ -113,6 +129,11 @@ export function aggregateReport(rows: Row[], from: string, to: string, now = new
       .map(([id, items]) => ({ id, ...summarize(items) }))
       .sort((a, b) => b.open - a.open),
     priorities: counts("priority"),
+    // How many customers gave each score, 5 down to 1.
+    ratings: [5, 4, 3, 2, 1].map((score) => ({
+      key: String(score),
+      count: rows.filter((r) => r.rating === score).length,
+    })),
     summary: summarize(rows),
     states: counts("state"),
     sources: counts("source"),

@@ -10,6 +10,7 @@ import {
   Wrench,
 } from "lucide-react";
 import { api } from "./types";
+import { rateComplaint } from "./adapter";
 import { HelpWidget } from "./public-help";
 import { TRACK_STEPS, trackMessage, trackStep } from "@/lib/tracking-steps";
 
@@ -21,8 +22,109 @@ type Status = {
   startedAt?: string | null;
   solvedAt?: string | null;
   closedAt?: string | null;
+  rating?: number | null;
+  canRate?: boolean;
   receipt?: { brand: string; branch: string; category: string };
 };
+
+/* The customer's satisfaction score: five faces, worst to best. */
+const FACES = [
+  { score: 1, face: "😡", label: "سيئ جداً" },
+  { score: 2, face: "😕", label: "سيئ" },
+  { score: 3, face: "😐", label: "مقبول" },
+  { score: 4, face: "🙂", label: "جيد" },
+  { score: 5, face: "😍", label: "ممتاز" },
+];
+
+function RateService({
+  token,
+  given,
+  onRated,
+}: {
+  token: string;
+  given: number | null;
+  onRated: (s: number) => void;
+}) {
+  const [score, setScore] = useState<number | null>(given),
+    [comment, setComment] = useState(""),
+    [busy, setBusy] = useState(false),
+    [sent, setSent] = useState(!!given),
+    [error, setError] = useState("");
+  async function submit() {
+    if (!score) return;
+    setBusy(true);
+    setError("");
+    try {
+      await rateComplaint(token, score, comment);
+      setSent(true);
+      onRated(score);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  if (sent && score)
+    return (
+      <section className="qf-card tk-rate done" aria-live="polite">
+        <span className="tk-rate-face" aria-hidden="true">
+          {FACES[score - 1]!.face}
+        </span>
+        <div>
+          <b>شكراً لتقييمك</b>
+          <p>قيّمت الخدمة: {FACES[score - 1]!.label}. رأيك يساعدنا نخدمك أفضل.</p>
+        </div>
+        <button type="button" className="text-btn" onClick={() => setSent(false)}>
+          تعديل
+        </button>
+      </section>
+    );
+  return (
+    <section className="qf-card tk-rate" aria-labelledby="tk-rate-title">
+      <span className="qf-label" id="tk-rate-title">
+        كيف كانت تجربتك مع معالجة بلاغك؟
+      </span>
+      <div className="tk-faces" role="radiogroup" aria-labelledby="tk-rate-title">
+        {FACES.map((f) => (
+          <button
+            key={f.score}
+            type="button"
+            role="radio"
+            aria-checked={score === f.score}
+            className={score === f.score ? "selected" : ""}
+            onClick={() => setScore(f.score)}
+          >
+            <span aria-hidden="true">{f.face}</span>
+            <small>{f.label}</small>
+          </button>
+        ))}
+      </div>
+      {score && (
+        <>
+          <label className="tk-rate-comment">
+            <span>
+              {score <= 2 ? "ما الذي لم يعجبك؟ (اختياري)" : "أي ملاحظة تحب تضيفها؟ (اختياري)"}
+            </span>
+            <textarea
+              rows={3}
+              maxLength={500}
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+            />
+          </label>
+          <button type="button" className="primary" disabled={busy} onClick={submit}>
+            {busy ? "جارٍ الإرسال…" : "إرسال التقييم"}
+          </button>
+        </>
+      )}
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
+    </section>
+  );
+}
 
 const when = (iso?: string | null) =>
   iso
@@ -167,6 +269,14 @@ export default function Tracking({ token }: { token: string }) {
               })}
             </ol>
           </section>
+
+          {data.canRate && (
+            <RateService
+              token={token}
+              given={data.rating ?? null}
+              onRated={(s) => setData((d) => (d ? { ...d, rating: s } : d))}
+            />
+          )}
 
           <section className="qf-card tk-details">
             <span className="qf-label">تفاصيل البلاغ</span>

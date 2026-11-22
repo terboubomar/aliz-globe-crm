@@ -468,6 +468,36 @@ export async function notifyAssigned(ticketId: string, ownerId: string) {
   }
 }
 
+/** A customer gave a low satisfaction score (1 or 2): tells shift leads and admins. Never throws. */
+export async function notifyLowRating(ticketId: string, score: number, comment: string) {
+  try {
+    if (!(await ready())) return;
+    const db = await admin();
+    const [{ data: people }, info] = await Promise.all([
+      db
+        .from("user_roles")
+        .select("user_id,role")
+        .in("role", ["SUPER_ADMIN", "CEO", "OWNER", "SHIFT_LEAD", "CUSTOMER_SERVICE_MANAGER"])
+        .eq("enabled", true),
+      ticketInfo(ticketId),
+    ]);
+    if (!info) return;
+    const text = [
+      `⚠️ <b>تقييم منخفض من العميل: ${score} / 5</b>`,
+      "",
+      ...ticketLines(info),
+      ...(comment ? ["", `💬 ${esc(comment)}`] : []),
+    ].join("\n");
+    for (const p of people ?? []) {
+      const chat = await chatOf(p.user_id);
+      if (!chat || !(await once(`LOW_RATING:${ticketId}:${score}:${p.user_id}`, ticketId))) continue;
+      await send(chat, text, ticketButtons(info, false));
+    }
+  } catch {
+    /* alerts must never break the rating */
+  }
+}
+
 /** Tells an agent that a WhatsApp conversation was assigned to them. Never throws. */
 export async function notifyWhatsappAssigned(
   conversationId: string,

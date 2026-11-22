@@ -155,6 +155,13 @@
       "when": 1795996800000,
       "tag": "0021_whatsapp_complaints",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1796083200000,
+      "tag": "0022_complaint_ratings",
+      "breakpoints": true
     }
   ]
 }

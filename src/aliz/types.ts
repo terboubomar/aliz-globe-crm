@@ -223,6 +223,7 @@ export const eventNames: Record<string, string> = {
   QR_CREATED: "استقبال بلاغ QR",
   GOOGLE_REVIEW_CREATED: "استقبال تقييم Google",
   WHATSAPP_CREATED: "تسجيل من محادثة واتساب",
+  CUSTOMER_RATED: "تقييم العميل للخدمة",
   GOOGLE_REPLIED: "الرد على تقييم Google",
   DEMO_CREATED: "إنشاء حالة تجريبية",
   TRIAGE: "فرز البلاغ",
