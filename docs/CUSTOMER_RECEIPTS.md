@@ -118,46 +118,10 @@ Samples: `AG-2026-000123`, `برجر واقف`, `برجر واقف - الدما�
 شكراً لتواصلك معنا، يسعدنا خدمتك دائماً.
 ```
 
-### Newer templates with a tracking button
-
-These replace the link in the text with a button. Create them in Bevatel the same way
-(Utility, Arabic). Each one has one **Visit website** button with a **dynamic** URL:
-`https://care.alizglobe.cloud/track/{{1}}` (sample for `{{1}}`: `sample`).
-Once Meta approves one and Bevatel has synced it, the CRM sends it instead of the
-older template of the same kind and fills the button with the complaint's private
-tracking code. Until then the older template keeps going out. Nothing to switch on.
-
-`aliz_complaint_received_v2`, button «تابع طلبك»
-
-```
-شكراً لتواصلك معنا، تم استلام طلبك رقم {{1}}.
-العلامة: {{2}}
-الفرع: {{3}}
-وقت الاستلام: {{4}}
-السبب: {{5}}
-رقم الطلب: {{6}}
-التفاصيل: {{7}}
-يمكنك متابعة حالة طلبك من الزر أدناه.
-```
-
-`aliz_complaint_resolved_v2`, button «تفاصيل الطلب والتقييم»
-
-```
-تحديث على طلبك رقم {{1}} لدى {{2}}:
-تمت معالجة الطلب، وسيتواصل معك فريقنا للتأكد من رضاك.
-يسعدنا تقييم تجربتك من الزر أدناه.
-```
-
-`aliz_complaint_closed_v2`, button «قيّم الخدمة»
-
-```
-تم إغلاق طلبك رقم {{1}} لدى {{2}}.
-شكراً لتواصلك معنا، يسعدنا خدمتك دائماً.
-شاركنا رأيك في الخدمة من الزر أدناه.
-```
-
-The button value is sent as `processed_params.buttons: [{type: "url", parameter: <code>}]`.
-Check it with a test send from Settings → واتساب before relying on it.
+Keep the tracking link in the text (`{{8}}` / `{{3}}`). Templates with a dynamic URL
+button do not work through Bevatel: neither its API nor its own chat screen passes the
+button value, and Meta rejects the message with `(#131008) Required parameter is missing`
+(tested 22/11/2026).
 
 ### Secrets for Bevatel
 
